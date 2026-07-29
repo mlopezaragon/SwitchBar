@@ -270,6 +270,54 @@ final class AppState {
         }
     }
 
+    // MARK: Alta de cuenta desde la propia app (sin terminal)
+
+    var addAccountVisible = false
+    private(set) var addAccountSession: AnthropicAPI.LoginSession?
+    private(set) var addAccountError: String?
+    private(set) var addAccountBusy = false
+
+    /// Abre el navegador con la página de autorización y muestra la hoja
+    /// para pegar el código. No toca la sesión activa de Claude Code.
+    func beginAddAccount() {
+        let session = AnthropicAPI.makeLoginSession()
+        addAccountSession = session
+        addAccountError = nil
+        addAccountVisible = true
+        NSWorkspace.shared.open(session.url)
+    }
+
+    func reopenAddAccountPage() {
+        guard let session = addAccountSession else { return }
+        NSWorkspace.shared.open(session.url)
+    }
+
+    func completeAddAccount(code: String) async {
+        guard let session = addAccountSession else { return }
+        addAccountBusy = true
+        addAccountError = nil
+        defer { addAccountBusy = false }
+        do {
+            let (creds, identity) = try await api.exchangeAuthorizationCode(code, session: session)
+            let profile = try profiles.saveProfile(identity: identity, credentials: creds)
+            addAccountSession = nil
+            addAccountVisible = false
+            infoMessage = "Cuenta \(profile.emailAddress) añadida."
+            reloadLocalState()
+            Task { await refreshAll() }
+        } catch AnthropicAPIError.invalidAuthorizationCode {
+            addAccountError = "El código no es válido o ya se usó. Vuelve a abrir la página y pega el código nuevo."
+        } catch {
+            addAccountError = "No se pudo completar el alta: \(describe(error))"
+        }
+    }
+
+    func cancelAddAccount() {
+        addAccountSession = nil
+        addAccountVisible = false
+        addAccountError = nil
+    }
+
     func setSharedCaps(fiveHour: Double?, weekly: Double?, for accountUuid: String) {
         profiles.setSharedCaps(fiveHour: fiveHour, weekly: weekly, for: accountUuid)
         reloadLocalState()
