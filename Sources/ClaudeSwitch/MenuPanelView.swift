@@ -4,7 +4,6 @@ import ClaudeSwitchCore
 /// Panel desplegable de la barra de menús.
 struct MenuPanelView: View {
     @Bindable var state: AppState
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -19,8 +18,7 @@ struct MenuPanelView: View {
             }
 
             Button {
-                openWindow(id: "detalle")
-                NSApp.activate(ignoringOtherApps: true)
+                DetailWindowController.shared.show()
                 state.beginAddAccount()
             } label: {
                 Label("Añadir cuenta", systemImage: "plus")
@@ -136,8 +134,7 @@ struct MenuPanelView: View {
             }
 
             Button {
-                openWindow(id: "detalle")
-                NSApp.activate(ignoringOtherApps: true)
+                DetailWindowController.shared.show()
             } label: {
                 Image(systemName: "rectangle.expand.diagonal")
                     .font(.system(size: 11, weight: .medium))

@@ -8,13 +8,14 @@ cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 APP="$ROOT/ClaudeSwitch.app"
 
+# Identidad de firma. Se prefiere la huella SHA-1 del certificado local
+# "ClaudeSwitch Self-Signed": el nombre puede aparecer duplicado en el llavero
+# y codesign fallaría por ambigüedad. Sin certificado, firma ad-hoc (-).
 SIGN_ID="${1:-}"
 if [ -z "$SIGN_ID" ]; then
-    if security find-identity -p codesigning | grep -q "ClaudeSwitch Self-Signed"; then
-        SIGN_ID="ClaudeSwitch Self-Signed"
-    else
-        SIGN_ID="-"
-    fi
+    SIGN_ID="$(security find-identity -p codesigning -v 2>/dev/null \
+        | awk '/ClaudeSwitch Self-Signed/ {print $2; exit}')"
+    [ -z "$SIGN_ID" ] && SIGN_ID="-"
 fi
 
 echo "==> Compilando en release (arm64)…"

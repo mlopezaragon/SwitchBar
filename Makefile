@@ -13,9 +13,9 @@ build:
 test:
 	swift test
 
-## Ensambla y firma ClaudeSwitch.app. Para firma estable: make app SIGN="ClaudeSwitch Self-Signed"
+## Ensambla y firma ClaudeSwitch.app (detecta sola la identidad local estable).
 app:
-	scripts/build-app.sh $(SIGN)
+	scripts/build-app.sh "$(SIGN)"
 
 ## Copia ClaudeSwitch.app a /Applications.
 install: app
