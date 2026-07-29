@@ -16,7 +16,9 @@ public final class ProfileStore: @unchecked Sendable {
 
     public convenience init() {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        self.init(keychain: KeychainService(), directoryURL: support.appendingPathComponent("ClaudeSwitch"))
+        // Mismo backend que la entrada de Claude Code: así una única
+        // autorización de "/usr/bin/security" cubre todos los accesos.
+        self.init(keychain: SecurityCLIKeychain(), directoryURL: support.appendingPathComponent("ClaudeSwitch"))
     }
 
     private var profilesURL: URL { directoryURL.appendingPathComponent("profiles.json") }

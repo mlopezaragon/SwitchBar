@@ -4,6 +4,7 @@ import PackageDescription
 let package = Package(
     name: "ClaudeSwitch",
     platforms: [.macOS(.v26)],
+    products: [.library(name: "ClaudeSwitchCore", targets: ["ClaudeSwitchCore"])],
     targets: [
         // Lógica sin UI (perfiles, Llavero, API, política de cambio): testeable y headless.
         .target(
