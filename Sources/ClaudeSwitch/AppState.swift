@@ -193,8 +193,15 @@ final class AppState {
 
     private func runAutoSwitchIfNeeded() async {
         guard autoSwitchEnabled, let active = activeAccountUuid else { return }
-        let states = profilesList.map {
-            AccountUsageState(accountUuid: $0.accountUuid, usage: freshUsage(for: $0.accountUuid), needsLogin: $0.needsLogin)
+        // Para la política, el uso de las cuentas compartidas se reescala a su
+        // tope personal: así el cambio salta antes y deja margen a la otra persona.
+        let states = profilesList.map { profile in
+            AccountUsageState(
+                accountUuid: profile.accountUuid,
+                usage: freshUsage(for: profile.accountUuid)?
+                    .scaledToPersonalCaps(fiveHourCap: profile.sharedFiveHourCap, weeklyCap: profile.sharedWeeklyCap),
+                needsLogin: profile.needsLogin
+            )
         }
         guard let activeState = states.first(where: { $0.accountUuid == active }) else { return }
         let policy = AutoSwitchPolicy(triggerThreshold: triggerThreshold)
@@ -261,6 +268,11 @@ final class AppState {
         } catch {
             lastError = "No se pudo deshacer: \(describe(error))"
         }
+    }
+
+    func setSharedCaps(fiveHour: Double?, weekly: Double?, for accountUuid: String) {
+        profiles.setSharedCaps(fiveHour: fiveHour, weekly: weekly, for: accountUuid)
+        reloadLocalState()
     }
 
     func removeProfile(_ accountUuid: String) {

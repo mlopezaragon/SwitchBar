@@ -98,6 +98,8 @@ struct DetailView: View {
                 Spacer()
             }
 
+            SharedAccountControls(profile: profile, state: state)
+
             if let fetched = usage?.fetchedAt {
                 Text("Datos de \(relative(fetched))")
                     .font(.caption2)
@@ -151,6 +153,67 @@ struct DetailView: View {
         let f = RelativeDateTimeFormatter()
         f.locale = Locale(identifier: "es_ES")
         return f.localizedString(for: date, relativeTo: Date())
+    }
+}
+
+/// Controles de cuenta compartida: tope personal de uso de 5 h y semanal para
+/// dejar margen a la otra persona. La política automática y los colores de las
+/// barras pasan a medirse contra el tope, y la marca vertical lo señala.
+private struct SharedAccountControls: View {
+    let profile: AccountProfile
+    let state: AppState
+
+    @State private var shared: Bool
+    @State private var fiveHourCap: Double
+    @State private var weeklyCap: Double
+
+    init(profile: AccountProfile, state: AppState) {
+        self.profile = profile
+        self.state = state
+        _shared = State(initialValue: profile.sharedFiveHourCap != nil || profile.sharedWeeklyCap != nil)
+        _fiveHourCap = State(initialValue: profile.sharedFiveHourCap ?? 60)
+        _weeklyCap = State(initialValue: profile.sharedWeeklyCap ?? 60)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Toggle("Cuenta compartida: reservar uso para otra persona", isOn: $shared)
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .onChange(of: shared) { apply() }
+
+            if shared {
+                capSlider("Mi tope de 5 horas", value: $fiveHourCap)
+                capSlider("Mi tope semanal (incluye Fable)", value: $weeklyCap)
+                Text("ClaudeSwitch tratará esta cuenta como agotada al llegar a tu tope, dejando el resto disponible.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.top, 2)
+    }
+
+    private func capSlider(_ title: String, value: Binding<Double>) -> some View {
+        HStack {
+            Text(title)
+                .font(.caption)
+            Spacer()
+            Slider(value: value, in: 10...90, step: 5)
+                .frame(width: 160)
+                .onChange(of: value.wrappedValue) { apply() }
+            Text("\(Int(value.wrappedValue)) %")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(width: 38, alignment: .trailing)
+        }
+    }
+
+    private func apply() {
+        state.setSharedCaps(
+            fiveHour: shared ? fiveHourCap : nil,
+            weekly: shared ? weeklyCap : nil,
+            for: profile.accountUuid
+        )
     }
 }
 

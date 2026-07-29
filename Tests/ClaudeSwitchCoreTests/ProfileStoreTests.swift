@@ -51,6 +51,20 @@ private func credenciales(_ token: String) throws -> OAuthCredentials {
     #expect(!store.loadProfiles()[0].needsLogin)
 }
 
+@Test func losTopesCompartidosSobrevivenAlReguardado() throws {
+    let store = try makeProfileStore()
+    try store.saveProfile(identity: identidad("u1", "a@a.com"), credentials: credenciales("t1"))
+    store.setSharedCaps(fiveHour: 60, weekly: 50, for: "u1")
+    // Volcado periódico: re-guardar el perfil no debe borrar los topes.
+    try store.saveProfile(identity: identidad("u1", "a@a.com"), credentials: credenciales("t2"))
+    let p = store.loadProfiles()[0]
+    #expect(p.sharedFiveHourCap == 60)
+    #expect(p.sharedWeeklyCap == 50)
+    // Quitar el tope.
+    store.setSharedCaps(fiveHour: nil, weekly: nil, for: "u1")
+    #expect(store.loadProfiles()[0].sharedFiveHourCap == nil)
+}
+
 @Test func eliminaPerfilYSecretos() throws {
     let store = try makeProfileStore()
     try store.saveProfile(identity: identidad("u1", "a@a.com"), credentials: credenciales("t1"))
