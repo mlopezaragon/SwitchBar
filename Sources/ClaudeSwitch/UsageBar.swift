@@ -56,21 +56,14 @@ struct UsageBar: View {
             Text(window.map { "\(Int($0.utilization.rounded())) %" } ?? "—")
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(window == nil ? .tertiary : .primary)
-                .frame(width: 42, alignment: .trailing)
+                .frame(width: 38, alignment: .trailing)
 
-            Text(resetText)
-                .font(.caption2)
+            Text(ResetFormatter.compact(window?.resetsAt))
+                .font(.caption2.monospacedDigit())
                 .foregroundStyle(.tertiary)
-                .frame(width: 64, alignment: .trailing)
+                .frame(width: 46, alignment: .trailing)
                 .lineLimit(1)
+                .help(ResetFormatter.absolute(window?.resetsAt))
         }
-    }
-
-    private var resetText: String {
-        guard let date = window?.resetsAt else { return "" }
-        let f = RelativeDateTimeFormatter()
-        f.locale = Locale(identifier: "es_ES")
-        f.unitsStyle = .short
-        return f.localizedString(for: date, relativeTo: Date())
     }
 }

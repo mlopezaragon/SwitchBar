@@ -64,6 +64,21 @@ private func activarCuenta(_ e: Entorno, uuid: String, email: String, token: Str
     #expect(((llavero["mcpOAuth"] as? [String: Any])?["srv"] as? [String: Any])?["accessToken"] as? String == "m1")
 }
 
+@Test func cambiarSoloTocaDosVecesElLlaveroDeClaudeCode() throws {
+    // Cada acceso a "Claude Code-credentials" puede abrir un diálogo de
+    // autorización, así que un cambio debe costar una lectura y una escritura.
+    let e = try makeEntorno()
+    try activarCuenta(e, uuid: "uA", email: "a@a.com", token: "tA")
+    try e.engine.captureActiveAsProfile()
+    let idB = try AccountIdentity(oauthAccountJSON: Data("{\"accountUuid\": \"uB\", \"emailAddress\": \"b@b.com\"}".utf8))
+    let credsB = try OAuthCredentials(claudeAiOauthJSON: Data("{\"accessToken\": \"tB\", \"refreshToken\": \"refB\", \"expiresAt\": 2}".utf8))
+    try e.profiles.saveProfile(identity: idB, credentials: credsB)
+
+    e.keychain.resetCounters()
+    try e.engine.switchTo("uB")
+    #expect(e.keychain.accesses(to: ClaudeCodeStore.credentialsService) == 2)
+}
+
 @Test func deshacerVuelveALaCuentaAnterior() throws {
     let e = try makeEntorno()
     try activarCuenta(e, uuid: "uA", email: "a@a.com", token: "tA")

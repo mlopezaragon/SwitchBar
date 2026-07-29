@@ -49,7 +49,11 @@ public final class ProfileStore: @unchecked Sendable {
     @discardableResult
     public func saveProfile(identity: AccountIdentity, credentials: OAuthCredentials) throws -> AccountProfile {
         lock.lock(); defer { lock.unlock() }
-        var profile = AccountProfile(identity: identity, subscriptionType: credentials.subscriptionType)
+        var profile = AccountProfile(
+            identity: identity,
+            subscriptionType: credentials.subscriptionType,
+            refreshTokenFingerprint: AccountProfile.fingerprint(of: credentials.refreshToken)
+        )
         var profiles = loadProfilesLocked()
         // Al re-guardar (volcados periódicos) se conservan los ajustes propios
         // del perfil que no vienen de Claude Code, como los topes compartidos.
@@ -73,10 +77,13 @@ public final class ProfileStore: @unchecked Sendable {
 
     public func updateCredentials(_ credentials: OAuthCredentials, for accountUuid: String) throws {
         lock.lock(); defer { lock.unlock() }
+        var profiles = loadProfilesLocked()
         // Si el perfil se eliminó mientras tanto, no recrear sus secretos.
-        guard loadProfilesLocked().contains(where: { $0.accountUuid == accountUuid }) else { return }
+        guard let i = profiles.firstIndex(where: { $0.accountUuid == accountUuid }) else { return }
         guard let s = String(data: credentials.rawJSON, encoding: .utf8) else { throw KeychainError.notUTF8 }
         try keychain.writeString(s, service: Self.service(for: accountUuid))
+        profiles[i].refreshTokenFingerprint = AccountProfile.fingerprint(of: credentials.refreshToken)
+        try? saveProfilesLocked(profiles)
     }
 
     /// Fija los topes personales de una cuenta compartida (nil = sin tope).
