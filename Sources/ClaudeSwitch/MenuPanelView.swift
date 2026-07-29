@@ -18,6 +18,17 @@ struct MenuPanelView: View {
                 emptyState
             }
 
+            Button {
+                openWindow(id: "detalle")
+                NSApp.activate(ignoringOtherApps: true)
+                state.beginAddAccount()
+            } label: {
+                Label("Añadir cuenta", systemImage: "plus")
+                    .font(.caption)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+
             ForEach(state.profilesList) { profile in
                 AccountCardView(
                     profile: profile,

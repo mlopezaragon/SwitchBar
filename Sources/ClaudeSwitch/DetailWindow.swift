@@ -34,16 +34,27 @@ struct DetailView: View {
         .frame(minWidth: 560, minHeight: 480)
         .background(.background)
         .onAppear { state.refreshIfStale() }
+        .sheet(isPresented: $state.addAccountVisible) {
+            AddAccountSheet(state: state)
+        }
     }
 
     private var headline: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("ClaudeSwitch")
-                .font(.system(size: 22, weight: .semibold))
-            if let active = state.activeProfile {
-                Text("Cuenta activa: \(active.emailAddress)")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("ClaudeSwitch")
+                    .font(.system(size: 22, weight: .semibold))
+                if let active = state.activeProfile {
+                    Text("Cuenta activa: \(active.emailAddress)")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            Button {
+                state.beginAddAccount()
+            } label: {
+                Label("Añadir cuenta", systemImage: "plus")
             }
         }
     }
