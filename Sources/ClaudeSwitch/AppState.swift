@@ -68,13 +68,11 @@ final class AppState {
         // El estado local se carga fuera del hilo principal: leer el Llavero
         // puede quedarse esperando un diálogo de autorización del sistema y
         // congelaría toda la interfaz.
-        let profilesStore = profiles
+        // Arrancar NUNCA toca el Llavero: si el llavero del sistema está
+        // pidiendo autorización, una migración al inicio dispara una decena de
+        // diálogos seguidos. Las cuentas se recuperan desde "Añadir cuenta",
+        // que no usa el Llavero en absoluto.
         Task {
-            // Migrar antes de sondear: si el sondeo corre primero con el
-            // almacén vacío, marcaría todas las cuentas como sin sesión.
-            _ = await offMain {
-                profilesStore.migrateLegacyEntries(from: [KeychainService(), SecurityCLIKeychain()])
-            }
             await reloadLocalState()
             startPolling()
         }

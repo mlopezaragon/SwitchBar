@@ -48,9 +48,11 @@ public final class ProfileStore: @unchecked Sendable {
         try keychain.writeString(s, service: Self.vaultService)
     }
 
-    /// Mueve los secretos que versiones anteriores dejaron en el Llavero
-    /// (almacén único o una entrada por cuenta) al backend actual, y borra
-    /// las entradas viejas para que no vuelvan a pedir autorización.
+    /// Mueve los secretos que versiones anteriores dejaron en el Llavero al
+    /// almacén en fichero. NO se ejecuta al arrancar: cada lectura del Llavero
+    /// puede abrir un diálogo de autorización del sistema, y hacerlo al inicio
+    /// disparaba una decena seguidos. Queda disponible solo si el usuario lo
+    /// pide de forma explícita desde los ajustes.
     public func migrateLegacyEntries(from sources: [KeychainStoring]) {
         lock.lock(); defer { lock.unlock() }
         let profiles = loadProfilesLocked()
