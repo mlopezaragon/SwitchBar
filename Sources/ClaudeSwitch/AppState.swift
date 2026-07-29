@@ -6,6 +6,10 @@ import ClaudeSwitchCore
 @MainActor
 @Observable
 final class AppState {
+    /// Instancia única: el delegado de la app y la ventana de detalle
+    /// (gestionada con AppKit) necesitan el mismo estado que el panel.
+    static let shared = AppState()
+
     private let store: ClaudeCodeStore
     private let profiles: ProfileStore
     private let engine: SwitchEngine
@@ -53,8 +57,16 @@ final class AppState {
         self.autoSwitchEnabled = d.bool(forKey: "autoSwitchEnabled")
         self.triggerThreshold = d.object(forKey: "triggerThreshold") as? Double ?? 90
         self.pollIntervalSeconds = d.object(forKey: "pollIntervalSeconds") as? Double ?? 180
-        reloadLocalState()
+        // El estado local se carga fuera del hilo principal: leer el Llavero
+        // puede quedarse esperando un diálogo de autorización del sistema y
+        // congelaría toda la interfaz.
+        Task { await reloadLocalState() }
         startPolling()
+    }
+
+    /// Ejecuta trabajo que toca Llavero o disco fuera del hilo principal.
+    private func offMain<T: Sendable>(_ work: @escaping @Sendable () -> T) async -> T {
+        await Task.detached(priority: .userInitiated, operation: work).value
     }
 
     func startPolling() {
@@ -70,23 +82,43 @@ final class AppState {
 
     /// Refresco al abrir el panel, con un mínimo de 30 s entre rondas.
     func refreshIfStale() {
-        reloadLocalState()
-        if let last = lastRefreshAt, Date().timeIntervalSince(last) < 30 { return }
-        Task { await refreshAll() }
+        Task {
+            await reloadLocalState()
+            if let last = lastRefreshAt, Date().timeIntervalSince(last) < 30 { return }
+            await refreshAll()
+        }
     }
 
     // MARK: Estado local (sin red)
 
-    private func reloadLocalState() {
-        profilesList = profiles.loadProfiles()
-        activeAccountUuid = engine.activeAccountUuid()
-        canUndo = engine.canUndo
-        if let identity = try? store.readActiveIdentity(),
-           !profilesList.contains(where: { $0.accountUuid == identity.accountUuid }) {
-            activeUnsaved = identity
-        } else {
-            activeUnsaved = nil
+    private struct LocalSnapshot: Sendable {
+        var profiles: [AccountProfile]
+        var activeAccountUuid: String?
+        var canUndo: Bool
+        var activeUnsaved: AccountIdentity?
+    }
+
+    private func reloadLocalState() async {
+        let store = self.store
+        let profiles = self.profiles
+        let engine = self.engine
+        let snapshot = await offMain { () -> LocalSnapshot in
+            let list = profiles.loadProfiles()
+            let identity = try? store.readActiveIdentity()
+            let unsaved = identity.flatMap { id in
+                list.contains { $0.accountUuid == id.accountUuid } ? nil : id
+            }
+            return LocalSnapshot(
+                profiles: list,
+                activeAccountUuid: identity?.accountUuid ?? engine.activeAccountUuid(),
+                canUndo: engine.canUndo,
+                activeUnsaved: unsaved
+            )
         }
+        profilesList = snapshot.profiles
+        activeAccountUuid = snapshot.activeAccountUuid
+        canUndo = snapshot.canUndo
+        activeUnsaved = snapshot.activeUnsaved
     }
 
     // MARK: Refresco de red
@@ -100,20 +132,21 @@ final class AppState {
             lastRefreshAt = Date()
         }
         lastError = nil
-        reloadLocalState()
-        try? engine.syncActiveIntoProfile()
+        await reloadLocalState()
+        let engine = self.engine
+        _ = await offMain { try? engine.syncActiveIntoProfile() }
 
         for profile in profilesList where !profile.needsLogin {
             await refreshUsage(for: profile)
         }
-        reloadLocalState()
+        await reloadLocalState()
         await runAutoSwitchIfNeeded()
     }
 
     private func refreshUsage(for profile: AccountProfile) async {
         let isActive = profile.accountUuid == activeAccountUuid
         do {
-            guard var creds = try credentialsPreferringActive(for: profile.accountUuid) else {
+            guard var creds = try await credentialsPreferringActive(for: profile.accountUuid) else {
                 profiles.markNeedsLogin(profile.accountUuid, true)
                 return
             }
@@ -148,11 +181,19 @@ final class AppState {
 
     /// Para la cuenta activa, la fuente de verdad es el Llavero de Claude Code
     /// (la CLI renueva tokens por su cuenta); para el resto, el perfil.
-    private func credentialsPreferringActive(for accountUuid: String) throws -> OAuthCredentials? {
-        if accountUuid == activeAccountUuid, let active = try store.readActiveCredentials() {
-            return active
+    private func credentialsPreferringActive(for accountUuid: String) async throws -> OAuthCredentials? {
+        let store = self.store
+        let profiles = self.profiles
+        let isActive = accountUuid == activeAccountUuid
+        let result: Result<OAuthCredentials?, Error> = await offMain {
+            do {
+                if isActive, let active = try store.readActiveCredentials() { return .success(active) }
+                return .success(try profiles.credentials(for: accountUuid))
+            } catch {
+                return .failure(error)
+            }
         }
-        return try profiles.credentials(for: accountUuid)
+        return try result.get()
     }
 
     /// Renueva y persiste en el perfil. Solo para cuentas NO activas: la
@@ -160,13 +201,14 @@ final class AppState {
     /// que la persistencia se reintenta antes de rendirse.
     private func refreshCredentials(_ creds: OAuthCredentials, for accountUuid: String) async throws -> OAuthCredentials {
         let renewed = try await api.refresh(creds)
-        do {
-            try profiles.updateCredentials(renewed, for: accountUuid)
-        } catch {
+        let profiles = self.profiles
+        var persisted = await offMain { (try? profiles.updateCredentials(renewed, for: accountUuid)) != nil }
+        if !persisted {
             try? await Task.sleep(for: .milliseconds(300))
-            try profiles.updateCredentials(renewed, for: accountUuid)
+            persisted = await offMain { (try? profiles.updateCredentials(renewed, for: accountUuid)) != nil }
         }
-        profiles.markNeedsLogin(accountUuid, false)
+        guard persisted else { throw KeychainError.notUTF8 }
+        _ = await offMain { profiles.markNeedsLogin(accountUuid, false) }
         return renewed
     }
 
@@ -214,15 +256,19 @@ final class AppState {
             }
             return
         }
-        do {
-            let identity = try engine.switchTo(target)
-            reloadLocalState()
+        let engine = self.engine
+        let result: Result<AccountIdentity, Error> = await offMain {
+            Result { try engine.switchTo(target) }
+        }
+        switch result {
+        case .success(let identity):
+            await reloadLocalState()
             let pct = usageByAccount[target]?.fiveHour.map { Int($0.utilization) } ?? 0
             Notifier.notify(
                 title: "Cambiado a \(identity.emailAddress)",
                 body: "Ventana de 5 h al \(pct) %. Las sesiones abiertas siguen con la cuenta anterior."
             )
-        } catch {
+        case .failure(let error):
             lastError = "El cambio automático falló: \(describe(error))"
         }
     }
@@ -238,35 +284,53 @@ final class AppState {
     // MARK: Acciones del usuario
 
     func switchTo(_ accountUuid: String) {
-        do {
-            let identity = try engine.switchTo(accountUuid)
-            reloadLocalState()
-            infoMessage = "Ahora \(identity.emailAddress) es la cuenta activa. Las sesiones de Claude Code abiertas siguen con la anterior hasta reiniciarlas."
-        } catch SwitchError.profileNeedsLogin {
-            lastError = "Esa cuenta necesita iniciar sesión de nuevo en Claude Code"
-        } catch {
-            lastError = "No se pudo cambiar de cuenta: \(describe(error))"
+        let engine = self.engine
+        Task {
+            let result: Result<AccountIdentity, Error> = await offMain {
+                Result { try engine.switchTo(accountUuid) }
+            }
+            await reloadLocalState()
+            switch result {
+            case .success(let identity):
+                infoMessage = "Ahora \(identity.emailAddress) es la cuenta activa. Las sesiones de Claude Code abiertas siguen con la anterior hasta reiniciarlas."
+            case .failure(SwitchError.profileNeedsLogin):
+                lastError = "Esa cuenta necesita iniciar sesión de nuevo: añádela otra vez con «Añadir cuenta»"
+            case .failure(let error):
+                lastError = "No se pudo cambiar de cuenta: \(describe(error))"
+            }
         }
     }
 
     func captureActive() {
-        do {
-            let profile = try engine.captureActiveAsProfile()
-            reloadLocalState()
-            infoMessage = "Cuenta \(profile.emailAddress) guardada."
-            Task { await refreshAll() }
-        } catch {
-            lastError = "No se pudo guardar la cuenta activa: \(describe(error))"
+        let engine = self.engine
+        Task {
+            let result: Result<AccountProfile, Error> = await offMain {
+                Result { try engine.captureActiveAsProfile() }
+            }
+            await reloadLocalState()
+            switch result {
+            case .success(let profile):
+                infoMessage = "Cuenta \(profile.emailAddress) guardada."
+                await refreshAll()
+            case .failure(let error):
+                lastError = "No se pudo guardar la cuenta activa: \(describe(error))"
+            }
         }
     }
 
     func undo() {
-        do {
-            let identity = try engine.undoLastSwitch()
-            reloadLocalState()
-            infoMessage = "De vuelta en \(identity.emailAddress)."
-        } catch {
-            lastError = "No se pudo deshacer: \(describe(error))"
+        let engine = self.engine
+        Task {
+            let result: Result<AccountIdentity, Error> = await offMain {
+                Result { try engine.undoLastSwitch() }
+            }
+            await reloadLocalState()
+            switch result {
+            case .success(let identity):
+                infoMessage = "De vuelta en \(identity.emailAddress)."
+            case .failure(let error):
+                lastError = "No se pudo deshacer: \(describe(error))"
+            }
         }
     }
 
@@ -299,11 +363,14 @@ final class AppState {
         defer { addAccountBusy = false }
         do {
             let (creds, identity) = try await api.exchangeAuthorizationCode(code, session: session)
-            let profile = try profiles.saveProfile(identity: identity, credentials: creds)
+            let profiles = self.profiles
+            let saved: AccountProfile = try await offMain {
+                Result { try profiles.saveProfile(identity: identity, credentials: creds) }
+            }.get()
             addAccountSession = nil
             addAccountVisible = false
-            infoMessage = "Cuenta \(profile.emailAddress) añadida."
-            reloadLocalState()
+            infoMessage = "Cuenta \(saved.emailAddress) añadida."
+            await reloadLocalState()
             Task { await refreshAll() }
         } catch AnthropicAPIError.invalidAuthorizationCode {
             addAccountError = "El código no es válido o ya se usó. Vuelve a abrir la página y pega el código nuevo."
@@ -319,17 +386,20 @@ final class AppState {
     }
 
     func setSharedCaps(fiveHour: Double?, weekly: Double?, for accountUuid: String) {
-        profiles.setSharedCaps(fiveHour: fiveHour, weekly: weekly, for: accountUuid)
-        reloadLocalState()
+        let profiles = self.profiles
+        Task {
+            _ = await offMain { profiles.setSharedCaps(fiveHour: fiveHour, weekly: weekly, for: accountUuid) }
+            await reloadLocalState()
+        }
     }
 
     func removeProfile(_ accountUuid: String) {
-        do {
-            try profiles.removeProfile(accountUuid)
+        let profiles = self.profiles
+        Task {
+            let ok = await offMain { (try? profiles.removeProfile(accountUuid)) != nil }
             usageByAccount[accountUuid] = nil
-            reloadLocalState()
-        } catch {
-            lastError = "No se pudo eliminar el perfil: \(describe(error))"
+            await reloadLocalState()
+            if !ok { lastError = "No se pudo eliminar el perfil" }
         }
     }
 
