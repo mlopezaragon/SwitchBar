@@ -133,6 +133,13 @@ struct DetailView: View {
             Toggle("Cambio automático de cuenta", isOn: $state.autoSwitchEnabled)
                 .toggleStyle(.switch)
 
+            if state.autoSwitchEnabled && state.autoSwitchPausedByManualLogin {
+                Text("En pausa: has iniciado sesión a mano en Claude Code y se respeta tu elección durante 15 minutos.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             HStack {
                 Text("Cambiar cuando la ventana de 5 horas supere el \(Int(state.triggerThreshold)) %")
                     .font(.callout)
