@@ -79,7 +79,12 @@ public struct UsageSnapshot: Sendable, Equatable {
                 guard let kind = limit["kind"] as? String,
                       let percent = (limit["percent"] as? NSNumber)?.doubleValue else { continue }
                 let resetsAt = (limit["resets_at"] as? String).flatMap(ISO8601.parse)
-                byKind[kind] = UsageWindow(utilization: percent, resetsAt: resetsAt)
+                let window = UsageWindow(utilization: percent, resetsAt: resetsAt)
+                // Puede haber varios límites del mismo kind (p. ej. un
+                // weekly_scoped por modelo): conservar el más alto, que es lo
+                // conservador para la política de cambio.
+                if let existing = byKind[kind], existing.utilization >= percent { continue }
+                byKind[kind] = window
             }
         }
         return UsageSnapshot(
@@ -101,6 +106,8 @@ public struct OAuthCredentials: Sendable, Equatable {
     public var refreshToken: String
     /// Época en milisegundos.
     public var expiresAt: Int?
+    /// Época en milisegundos; caducidad del propio refresh token.
+    public var refreshTokenExpiresAt: Int?
     public var subscriptionType: String?
     public var rawJSON: Data
 
@@ -113,6 +120,7 @@ public struct OAuthCredentials: Sendable, Equatable {
         self.accessToken = access
         self.refreshToken = refresh
         self.expiresAt = (dict["expiresAt"] as? NSNumber)?.intValue
+        self.refreshTokenExpiresAt = (dict["refreshTokenExpiresAt"] as? NSNumber)?.intValue
         self.subscriptionType = dict["subscriptionType"] as? String
         self.rawJSON = data
     }
@@ -140,6 +148,13 @@ public struct OAuthCredentials: Sendable, Equatable {
         guard let expiresAt else { return true }
         let expiry = Date(timeIntervalSince1970: Double(expiresAt) / 1000)
         return now.addingTimeInterval(60) >= expiry
+    }
+
+    /// El refresh token en sí ha caducado: la cuenta necesita login por navegador.
+    /// Sin dato se asume vigente (Claude Code no siempre lo incluye).
+    public func isRefreshTokenExpired(now: Date = Date()) -> Bool {
+        guard let refreshTokenExpiresAt else { return false }
+        return now >= Date(timeIntervalSince1970: Double(refreshTokenExpiresAt) / 1000)
     }
 }
 

@@ -37,10 +37,15 @@ public struct ClaudeCodeStore: Sendable {
     }
 
     /// Reemplaza únicamente la clave `claudeAiOauth`, preservando el resto.
+    ///
+    /// Si la entrada existe pero no se puede interpretar, se aborta con error:
+    /// escribir "a ciegas" destruiría las demás claves (p. ej. `mcpOAuth.*`).
     public func writeActiveCredentials(_ creds: OAuthCredentials) throws {
         var dict: [String: Any] = [:]
-        if let s = try keychain.readString(service: Self.credentialsService),
-           let existing = try? JSONSerialization.jsonObject(with: Data(s.utf8)) as? [String: Any] {
+        if let s = try keychain.readString(service: Self.credentialsService) {
+            guard let existing = try? JSONSerialization.jsonObject(with: Data(s.utf8)) as? [String: Any] else {
+                throw CoreError.malformedJSON("la entrada del Llavero de Claude Code no es un objeto JSON; no se escribe para no destruirla")
+            }
             dict = existing
         }
         dict["claudeAiOauth"] = try creds.asDictionary()
@@ -60,14 +65,30 @@ public struct ClaudeCodeStore: Sendable {
     }
 
     /// Sustituye el bloque `oauthAccount` preservando el resto del fichero.
+    ///
+    /// Si `~/.claude.json` existe pero no se puede leer o parsear (p. ej.
+    /// Claude Code lo está reescribiendo en ese instante), se aborta: jamás
+    /// se sobrescribe un fichero cuyo contenido no se pudo conservar. Antes
+    /// de cada escritura se deja una copia de seguridad al lado.
     public func writeActiveIdentity(_ identity: AccountIdentity) throws {
         var dict: [String: Any] = [:]
-        if let data = try? Data(contentsOf: claudeJsonURL),
-           let existing = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+        let exists = FileManager.default.fileExists(atPath: claudeJsonURL.path)
+        if exists {
+            let original = try Data(contentsOf: claudeJsonURL)
+            guard let existing = try? JSONSerialization.jsonObject(with: original) as? [String: Any] else {
+                throw CoreError.malformedJSON("~/.claude.json no se pudo interpretar; no se escribe para no destruirlo")
+            }
             dict = existing
+            let backupURL = claudeJsonURL.appendingPathExtension("claudeswitch-backup")
+            try? original.write(to: backupURL, options: [.atomic])
         }
         dict["oauthAccount"] = try identity.asDictionary()
         let data = try JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys])
         try data.write(to: claudeJsonURL, options: [.atomic])
+
+        // Verificación: si otra escritura concurrente pisó la nuestra, avisar.
+        if try readActiveIdentity()?.accountUuid != identity.accountUuid {
+            throw CoreError.malformedJSON("otra escritura concurrente sobre ~/.claude.json pisó el cambio; reinténtalo")
+        }
     }
 }

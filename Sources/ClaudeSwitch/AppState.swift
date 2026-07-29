@@ -101,7 +101,7 @@ final class AppState {
         }
         lastError = nil
         reloadLocalState()
-        engine.syncActiveIntoProfile()
+        try? engine.syncActiveIntoProfile()
 
         for profile in profilesList where !profile.needsLogin {
             await refreshUsage(for: profile)
@@ -111,17 +111,27 @@ final class AppState {
     }
 
     private func refreshUsage(for profile: AccountProfile) async {
+        let isActive = profile.accountUuid == activeAccountUuid
         do {
             guard var creds = try credentialsPreferringActive(for: profile.accountUuid) else {
                 profiles.markNeedsLogin(profile.accountUuid, true)
                 return
             }
+            if creds.isRefreshTokenExpired() {
+                profiles.markNeedsLogin(profile.accountUuid, true)
+                return
+            }
             if creds.isAccessTokenExpired() {
+                // La cuenta activa la renueva Claude Code: renovarla aquí
+                // competiría por rotar el mismo refresh token y podría
+                // desconectar la CLI. Se muestra el último dato conocido.
+                guard !isActive else { return }
                 creds = try await refreshCredentials(creds, for: profile.accountUuid)
             }
             do {
                 usageByAccount[profile.accountUuid] = try await api.fetchUsage(accessToken: creds.accessToken)
             } catch AnthropicAPIError.httpError(401) {
+                guard !isActive else { return }
                 // Token rechazado pese a no constar caducado: renovar y reintentar una vez.
                 creds = try await refreshCredentials(creds, for: profile.accountUuid)
                 usageByAccount[profile.accountUuid] = try await api.fetchUsage(accessToken: creds.accessToken)
@@ -145,23 +155,46 @@ final class AppState {
         return try profiles.credentials(for: accountUuid)
     }
 
-    /// Renueva y persiste donde corresponda (perfil y, si es la activa, Llavero).
+    /// Renueva y persiste en el perfil. Solo para cuentas NO activas: la
+    /// renovación rota el refresh token, y perder el nuevo sería fatal, así
+    /// que la persistencia se reintenta antes de rendirse.
     private func refreshCredentials(_ creds: OAuthCredentials, for accountUuid: String) async throws -> OAuthCredentials {
         let renewed = try await api.refresh(creds)
-        try profiles.updateCredentials(renewed, for: accountUuid)
-        profiles.markNeedsLogin(accountUuid, false)
-        if accountUuid == activeAccountUuid {
-            try store.writeActiveCredentials(renewed)
+        do {
+            try profiles.updateCredentials(renewed, for: accountUuid)
+        } catch {
+            try? await Task.sleep(for: .milliseconds(300))
+            try profiles.updateCredentials(renewed, for: accountUuid)
         }
+        profiles.markNeedsLogin(accountUuid, false)
         return renewed
     }
 
     // MARK: Cambio automático
 
+    /// Instantánea válida para tomar decisiones: descarta datos más viejos de
+    /// dos intervalos de sondeo y ventanas cuyo reseteo ya pasó (su porcentaje
+    /// ya no refleja la realidad).
+    private func freshUsage(for accountUuid: String) -> UsageSnapshot? {
+        guard var snapshot = usageByAccount[accountUuid] else { return nil }
+        let maxAge = max(2 * pollIntervalSeconds, 600)
+        guard Date().timeIntervalSince(snapshot.fetchedAt) < maxAge else { return nil }
+        let now = Date()
+        func vigente(_ w: UsageWindow?) -> UsageWindow? {
+            guard let w else { return nil }
+            if let reset = w.resetsAt, reset <= now { return nil }
+            return w
+        }
+        snapshot.fiveHour = vigente(snapshot.fiveHour)
+        snapshot.sevenDay = vigente(snapshot.sevenDay)
+        snapshot.sevenDayOpus = vigente(snapshot.sevenDayOpus)
+        return snapshot
+    }
+
     private func runAutoSwitchIfNeeded() async {
         guard autoSwitchEnabled, let active = activeAccountUuid else { return }
         let states = profilesList.map {
-            AccountUsageState(accountUuid: $0.accountUuid, usage: usageByAccount[$0.accountUuid], needsLogin: $0.needsLogin)
+            AccountUsageState(accountUuid: $0.accountUuid, usage: freshUsage(for: $0.accountUuid), needsLogin: $0.needsLogin)
         }
         guard let activeState = states.first(where: { $0.accountUuid == active }) else { return }
         let policy = AutoSwitchPolicy(triggerThreshold: triggerThreshold)

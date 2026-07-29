@@ -79,6 +79,39 @@ private func activarCuenta(_ e: Entorno, uuid: String, email: String, token: Str
     #expect(!e.engine.canUndo)
 }
 
+@Test func estadoDescasadoNoMachacaElPerfil() throws {
+    // ~/.claude.json dice cuenta A, pero el Llavero tiene las credenciales de B
+    // (cambio a medias): el volcado debe negarse en vez de guardar los tokens
+    // de B dentro del perfil de A.
+    let e = try makeEntorno()
+    try activarCuenta(e, uuid: "uA", email: "a@a.com", token: "tA")
+    try e.engine.captureActiveAsProfile()
+    let idB = try AccountIdentity(oauthAccountJSON: Data("{\"accountUuid\": \"uB\", \"emailAddress\": \"b@b.com\"}".utf8))
+    let credsB = try OAuthCredentials(claudeAiOauthJSON: Data("{\"accessToken\": \"tB\", \"refreshToken\": \"refB\", \"expiresAt\": 2}".utf8))
+    try e.profiles.saveProfile(identity: idB, credentials: credsB)
+
+    // Llavero con credenciales de B, identidad sigue siendo A.
+    try e.keychain.writeString("{\"claudeAiOauth\": {\"accessToken\": \"tB\", \"refreshToken\": \"refB\", \"expiresAt\": 2}}", service: ClaudeCodeStore.credentialsService)
+
+    #expect(throws: SwitchError.inconsistentActiveState) {
+        try e.engine.syncActiveIntoProfile()
+    }
+    // El perfil de A conserva sus tokens.
+    #expect(try e.profiles.credentials(for: "uA")?.accessToken == "tA")
+}
+
+@Test func cambiarACuentaConRefreshTokenCaducadoFalla() throws {
+    let e = try makeEntorno()
+    let idB = try AccountIdentity(oauthAccountJSON: Data("{\"accountUuid\": \"uB\", \"emailAddress\": \"b@b.com\"}".utf8))
+    let credsB = try OAuthCredentials(claudeAiOauthJSON: Data("{\"accessToken\": \"tB\", \"refreshToken\": \"refB\", \"expiresAt\": 2, \"refreshTokenExpiresAt\": 1000}".utf8))
+    try e.profiles.saveProfile(identity: idB, credentials: credsB)
+    #expect(throws: SwitchError.profileNeedsLogin("uB")) {
+        try e.engine.switchTo("uB")
+    }
+    // Y queda marcada como pendiente de sesión.
+    #expect(e.profiles.loadProfiles().first?.needsLogin == true)
+}
+
 @Test func cambiarAPerfilInexistenteFalla() throws {
     let e = try makeEntorno()
     #expect(throws: SwitchError.profileNotFound("uX")) {
