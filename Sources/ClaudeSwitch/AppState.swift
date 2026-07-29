@@ -42,7 +42,21 @@ final class AppState {
     }
 
     private var pollTask: Task<Void, Never>?
+    private var identityWatchTask: Task<Void, Never>?
     private var rateLimitedUntil: Date?
+    /// Última cuenta que activó ClaudeSwitch. Sirve para distinguir un cambio
+    /// hecho por la app de un `/login` manual del usuario en la terminal.
+    private var lastSwitchByApp: String?
+    /// Credenciales de la cuenta activa cacheadas para no releer el Llavero
+    /// (cada lectura puede abrir un diálogo de autorización del sistema).
+    private var cachedActiveCredentials: (uuid: String, credentials: OAuthCredentials)?
+    /// Hay que volcar la sesión activa a su perfil en el próximo refresco
+    /// (se marca al detectar un cambio de cuenta, no en cada ronda).
+    private var pendingSyncOfActive = true
+    /// Instante del último login manual detectado. El cambio automático se
+    /// mantiene en pausa un rato después para no pisar la elección del usuario.
+    private(set) var manualLoginAt: Date?
+    private let manualLoginGracePeriod: TimeInterval = 15 * 60
 
     // MARK: Ciclo de vida
 
@@ -62,6 +76,38 @@ final class AppState {
         // congelaría toda la interfaz.
         Task { await reloadLocalState() }
         startPolling()
+        startIdentityWatcher()
+    }
+
+    /// Vigila `~/.claude.json` cada pocos segundos (solo lectura de fichero,
+    /// sin tocar el Llavero) para reflejar al instante un `/login` hecho por
+    /// el usuario en la terminal.
+    private func startIdentityWatcher() {
+        identityWatchTask?.cancel()
+        let store = self.store
+        identityWatchTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(5))
+                guard let self else { return }
+                let uuid = await self.offMain { (try? store.readActiveIdentity())?.accountUuid }
+                guard let uuid, uuid != self.activeAccountUuid else { continue }
+                // Cambió la cuenta activa. Si no fue la app, es un login manual.
+                if uuid != self.lastSwitchByApp {
+                    self.manualLoginAt = Date()
+                    self.infoMessage = nil
+                }
+                self.cachedActiveCredentials = nil
+                self.pendingSyncOfActive = true
+                await self.reloadLocalState()
+                await self.refreshAll()
+            }
+        }
+    }
+
+    /// El cambio automático está en pausa tras un login manual reciente.
+    var autoSwitchPausedByManualLogin: Bool {
+        guard let manualLoginAt else { return false }
+        return Date().timeIntervalSince(manualLoginAt) < manualLoginGracePeriod
     }
 
     /// Ejecuta trabajo que toca Llavero o disco fuera del hilo principal.
@@ -133,8 +179,15 @@ final class AppState {
         }
         lastError = nil
         await reloadLocalState()
-        let engine = self.engine
-        _ = await offMain { try? engine.syncActiveIntoProfile() }
+        // El volcado de la sesión activa a su perfil lee el Llavero de Claude
+        // Code, así que solo se hace cuando la cuenta activa ha cambiado (o
+        // tras un cambio propio), no en cada ronda de refresco.
+        if pendingSyncOfActive {
+            pendingSyncOfActive = false
+            let engine = self.engine
+            _ = await offMain { try? engine.syncActiveIntoProfile() }
+            await reloadLocalState()
+        }
 
         for profile in profilesList where !profile.needsLogin {
             await refreshUsage(for: profile)
@@ -181,19 +234,30 @@ final class AppState {
 
     /// Para la cuenta activa, la fuente de verdad es el Llavero de Claude Code
     /// (la CLI renueva tokens por su cuenta); para el resto, el perfil.
+    ///
+    /// La entrada "Claude Code-credentials" la creó Claude Code, así que cada
+    /// lectura puede provocar un diálogo de autorización del Llavero. Por eso
+    /// se cachea en memoria y solo se relee cuando cambia la cuenta activa o
+    /// cuando el token cacheado caduca (que es cuando la CLI lo habrá
+    /// renovado): de decenas de lecturas por hora se pasa a una.
     private func credentialsPreferringActive(for accountUuid: String) async throws -> OAuthCredentials? {
         let store = self.store
         let profiles = self.profiles
-        let isActive = accountUuid == activeAccountUuid
-        let result: Result<OAuthCredentials?, Error> = await offMain {
-            do {
-                if isActive, let active = try store.readActiveCredentials() { return .success(active) }
-                return .success(try profiles.credentials(for: accountUuid))
-            } catch {
-                return .failure(error)
+        if accountUuid == activeAccountUuid {
+            if let cached = cachedActiveCredentials,
+               cached.uuid == accountUuid,
+               !cached.credentials.isAccessTokenExpired() {
+                return cached.credentials
+            }
+            let result: Result<OAuthCredentials?, Error> = await offMain {
+                Result { try store.readActiveCredentials() }
+            }
+            if let active = try result.get() {
+                cachedActiveCredentials = (accountUuid, active)
+                return active
             }
         }
-        return try result.get()
+        return try await offMain { Result { try profiles.credentials(for: accountUuid) } }.get()
     }
 
     /// Renueva y persiste en el perfil. Solo para cuentas NO activas: la
@@ -235,6 +299,9 @@ final class AppState {
 
     private func runAutoSwitchIfNeeded() async {
         guard autoSwitchEnabled, let active = activeAccountUuid else { return }
+        // Un login manual reciente manda: no se le cambia la cuenta al usuario
+        // justo después de que la haya elegido a mano en la terminal.
+        guard !autoSwitchPausedByManualLogin else { return }
         // Para la política, el uso de las cuentas compartidas se reescala a su
         // tope personal: así el cambio salta antes y deja margen a la otra persona.
         let states = profilesList.map { profile in
@@ -262,6 +329,8 @@ final class AppState {
         }
         switch result {
         case .success(let identity):
+            lastSwitchByApp = target
+            cachedActiveCredentials = nil
             await reloadLocalState()
             let pct = usageByAccount[target]?.fiveHour.map { Int($0.utilization) } ?? 0
             Notifier.notify(
@@ -288,6 +357,11 @@ final class AppState {
         Task {
             let result: Result<AccountIdentity, Error> = await offMain {
                 Result { try engine.switchTo(accountUuid) }
+            }
+            if case .success = result {
+                lastSwitchByApp = accountUuid
+                cachedActiveCredentials = nil
+                pendingSyncOfActive = true
             }
             await reloadLocalState()
             switch result {
