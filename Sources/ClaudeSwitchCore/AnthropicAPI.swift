@@ -45,11 +45,12 @@ public final class AnthropicAPI: Sendable {
             do {
                 return try await refresh(creds, endpoint: endpoint)
             } catch AnthropicAPIError.refreshTokenInvalid {
-                // Rechazo definitivo del refresh token: probar el endpoint
-                // alternativo por si el primario ha migrado; si también lo
-                // rechaza, propagar.
-                lastError = AnthropicAPIError.refreshTokenInvalid
+                // Rechazo definitivo (invalid_grant): no reintentar en el
+                // endpoint alternativo — un refresh token ya consumido no va
+                // a revivir y el reintento solo empeora las cosas.
+                throw AnthropicAPIError.refreshTokenInvalid
             } catch {
+                // Error de red o del servidor: probar el endpoint alternativo.
                 lastError = error
             }
         }
@@ -73,13 +74,25 @@ public final class AnthropicAPI: Sendable {
             guard let parsed = try? JSONDecoder().decode(TokenRefreshResponse.self, from: data) else {
                 throw AnthropicAPIError.malformedResponse
             }
-            let expiresAt = parsed.expiresIn.map { Int(Date().timeIntervalSince1970 * 1000) + $0 * 1000 }
+            // Sin expires_in, asumir 1 h: dejar el expiresAt viejo provocaría
+            // renovaciones (y rotaciones de refresh token) en cada sondeo.
+            let lifetime = parsed.expiresIn ?? 3600
+            let expiresAt = Int(Date().timeIntervalSince1970 * 1000) + lifetime * 1000
             return try creds.updating(
                 accessToken: parsed.accessToken,
                 refreshToken: parsed.refreshToken,
                 expiresAt: expiresAt
             )
-        case 400, 401:
+        case 400:
+            // Solo invalid_grant es un rechazo definitivo del refresh token;
+            // otros 400 (invalid_request, errores transitorios) no deben
+            // condenar la cuenta a "requiere sesión".
+            let body = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            if body?["error"] as? String == "invalid_grant" {
+                throw AnthropicAPIError.refreshTokenInvalid
+            }
+            throw AnthropicAPIError.httpError(400)
+        case 401:
             throw AnthropicAPIError.refreshTokenInvalid
         case 429:
             throw AnthropicAPIError.rateLimited

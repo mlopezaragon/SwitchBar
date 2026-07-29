@@ -139,7 +139,6 @@ struct DetailView: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 200)
-                .onChange(of: state.pollIntervalSeconds) { state.startPolling() }
             }
 
             LaunchAtLoginToggle()

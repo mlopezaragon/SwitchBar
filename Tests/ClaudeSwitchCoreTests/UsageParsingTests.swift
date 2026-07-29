@@ -53,6 +53,18 @@ private let respuestaConLimits = """
     #expect(s.sevenDayOpus?.resetsAt != nil)
 }
 
+@Test func variosWeeklyScopedConservaElMasAlto() throws {
+    let json = Data("""
+    {"limits": [
+      {"kind": "session", "percent": 10, "resets_at": "2026-07-29T18:00:00Z"},
+      {"kind": "weekly_scoped", "percent": 30, "resets_at": "2026-08-03T07:00:00Z"},
+      {"kind": "weekly_scoped", "percent": 70, "resets_at": "2026-08-03T07:00:00Z"}
+    ]}
+    """.utf8)
+    let s = try UsageSnapshot.parse(json, fetchedAt: Date())
+    #expect(s.sevenDayOpus?.utilization == 70)
+}
+
 @Test func parseaRespuestaConOpusNulo() throws {
     let s = try UsageSnapshot.parse(respuestaSinOpus, fetchedAt: Date())
     #expect(s.fiveHour?.utilization == 0)

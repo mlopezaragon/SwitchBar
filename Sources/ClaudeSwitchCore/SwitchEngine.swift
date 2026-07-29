@@ -4,6 +4,9 @@ public enum SwitchError: Error, Equatable {
     case profileNotFound(String)
     case profileNeedsLogin(String)
     case nothingToUndo
+    /// El Llavero y ~/.claude.json no describen la misma cuenta: no es seguro
+    /// volcar ni capturar hasta que Claude Code (o un cambio) los realinee.
+    case inconsistentActiveState
 }
 
 /// Cambio de cuenta activa de Claude Code.
@@ -28,13 +31,32 @@ public final class SwitchEngine: @unchecked Sendable {
         try? store.readActiveIdentity()?.accountUuid
     }
 
+    /// Lee identidad y credenciales activas comprobando que describen la
+    /// misma cuenta. Detecta dos estados descasados: la identidad cambió
+    /// entre lecturas, o las credenciales del Llavero pertenecen a otro
+    /// perfil guardado (cambio a medias). En ambos casos lanza
+    /// `inconsistentActiveState` en vez de emparejar mal.
+    private func readActivePair() throws -> (AccountIdentity, OAuthCredentials)? {
+        guard let identity = try store.readActiveIdentity(),
+              let creds = try store.readActiveCredentials() else { return nil }
+        guard let recheck = try store.readActiveIdentity(), recheck.accountUuid == identity.accountUuid else {
+            throw SwitchError.inconsistentActiveState
+        }
+        for other in profiles.loadProfiles() where other.accountUuid != identity.accountUuid {
+            if let otherCreds = try? profiles.credentials(for: other.accountUuid),
+               otherCreds.refreshToken == creds.refreshToken {
+                throw SwitchError.inconsistentActiveState
+            }
+        }
+        return (identity, creds)
+    }
+
     /// Vuelca el estado activo (credenciales + identidad) a su perfil, si existe.
-    public func syncActiveIntoProfile() {
-        guard let identity = try? store.readActiveIdentity(),
-              let creds = try? store.readActiveCredentials() else { return }
+    public func syncActiveIntoProfile() throws {
+        guard let (identity, creds) = try readActivePair() else { return }
         let known = profiles.loadProfiles().contains { $0.accountUuid == identity.accountUuid }
         guard known else { return }
-        try? profiles.saveProfile(identity: identity, credentials: creds)
+        try profiles.saveProfile(identity: identity, credentials: creds)
         profiles.markNeedsLogin(identity.accountUuid, false)
     }
 
@@ -48,13 +70,29 @@ public final class SwitchEngine: @unchecked Sendable {
         guard let creds = try profiles.credentials(for: accountUuid) else {
             throw SwitchError.profileNeedsLogin(accountUuid)
         }
+        if creds.isRefreshTokenExpired() {
+            profiles.markNeedsLogin(accountUuid, true)
+            throw SwitchError.profileNeedsLogin(accountUuid)
+        }
 
         let previous = activeAccountUuid()
-        syncActiveIntoProfile()
+        // Si la cuenta activa tiene perfil, su volcado debe funcionar: si no,
+        // el cambio machacaría tokens renovados que nunca se recogieron.
+        let activeIsKnown = previous.map { uuid in all.contains { $0.accountUuid == uuid } } ?? false
+        if activeIsKnown {
+            try syncActiveIntoProfile()
+        }
 
+        let previousCreds = try? store.readActiveCredentials()
         let identity = try target.identity()
         try store.writeActiveCredentials(creds)
-        try store.writeActiveIdentity(identity)
+        do {
+            try store.writeActiveIdentity(identity)
+        } catch {
+            // Revertir el Llavero para no dejar credenciales e identidad descasadas.
+            if let previousCreds { try? store.writeActiveCredentials(previousCreds) }
+            throw error
+        }
 
         if let previous, previous != accountUuid {
             defaults.set([previous, accountUuid], forKey: Self.lastSwitchKey)
@@ -65,8 +103,7 @@ public final class SwitchEngine: @unchecked Sendable {
     /// Alta de cuenta: guarda la sesión activa de Claude Code como perfil.
     @discardableResult
     public func captureActiveAsProfile() throws -> AccountProfile {
-        guard let identity = try store.readActiveIdentity(),
-              let creds = try store.readActiveCredentials() else {
+        guard let (identity, creds) = try readActivePair() else {
             throw SwitchError.profileNotFound("cuenta activa")
         }
         return try profiles.saveProfile(identity: identity, credentials: creds)

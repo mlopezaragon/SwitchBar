@@ -47,6 +47,37 @@ private let credencialesA = """
     #expect(try store.readActiveCredentials() == nil)
 }
 
+@Test func noEscribeSiLaEntradaDelLlaveroEstaCorrupta() throws {
+    let (store, keychain, _) = try makeStore()
+    try keychain.writeString("esto no es JSON {", service: ClaudeCodeStore.credentialsService)
+    let nuevas = try OAuthCredentials(claudeAiOauthJSON: Data("{\"accessToken\": \"t\", \"refreshToken\": \"r\"}".utf8))
+    #expect(throws: CoreError.self) {
+        try store.writeActiveCredentials(nuevas)
+    }
+    // El contenido original queda intacto.
+    #expect(try keychain.readString(service: ClaudeCodeStore.credentialsService) == "esto no es JSON {")
+}
+
+@Test func noEscribeSiClaudeJsonEstaCorrupto() throws {
+    let (store, _, jsonURL) = try makeStore()
+    try Data("{fichero a medias".utf8).write(to: jsonURL)
+    let nueva = try AccountIdentity(oauthAccountJSON: Data("{\"accountUuid\": \"u\", \"emailAddress\": \"a@a.com\"}".utf8))
+    #expect(throws: CoreError.self) {
+        try store.writeActiveIdentity(nueva)
+    }
+    #expect(String(data: try Data(contentsOf: jsonURL), encoding: .utf8) == "{fichero a medias")
+}
+
+@Test func escribirIdentidadDejaCopiaDeSeguridad() throws {
+    let (store, _, jsonURL) = try makeStore()
+    let original = "{\"oauthAccount\": {\"accountUuid\": \"u1\", \"emailAddress\": \"a@a.com\"}, \"clave\": 1}"
+    try Data(original.utf8).write(to: jsonURL)
+    let nueva = try AccountIdentity(oauthAccountJSON: Data("{\"accountUuid\": \"u2\", \"emailAddress\": \"b@b.com\"}".utf8))
+    try store.writeActiveIdentity(nueva)
+    let backup = jsonURL.appendingPathExtension("claudeswitch-backup")
+    #expect(String(data: try Data(contentsOf: backup), encoding: .utf8) == original)
+}
+
 @Test func escribirIdentidadPreservaRestoDeClaudeJson() throws {
     let (store, _, jsonURL) = try makeStore()
     try Data("""
