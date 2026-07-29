@@ -49,8 +49,14 @@ public final class ProfileStore: @unchecked Sendable {
     @discardableResult
     public func saveProfile(identity: AccountIdentity, credentials: OAuthCredentials) throws -> AccountProfile {
         lock.lock(); defer { lock.unlock() }
-        let profile = AccountProfile(identity: identity, subscriptionType: credentials.subscriptionType)
+        var profile = AccountProfile(identity: identity, subscriptionType: credentials.subscriptionType)
         var profiles = loadProfilesLocked()
+        // Al re-guardar (volcados periódicos) se conservan los ajustes propios
+        // del perfil que no vienen de Claude Code, como los topes compartidos.
+        if let existing = profiles.first(where: { $0.accountUuid == profile.accountUuid }) {
+            profile.sharedFiveHourCap = existing.sharedFiveHourCap
+            profile.sharedWeeklyCap = existing.sharedWeeklyCap
+        }
         profiles.removeAll { $0.accountUuid == profile.accountUuid }
         profiles.append(profile)
         profiles.sort { $0.emailAddress < $1.emailAddress }
@@ -71,6 +77,16 @@ public final class ProfileStore: @unchecked Sendable {
         guard loadProfilesLocked().contains(where: { $0.accountUuid == accountUuid }) else { return }
         guard let s = String(data: credentials.rawJSON, encoding: .utf8) else { throw KeychainError.notUTF8 }
         try keychain.writeString(s, service: Self.service(for: accountUuid))
+    }
+
+    /// Fija los topes personales de una cuenta compartida (nil = sin tope).
+    public func setSharedCaps(fiveHour: Double?, weekly: Double?, for accountUuid: String) {
+        lock.lock(); defer { lock.unlock() }
+        var profiles = loadProfilesLocked()
+        guard let i = profiles.firstIndex(where: { $0.accountUuid == accountUuid }) else { return }
+        profiles[i].sharedFiveHourCap = fiveHour
+        profiles[i].sharedWeeklyCap = weekly
+        try? saveProfilesLocked(profiles)
     }
 
     public func markNeedsLogin(_ accountUuid: String, _ flag: Bool) {

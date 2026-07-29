@@ -77,6 +77,24 @@ private let respuestaConLimits = """
     }
 }
 
+@Test func reescalaAlTopePersonalDeCuentaCompartida() throws {
+    let s = UsageSnapshot(
+        fiveHour: UsageWindow(utilization: 54, resetsAt: nil),
+        sevenDay: UsageWindow(utilization: 30, resetsAt: nil),
+        sevenDayOpus: UsageWindow(utilization: 66, resetsAt: nil),
+        fetchedAt: Date()
+    )
+    let escalado = s.scaledToPersonalCaps(fiveHourCap: 60, weeklyCap: 60)
+    // 54 % real con tope del 60 % = 90 % propio.
+    #expect(escalado.fiveHour?.utilization == 90)
+    #expect(escalado.sevenDay?.utilization == 50)
+    // El tope semanal se aplica también a Fable/Opus, saturando en 100.
+    #expect(escalado.sevenDayOpus?.utilization == 100)
+    // Sin topes, no cambia nada.
+    let intacto = s.scaledToPersonalCaps(fiveHourCap: nil, weeklyCap: nil)
+    #expect(intacto.fiveHour?.utilization == 54)
+}
+
 @Test func detectaCaducidadDelToken() throws {
     let ahora = Date(timeIntervalSince1970: 1_000_000)
     let json = """

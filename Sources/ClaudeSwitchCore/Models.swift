@@ -63,6 +63,23 @@ public struct UsageSnapshot: Sendable, Equatable {
         self.fetchedAt = fetchedAt
     }
 
+    /// Reescala las ventanas a un tope personal (cuentas compartidas): con un
+    /// tope del 60 %, haber consumido el 54 % real equivale al 90 % "propio".
+    /// El tope semanal se aplica también a la ventana de Fable/Opus.
+    public func scaledToPersonalCaps(fiveHourCap: Double?, weeklyCap: Double?) -> UsageSnapshot {
+        func scale(_ w: UsageWindow?, cap: Double?) -> UsageWindow? {
+            guard let w else { return nil }
+            guard let cap, cap > 0, cap < 100 else { return w }
+            return UsageWindow(utilization: min(100, w.utilization / cap * 100), resetsAt: w.resetsAt)
+        }
+        return UsageSnapshot(
+            fiveHour: scale(fiveHour, cap: fiveHourCap),
+            sevenDay: scale(sevenDay, cap: weeklyCap),
+            sevenDayOpus: scale(sevenDayOpus, cap: weeklyCap),
+            fetchedAt: fetchedAt
+        )
+    }
+
     /// Interpreta la respuesta de `GET /api/oauth/usage`.
     ///
     /// La fuente preferida es el array `limits` (kinds `session`, `weekly_all`
@@ -196,6 +213,10 @@ public struct AccountProfile: Codable, Identifiable, Sendable, Equatable {
     public var needsLogin: Bool
     /// JSON crudo del bloque `oauthAccount` (no contiene secretos).
     public var identityJSON: Data
+    /// Topes personales para cuentas compartidas (porcentaje 0–100 del límite
+    /// real que este usuario se permite consumir); nil = cuenta no compartida.
+    public var sharedFiveHourCap: Double?
+    public var sharedWeeklyCap: Double?
 
     public var id: String { accountUuid }
 

@@ -49,9 +49,9 @@ struct AccountCardView: View {
                 }
 
                 VStack(spacing: 5) {
-                    UsageBar(label: "5 horas", window: usage?.fiveHour)
-                    UsageBar(label: "Semana", window: usage?.sevenDay)
-                    UsageBar(label: "Fable", window: usage?.sevenDayOpus)
+                    UsageBar(label: "5 horas", window: usage?.fiveHour, cap: profile.sharedFiveHourCap)
+                    UsageBar(label: "Semana", window: usage?.sevenDay, cap: profile.sharedWeeklyCap)
+                    UsageBar(label: "Fable", window: usage?.sevenDayOpus, cap: profile.sharedWeeklyCap)
                 }
             }
             .padding(12)
