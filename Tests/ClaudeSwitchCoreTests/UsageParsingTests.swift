@@ -30,6 +30,29 @@ private let respuestaSinOpus = """
     #expect(s.fetchedAt == ahora)
 }
 
+private let respuestaConLimits = """
+{
+  "five_hour": {"utilization": 78, "resets_at": "2026-07-29T14:09:59.230834+00:00"},
+  "seven_day": {"utilization": 66, "resets_at": "2026-08-03T02:59:59.230899+00:00"},
+  "seven_day_opus": null,
+  "limits": [
+    {"kind": "session", "group": "session", "percent": 78, "severity": "warning", "resets_at": "2026-07-29T14:09:59.230834+00:00", "is_active": true},
+    {"kind": "weekly_all", "group": "weekly", "percent": 66, "severity": "normal", "resets_at": "2026-08-03T02:59:59.230899+00:00", "is_active": false},
+    {"kind": "weekly_scoped", "group": "weekly", "percent": 5, "severity": "normal", "resets_at": "2026-08-03T03:00:00.231174+00:00", "is_active": false}
+  ]
+}
+""".data(using: .utf8)!
+
+@Test func prefiereElArrayLimitsYParseaMicrosegundos() throws {
+    let s = try UsageSnapshot.parse(respuestaConLimits, fetchedAt: Date())
+    #expect(s.fiveHour?.utilization == 78)
+    // weekly_scoped es el límite de Opus/Fable aunque seven_day_opus sea null.
+    #expect(s.sevenDayOpus?.utilization == 5)
+    // Las fechas con microsegundos y desfase +00:00 se parsean igualmente.
+    #expect(s.fiveHour?.resetsAt != nil)
+    #expect(s.sevenDayOpus?.resetsAt != nil)
+}
+
 @Test func parseaRespuestaConOpusNulo() throws {
     let s = try UsageSnapshot.parse(respuestaSinOpus, fetchedAt: Date())
     #expect(s.fiveHour?.utilization == 0)

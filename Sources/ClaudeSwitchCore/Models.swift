@@ -22,7 +22,11 @@ enum ISO8601 {
     }()
 
     static func parse(_ s: String) -> Date? {
-        conFracciones.date(from: s) ?? sinFracciones.date(from: s)
+        if let d = conFracciones.date(from: s) ?? sinFracciones.date(from: s) { return d }
+        // El endpoint de uso emite microsegundos (p. ej. ".230834+00:00"),
+        // que el formateador estricto no acepta: eliminar la parte fraccional.
+        let sinFraccion = s.replacingOccurrences(of: #"\.\d+"#, with: "", options: .regularExpression)
+        return sinFracciones.date(from: sinFraccion)
     }
 }
 
@@ -60,14 +64,28 @@ public struct UsageSnapshot: Sendable, Equatable {
     }
 
     /// Interpreta la respuesta de `GET /api/oauth/usage`.
+    ///
+    /// La fuente preferida es el array `limits` (kinds `session`, `weekly_all`
+    /// y `weekly_scoped` — este último es el límite semanal de Opus/Fable);
+    /// si falta, se cae a las claves clásicas `five_hour`/`seven_day`/
+    /// `seven_day_opus`.
     public static func parse(_ data: Data, fetchedAt: Date) throws -> UsageSnapshot {
         guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw CoreError.malformedJSON("respuesta de uso no es un objeto JSON")
         }
+        var byKind: [String: UsageWindow] = [:]
+        if let limits = dict["limits"] as? [[String: Any]] {
+            for limit in limits {
+                guard let kind = limit["kind"] as? String,
+                      let percent = (limit["percent"] as? NSNumber)?.doubleValue else { continue }
+                let resetsAt = (limit["resets_at"] as? String).flatMap(ISO8601.parse)
+                byKind[kind] = UsageWindow(utilization: percent, resetsAt: resetsAt)
+            }
+        }
         return UsageSnapshot(
-            fiveHour: UsageWindow.from(dict["five_hour"]),
-            sevenDay: UsageWindow.from(dict["seven_day"]),
-            sevenDayOpus: UsageWindow.from(dict["seven_day_opus"]),
+            fiveHour: byKind["session"] ?? UsageWindow.from(dict["five_hour"]),
+            sevenDay: byKind["weekly_all"] ?? UsageWindow.from(dict["seven_day"]),
+            sevenDayOpus: byKind["weekly_scoped"] ?? UsageWindow.from(dict["seven_day_opus"]),
             fetchedAt: fetchedAt
         )
     }
