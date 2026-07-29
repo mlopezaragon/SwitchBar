@@ -125,7 +125,7 @@ struct DetailView: View {
             SharedAccountControls(profile: profile, state: state)
 
             if let fetched = usage?.fetchedAt {
-                Text("Datos de \(relative(fetched))")
+                Text("Datos actualizados \(ResetFormatter.since(fetched))")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -197,28 +197,59 @@ private struct SharedAccountControls: View {
     @State private var shared: Bool
     @State private var fiveHourCap: Double
     @State private var weeklyCap: Double
+    /// Los ajustes quedan plegados una vez configurados; se despliegan al pulsar.
+    @State private var expanded: Bool
 
     init(profile: AccountProfile, state: AppState) {
         self.profile = profile
         self.state = state
-        _shared = State(initialValue: profile.sharedFiveHourCap != nil || profile.sharedWeeklyCap != nil)
+        let isShared = profile.sharedFiveHourCap != nil || profile.sharedWeeklyCap != nil
+        _shared = State(initialValue: isShared)
         _fiveHourCap = State(initialValue: profile.sharedFiveHourCap ?? 60)
         _weeklyCap = State(initialValue: profile.sharedWeeklyCap ?? 60)
+        _expanded = State(initialValue: false)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Toggle("Cuenta compartida: reservar uso para otra persona", isOn: $shared)
-                .toggleStyle(.switch)
-                .controlSize(.small)
-                .onChange(of: shared) { apply() }
+            Button {
+                withAnimation(.easeInOut(duration: 0.18)) { expanded.toggle() }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .rotationEffect(.degrees(expanded ? 90 : 0))
+                        .foregroundStyle(.secondary)
+                    Text("Cuenta compartida")
+                        .font(.callout)
+                    if shared {
+                        Text("mis topes: \(Int(fiveHourCap)) % / \(Int(weeklyCap)) %")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("desactivada")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
 
-            if shared {
-                capSlider("Mi tope de 5 horas", value: $fiveHourCap)
-                capSlider("Mi tope semanal (incluye Fable)", value: $weeklyCap)
-                Text("ClaudeSwitch tratará esta cuenta como agotada al llegar a tu tope, dejando el resto disponible.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+            if expanded {
+                Toggle("Reservar uso para otra persona", isOn: $shared)
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                    .onChange(of: shared) { apply() }
+
+                if shared {
+                    capSlider("Mi tope de 5 horas", value: $fiveHourCap)
+                    capSlider("Mi tope semanal (incluye Fable)", value: $weeklyCap)
+                    Text("ClaudeSwitch tratará esta cuenta como agotada al llegar a tu tope, dejando el resto disponible.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
             }
         }
         .padding(.top, 2)

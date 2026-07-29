@@ -17,6 +17,15 @@ struct MenuPanelView: View {
                 emptyState
             }
 
+            ForEach(state.profilesList) { profile in
+                AccountCardView(
+                    profile: profile,
+                    usage: state.usageByAccount[profile.accountUuid],
+                    isActive: profile.accountUuid == state.activeAccountUuid,
+                    onSwitch: { state.switchTo(profile.accountUuid) }
+                )
+            }
+
             Button {
                 DetailWindowController.shared.show()
                 state.beginAddAccount()
@@ -26,15 +35,6 @@ struct MenuPanelView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-
-            ForEach(state.profilesList) { profile in
-                AccountCardView(
-                    profile: profile,
-                    usage: state.usageByAccount[profile.accountUuid],
-                    isActive: profile.accountUuid == state.activeAccountUuid,
-                    onSwitch: { state.switchTo(profile.accountUuid) }
-                )
-            }
 
             if let message = state.infoMessage {
                 Text(message)
@@ -69,7 +69,7 @@ struct MenuPanelView: View {
                 ProgressView()
                     .controlSize(.small)
             } else if let last = state.lastRefreshAt {
-                Text(relative(last))
+                Text(ResetFormatter.since(last))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -155,10 +155,4 @@ struct MenuPanelView: View {
         }
     }
 
-    private func relative(_ date: Date) -> String {
-        let f = RelativeDateTimeFormatter()
-        f.locale = Locale(identifier: "es_ES")
-        f.unitsStyle = .short
-        return f.localizedString(for: date, relativeTo: Date())
-    }
 }

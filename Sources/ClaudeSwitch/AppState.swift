@@ -47,12 +47,6 @@ final class AppState {
     /// Última cuenta que activó ClaudeSwitch. Sirve para distinguir un cambio
     /// hecho por la app de un `/login` manual del usuario en la terminal.
     private var lastSwitchByApp: String?
-    /// Credenciales de la cuenta activa cacheadas para no releer el Llavero
-    /// (cada lectura puede abrir un diálogo de autorización del sistema).
-    private var cachedActiveCredentials: (uuid: String, credentials: OAuthCredentials)?
-    /// Hay que volcar la sesión activa a su perfil en el próximo refresco
-    /// (se marca al detectar un cambio de cuenta, no en cada ronda).
-    private var pendingSyncOfActive = true
     /// Instante del último login manual detectado. El cambio automático se
     /// mantiene en pausa un rato después para no pisar la elección del usuario.
     private(set) var manualLoginAt: Date?
@@ -96,8 +90,6 @@ final class AppState {
                     self.manualLoginAt = Date()
                     self.infoMessage = nil
                 }
-                self.cachedActiveCredentials = nil
-                self.pendingSyncOfActive = true
                 await self.reloadLocalState()
                 await self.refreshAll()
             }
@@ -149,10 +141,18 @@ final class AppState {
         let profiles = self.profiles
         let engine = self.engine
         let snapshot = await offMain { () -> LocalSnapshot in
-            let list = profiles.loadProfiles()
+            var list = profiles.loadProfiles()
             let identity = try? store.readActiveIdentity()
             let unsaved = identity.flatMap { id in
                 list.contains { $0.accountUuid == id.accountUuid } ? nil : id
+            }
+            // La cuenta en uso siempre la primera; el resto por correo.
+            let activeUuid = identity?.accountUuid
+            list.sort { a, b in
+                if (a.accountUuid == activeUuid) != (b.accountUuid == activeUuid) {
+                    return a.accountUuid == activeUuid
+                }
+                return a.emailAddress.localizedCaseInsensitiveCompare(b.emailAddress) == .orderedAscending
             }
             return LocalSnapshot(
                 profiles: list,
@@ -179,15 +179,10 @@ final class AppState {
         }
         lastError = nil
         await reloadLocalState()
-        // El volcado de la sesión activa a su perfil lee el Llavero de Claude
-        // Code, así que solo se hace cuando la cuenta activa ha cambiado (o
-        // tras un cambio propio), no en cada ronda de refresco.
-        if pendingSyncOfActive {
-            pendingSyncOfActive = false
-            let engine = self.engine
-            _ = await offMain { try? engine.syncActiveIntoProfile() }
-            await reloadLocalState()
-        }
+        // Aquí no se toca la entrada del Llavero de Claude Code (abriría un
+        // diálogo de autorización): el uso se consulta con las credenciales
+        // propias de cada perfil. Esa entrada solo se lee al cambiar de cuenta
+        // o al guardar la sesión activa como perfil.
 
         for profile in profilesList where !profile.needsLogin {
             await refreshUsage(for: profile)
@@ -197,33 +192,27 @@ final class AppState {
     }
 
     private func refreshUsage(for profile: AccountProfile) async {
-        let isActive = profile.accountUuid == activeAccountUuid
         do {
-            guard var creds = try await credentialsPreferringActive(for: profile.accountUuid) else {
-                profiles.markNeedsLogin(profile.accountUuid, true)
+            guard var creds = try await credentials(for: profile.accountUuid) else {
+                markNeedsLogin(profile.accountUuid, true)
                 return
             }
             if creds.isRefreshTokenExpired() {
-                profiles.markNeedsLogin(profile.accountUuid, true)
+                markNeedsLogin(profile.accountUuid, true)
                 return
             }
             if creds.isAccessTokenExpired() {
-                // La cuenta activa la renueva Claude Code: renovarla aquí
-                // competiría por rotar el mismo refresh token y podría
-                // desconectar la CLI. Se muestra el último dato conocido.
-                guard !isActive else { return }
                 creds = try await refreshCredentials(creds, for: profile.accountUuid)
             }
             do {
                 usageByAccount[profile.accountUuid] = try await api.fetchUsage(accessToken: creds.accessToken)
             } catch AnthropicAPIError.httpError(401) {
-                guard !isActive else { return }
                 // Token rechazado pese a no constar caducado: renovar y reintentar una vez.
                 creds = try await refreshCredentials(creds, for: profile.accountUuid)
                 usageByAccount[profile.accountUuid] = try await api.fetchUsage(accessToken: creds.accessToken)
             }
         } catch AnthropicAPIError.refreshTokenInvalid {
-            profiles.markNeedsLogin(profile.accountUuid, true)
+            markNeedsLogin(profile.accountUuid, true)
         } catch AnthropicAPIError.rateLimited {
             rateLimitedUntil = Date().addingTimeInterval(600)
             lastError = "Límite de peticiones alcanzado; se reintentará en unos minutos"
@@ -232,37 +221,24 @@ final class AppState {
         }
     }
 
-    /// Para la cuenta activa, la fuente de verdad es el Llavero de Claude Code
-    /// (la CLI renueva tokens por su cuenta); para el resto, el perfil.
+    /// Credenciales para consultar el uso.
     ///
-    /// La entrada "Claude Code-credentials" la creó Claude Code, así que cada
-    /// lectura puede provocar un diálogo de autorización del Llavero. Por eso
-    /// se cachea en memoria y solo se relee cuando cambia la cuenta activa o
-    /// cuando el token cacheado caduca (que es cuando la CLI lo habrá
-    /// renovado): de decenas de lecturas por hora se pasa a una.
-    private func credentialsPreferringActive(for accountUuid: String) async throws -> OAuthCredentials? {
-        let store = self.store
+    /// Se usan SIEMPRE las del perfil de ClaudeSwitch, incluida la cuenta
+    /// activa. La entrada "Claude Code-credentials" la creó otra aplicación y
+    /// cada acceso abre un diálogo de autorización del sistema, así que el
+    /// refresco periódico no la toca nunca: solo se lee al cambiar de cuenta.
+    private func credentials(for accountUuid: String) async throws -> OAuthCredentials? {
         let profiles = self.profiles
-        if accountUuid == activeAccountUuid {
-            if let cached = cachedActiveCredentials,
-               cached.uuid == accountUuid,
-               !cached.credentials.isAccessTokenExpired() {
-                return cached.credentials
-            }
-            let result: Result<OAuthCredentials?, Error> = await offMain {
-                Result { try store.readActiveCredentials() }
-            }
-            if let active = try result.get() {
-                cachedActiveCredentials = (accountUuid, active)
-                return active
-            }
-        }
         return try await offMain { Result { try profiles.credentials(for: accountUuid) } }.get()
     }
 
-    /// Renueva y persiste en el perfil. Solo para cuentas NO activas: la
-    /// renovación rota el refresh token, y perder el nuevo sería fatal, así
-    /// que la persistencia se reintenta antes de rendirse.
+    private func markNeedsLogin(_ accountUuid: String, _ flag: Bool) {
+        let profiles = self.profiles
+        Task { _ = await offMain { profiles.markNeedsLogin(accountUuid, flag) } }
+    }
+
+    /// Renueva y persiste en el perfil. La renovación rota el refresh token y
+    /// perder el nuevo sería fatal, así que se reintenta antes de rendirse.
     private func refreshCredentials(_ creds: OAuthCredentials, for accountUuid: String) async throws -> OAuthCredentials {
         let renewed = try await api.refresh(creds)
         let profiles = self.profiles
@@ -330,7 +306,6 @@ final class AppState {
         switch result {
         case .success(let identity):
             lastSwitchByApp = target
-            cachedActiveCredentials = nil
             await reloadLocalState()
             let pct = usageByAccount[target]?.fiveHour.map { Int($0.utilization) } ?? 0
             Notifier.notify(
@@ -360,8 +335,6 @@ final class AppState {
             }
             if case .success = result {
                 lastSwitchByApp = accountUuid
-                cachedActiveCredentials = nil
-                pendingSyncOfActive = true
             }
             await reloadLocalState()
             switch result {
