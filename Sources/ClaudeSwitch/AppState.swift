@@ -68,7 +68,11 @@ final class AppState {
         // El estado local se carga fuera del hilo principal: leer el Llavero
         // puede quedarse esperando un diálogo de autorización del sistema y
         // congelaría toda la interfaz.
-        Task { await reloadLocalState() }
+        let profilesStore = profiles
+        Task {
+            _ = await offMain { profilesStore.migrateLegacyEntriesIfNeeded() }
+            await reloadLocalState()
+        }
         startPolling()
         startIdentityWatcher()
     }

@@ -21,8 +21,47 @@ public final class ProfileStore: @unchecked Sendable {
 
     private var profilesURL: URL { directoryURL.appendingPathComponent("profiles.json") }
 
-    private static func service(for accountUuid: String) -> String {
+    /// Una única entrada del Llavero con las credenciales de todas las cuentas
+    /// (`{accountUuid: {claudeAiOauth…}}`). Con una entrada por cuenta, macOS
+    /// pedía autorización una vez por cada una; así el permiso se concede una
+    /// sola vez.
+    static let vaultService = "ClaudeSwitch-credentials"
+
+    /// Formato antiguo: una entrada por cuenta. Se migra al arrancar.
+    private static func legacyService(for accountUuid: String) -> String {
         "ClaudeSwitch-profile-\(accountUuid)"
+    }
+
+    private func loadVault() -> [String: Any] {
+        guard let s = try? keychain.readString(service: Self.vaultService) ?? nil,
+              let dict = try? JSONSerialization.jsonObject(with: Data(s.utf8)) as? [String: Any] else { return [:] }
+        return dict
+    }
+
+    private func saveVault(_ vault: [String: Any]) throws {
+        let data = try JSONSerialization.data(withJSONObject: vault, options: [.sortedKeys])
+        guard let s = String(data: data, encoding: .utf8) else { throw KeychainError.notUTF8 }
+        try keychain.writeString(s, service: Self.vaultService)
+    }
+
+    /// Mueve los secretos del formato antiguo (una entrada por cuenta) al
+    /// almacén único. Se ejecuta una sola vez; después borra las entradas
+    /// viejas para que no vuelvan a pedir autorización.
+    public func migrateLegacyEntriesIfNeeded() {
+        lock.lock(); defer { lock.unlock() }
+        var vault = loadVault()
+        var migrated = false
+        for profile in loadProfilesLocked() where vault[profile.accountUuid] == nil {
+            guard let s = try? keychain.readString(service: Self.legacyService(for: profile.accountUuid)) ?? nil,
+                  let dict = try? JSONSerialization.jsonObject(with: Data(s.utf8)) as? [String: Any] else { continue }
+            vault[profile.accountUuid] = dict
+            migrated = true
+        }
+        guard migrated else { return }
+        guard (try? saveVault(vault)) != nil else { return }
+        for profile in loadProfilesLocked() {
+            try? keychain.delete(service: Self.legacyService(for: profile.accountUuid))
+        }
     }
 
     // MARK: Metadatos
@@ -65,14 +104,16 @@ public final class ProfileStore: @unchecked Sendable {
         profiles.append(profile)
         profiles.sort { $0.emailAddress < $1.emailAddress }
         try saveProfilesLocked(profiles)
-        guard let s = String(data: credentials.rawJSON, encoding: .utf8) else { throw KeychainError.notUTF8 }
-        try keychain.writeString(s, service: Self.service(for: profile.accountUuid))
+        var vault = loadVault()
+        vault[profile.accountUuid] = try credentials.asDictionary()
+        try saveVault(vault)
         return profile
     }
 
     public func credentials(for accountUuid: String) throws -> OAuthCredentials? {
-        guard let s = try keychain.readString(service: Self.service(for: accountUuid)) else { return nil }
-        return try OAuthCredentials(claudeAiOauthJSON: Data(s.utf8))
+        guard let entry = loadVault()[accountUuid] as? [String: Any] else { return nil }
+        let data = try JSONSerialization.data(withJSONObject: entry, options: [.sortedKeys])
+        return try OAuthCredentials(claudeAiOauthJSON: data)
     }
 
     public func updateCredentials(_ credentials: OAuthCredentials, for accountUuid: String) throws {
@@ -80,8 +121,9 @@ public final class ProfileStore: @unchecked Sendable {
         var profiles = loadProfilesLocked()
         // Si el perfil se eliminó mientras tanto, no recrear sus secretos.
         guard let i = profiles.firstIndex(where: { $0.accountUuid == accountUuid }) else { return }
-        guard let s = String(data: credentials.rawJSON, encoding: .utf8) else { throw KeychainError.notUTF8 }
-        try keychain.writeString(s, service: Self.service(for: accountUuid))
+        var vault = loadVault()
+        vault[accountUuid] = try credentials.asDictionary()
+        try saveVault(vault)
         profiles[i].refreshTokenFingerprint = AccountProfile.fingerprint(of: credentials.refreshToken)
         try? saveProfilesLocked(profiles)
     }
@@ -109,6 +151,9 @@ public final class ProfileStore: @unchecked Sendable {
         var profiles = loadProfilesLocked()
         profiles.removeAll { $0.accountUuid == accountUuid }
         try saveProfilesLocked(profiles)
-        try keychain.delete(service: Self.service(for: accountUuid))
+        var vault = loadVault()
+        vault[accountUuid] = nil
+        try saveVault(vault)
+        try? keychain.delete(service: Self.legacyService(for: accountUuid))
     }
 }
