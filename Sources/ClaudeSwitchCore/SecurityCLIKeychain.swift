@@ -19,6 +19,19 @@ public final class SecurityCLIKeychain: KeychainStoring {
 
     private static let binary = "/usr/bin/security"
 
+    /// Entradas que esta app puede tocar. Cualquier otra se rechaza: la app de
+    /// escritorio de Claude, el navegador y el resto del Llavero quedan fuera
+    /// de su alcance por construcción, no por convención.
+    public static let allowedServices: Set<String> = [
+        ClaudeCodeStore.credentialsService,
+        "ClaudeSwitch-credentials",
+        "ClaudeSwitch-selftest"
+    ]
+
+    private static func isAllowed(_ service: String) -> Bool {
+        allowedServices.contains(service) || service.hasPrefix("ClaudeSwitch-profile-")
+    }
+
     private struct Result_ {
         var status: Int32
         var stdout: String
@@ -61,6 +74,7 @@ public final class SecurityCLIKeychain: KeychainStoring {
     }
 
     public func readString(service: String) throws -> String? {
+        guard Self.isAllowed(service) else { return nil }
         let result = Self.run(["find-generic-password", "-s", service, "-w"])
         if result.status == 44 { return nil } // errSecItemNotFound
         guard result.status == 0 else {
@@ -72,10 +86,16 @@ public final class SecurityCLIKeychain: KeychainStoring {
     }
 
     public func writeString(_ value: String, service: String) throws {
+        guard Self.isAllowed(service) else { throw KeychainError.serviceNotAllowed(service) }
         // -U actualiza la entrada si ya existe, conservando su identidad.
+        // -A la deja accesible sin diálogo para los programas del usuario: es
+        // lo que permite que ni esta app ni Claude Code vuelvan a pedir la
+        // contraseña del Llavero en cada acceso. La protección efectiva pasa a
+        // ser la de la sesión del usuario, como el fichero de credenciales que
+        // usa Claude Code en Linux.
         let account = existingAccount(service: service) ?? self.account
         let result = Self.run([
-            "add-generic-password", "-U",
+            "add-generic-password", "-U", "-A",
             "-s", service,
             "-a", account,
             "-w", value
@@ -84,6 +104,7 @@ public final class SecurityCLIKeychain: KeychainStoring {
     }
 
     public func delete(service: String) throws {
+        guard Self.isAllowed(service) else { throw KeychainError.serviceNotAllowed(service) }
         let result = Self.run(["delete-generic-password", "-s", service])
         guard result.status == 0 || result.status == 44 else {
             throw KeychainError.osStatus(OSStatus(result.status))

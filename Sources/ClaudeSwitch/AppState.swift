@@ -70,10 +70,14 @@ final class AppState {
         // congelaría toda la interfaz.
         let profilesStore = profiles
         Task {
-            _ = await offMain { profilesStore.migrateLegacyEntriesIfNeeded() }
+            // Migrar antes de sondear: si el sondeo corre primero con el
+            // almacén vacío, marcaría todas las cuentas como sin sesión.
+            _ = await offMain {
+                profilesStore.migrateLegacyEntries(from: [KeychainService(), SecurityCLIKeychain()])
+            }
             await reloadLocalState()
+            startPolling()
         }
-        startPolling()
         startIdentityWatcher()
     }
 

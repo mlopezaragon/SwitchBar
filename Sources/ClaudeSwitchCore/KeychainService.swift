@@ -4,6 +4,8 @@ import Security
 public enum KeychainError: Error {
     case osStatus(OSStatus)
     case notUTF8
+    /// Se intentó tocar una entrada del Llavero ajena a esta app.
+    case serviceNotAllowed(String)
 }
 
 /// Abstracción del Llavero para poder testear con un doble en memoria.
