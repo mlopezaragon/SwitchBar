@@ -63,12 +63,14 @@ struct DetailView: View {
         let usage = state.usageByAccount[profile.accountUuid]
         let isActive = profile.accountUuid == state.activeAccountUuid
         return VStack(alignment: .leading, spacing: 14) {
-            HStack {
+            HStack(spacing: 10) {
                 Circle()
                     .fill(profile.needsLogin ? Color.orange : (isActive ? Color.green : Color.secondary.opacity(0.4)))
                     .frame(width: 8, height: 8)
                 Text(profile.emailAddress)
                     .font(.system(size: 15, weight: .medium))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
                 if let plan = profile.subscriptionType {
                     Text(plan.capitalized)
                         .font(.caption2.weight(.semibold))
@@ -77,23 +79,34 @@ struct DetailView: View {
                         .background(Capsule().fill(.quaternary))
                         .foregroundStyle(.secondary)
                 }
-                Spacer()
+
+                Spacer(minLength: 12)
+
                 if isActive {
                     Text("Activa")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.green)
+                        .fixedSize()
                 } else {
-                    Button("Cambiar a esta cuenta") { state.switchTo(profile.accountUuid) }
+                    Button("Cambiar a esta") { state.switchTo(profile.accountUuid) }
                         .controlSize(.small)
                         .disabled(profile.needsLogin)
+                        .fixedSize()
                 }
+
                 Menu {
                     Button("Eliminar perfil", role: .destructive) { state.removeProfile(profile.accountUuid) }
                 } label: {
-                    Image(systemName: "ellipsis.circle")
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(width: 26, height: 22)
+                        .contentShape(Rectangle())
                 }
-                .menuStyle(.borderlessButton)
-                .frame(width: 24)
+                .menuStyle(.button)
+                .buttonStyle(.borderless)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .foregroundStyle(.secondary)
             }
 
             if profile.needsLogin {
@@ -105,7 +118,7 @@ struct DetailView: View {
             HStack(spacing: 24) {
                 UsageRing(label: "5 horas", window: usage?.fiveHour)
                 UsageRing(label: "Semana", window: usage?.sevenDay)
-                UsageRing(label: "Fable / Opus", window: usage?.sevenDayOpus)
+                UsageRing(label: "Fable", window: usage?.sevenDayOpus)
                 Spacer()
             }
 

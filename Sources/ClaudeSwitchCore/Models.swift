@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 // MARK: - Errores del núcleo
@@ -213,6 +214,10 @@ public struct AccountProfile: Codable, Identifiable, Sendable, Equatable {
     public var needsLogin: Bool
     /// JSON crudo del bloque `oauthAccount` (no contiene secretos).
     public var identityJSON: Data
+    /// Huella (SHA-256) del refresh token guardado. Permite comprobar a qué
+    /// perfil pertenecen unas credenciales sin volver a leer el Llavero, que
+    /// es lo que dispara los diálogos de autorización del sistema.
+    public var refreshTokenFingerprint: String?
     /// Topes personales para cuentas compartidas (porcentaje 0–100 del límite
     /// real que este usuario se permite consumir); nil = cuenta no compartida.
     public var sharedFiveHourCap: Double?
@@ -220,13 +225,20 @@ public struct AccountProfile: Codable, Identifiable, Sendable, Equatable {
 
     public var id: String { accountUuid }
 
-    public init(identity: AccountIdentity, subscriptionType: String?, needsLogin: Bool = false) {
+    public init(identity: AccountIdentity, subscriptionType: String?, needsLogin: Bool = false,
+                refreshTokenFingerprint: String? = nil) {
         self.accountUuid = identity.accountUuid
         self.emailAddress = identity.emailAddress
         self.displayName = identity.displayName
         self.subscriptionType = subscriptionType
         self.needsLogin = needsLogin
         self.identityJSON = identity.rawJSON
+        self.refreshTokenFingerprint = refreshTokenFingerprint
+    }
+
+    /// Huella estable de un refresh token (no reversible).
+    public static func fingerprint(of refreshToken: String) -> String {
+        Data(SHA256.hash(data: Data(refreshToken.utf8))).map { String(format: "%02x", $0) }.joined()
     }
 
     public func identity() throws -> AccountIdentity {

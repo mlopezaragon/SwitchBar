@@ -39,16 +39,24 @@ public final class SwitchEngine: @unchecked Sendable {
     private func readActivePair() throws -> (AccountIdentity, OAuthCredentials)? {
         guard let identity = try store.readActiveIdentity(),
               let creds = try store.readActiveCredentials() else { return nil }
+        try checkPairConsistency(identity: identity, credentials: creds)
+        return (identity, creds)
+    }
+
+    /// Comprueba que identidad y credenciales describen la misma cuenta. La
+    /// pertenencia se decide con la huella del refresh token guardada en cada
+    /// perfil, sin leer sus secretos del Llavero (cada lectura podría abrir un
+    /// diálogo de autorización).
+    private func checkPairConsistency(identity: AccountIdentity, credentials: OAuthCredentials) throws {
         guard let recheck = try store.readActiveIdentity(), recheck.accountUuid == identity.accountUuid else {
             throw SwitchError.inconsistentActiveState
         }
+        let fingerprint = AccountProfile.fingerprint(of: credentials.refreshToken)
         for other in profiles.loadProfiles() where other.accountUuid != identity.accountUuid {
-            if let otherCreds = try? profiles.credentials(for: other.accountUuid),
-               otherCreds.refreshToken == creds.refreshToken {
+            if let known = other.refreshTokenFingerprint, known == fingerprint {
                 throw SwitchError.inconsistentActiveState
             }
         }
-        return (identity, creds)
     }
 
     /// Vuelca el estado activo (credenciales + identidad) a su perfil, si existe.
@@ -76,21 +84,29 @@ public final class SwitchEngine: @unchecked Sendable {
         }
 
         let previous = activeAccountUuid()
-        // Si la cuenta activa tiene perfil, su volcado debe funcionar: si no,
-        // el cambio machacaría tokens renovados que nunca se recogieron.
-        let activeIsKnown = previous.map { uuid in all.contains { $0.accountUuid == uuid } } ?? false
-        if activeIsKnown {
-            try syncActiveIntoProfile()
+        // Una sola lectura del Llavero de Claude Code para todo el cambio:
+        // sirve a la vez para volcar la sesión saliente a su perfil, para
+        // preservar las demás claves (mcpOAuth…) y para poder revertir.
+        let blob = try store.readCredentialsBlob()
+        let previousCreds = blob?.credentials
+
+        if let previousCreds,
+           let previousIdentity = try store.readActiveIdentity(),
+           all.contains(where: { $0.accountUuid == previousIdentity.accountUuid }) {
+            try checkPairConsistency(identity: previousIdentity, credentials: previousCreds)
+            try profiles.saveProfile(identity: previousIdentity, credentials: previousCreds)
+            profiles.markNeedsLogin(previousIdentity.accountUuid, false)
         }
 
-        let previousCreds = try? store.readActiveCredentials()
         let identity = try target.identity()
-        try store.writeActiveCredentials(creds)
+        let base = try blob ?? ClaudeCodeStore.CredentialsBlob(dictionary: [:])
+        let newBlob = try base.replacingCredentials(creds)
+        try store.writeCredentialsBlob(newBlob)
         do {
             try store.writeActiveIdentity(identity)
         } catch {
             // Revertir el Llavero para no dejar credenciales e identidad descasadas.
-            if let previousCreds { try? store.writeActiveCredentials(previousCreds) }
+            if let blob { try? store.writeCredentialsBlob(blob) }
             throw error
         }
 

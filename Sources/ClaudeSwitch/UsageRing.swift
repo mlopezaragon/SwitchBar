@@ -36,20 +36,14 @@ struct UsageRing: View {
             VStack(spacing: 2) {
                 Text(label)
                     .font(.caption.weight(.medium))
-                Text(resetText)
+                Text(ResetFormatter.long(window?.resetsAt))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .frame(minWidth: 96)
-    }
-
-    private var resetText: String {
-        guard let date = window?.resetsAt else { return " " }
-        let f = RelativeDateTimeFormatter()
-        f.locale = Locale(identifier: "es_ES")
-        f.unitsStyle = .short
-        return "resetea " + f.localizedString(for: date, relativeTo: Date())
+        .frame(minWidth: 110)
     }
 }
