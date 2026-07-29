@@ -20,8 +20,11 @@ public struct ClaudeCodeStore: Sendable {
     }
 
     public init() {
+        // Se usa el mismo camino que Claude Code (/usr/bin/security): escribir
+        // esta entrada con la API SecItem le rompía la autorización y le hacía
+        // pedir la contraseña del Llavero continuamente.
         self.init(
-            keychain: KeychainService(),
+            keychain: SecurityCLIKeychain(),
             claudeJsonURL: FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude.json")
         )
     }
