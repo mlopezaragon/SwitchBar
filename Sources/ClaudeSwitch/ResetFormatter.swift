@@ -28,6 +28,18 @@ enum ResetFormatter {
         return "quedan \(compact(date)) · \(absolute(date))"
     }
 
+    /// Antigüedad de un dato: "ahora mismo", "hace 40 s", "hace 5 min".
+    static func since(_ date: Date?) -> String {
+        guard let date else { return "" }
+        let seconds = Int(max(0, Date().timeIntervalSince(date)))
+        if seconds < 5 { return "ahora mismo" }
+        if seconds < 60 { return "hace \(seconds) s" }
+        let minutes = seconds / 60
+        if minutes < 60 { return "hace \(minutes) min" }
+        let hours = minutes / 60
+        return hours < 24 ? "hace \(hours) h" : "hace \(hours / 24) d"
+    }
+
     /// Fecha y hora concretas, en español.
     static func absolute(_ date: Date?) -> String {
         guard let date else { return "" }
