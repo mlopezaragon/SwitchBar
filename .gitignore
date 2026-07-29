@@ -1,0 +1,6 @@
+.build/
+.DS_Store
+ClaudeSwitch.app/
+dist/
+*.xcodeproj
+.swiftpm/
