@@ -21,9 +21,14 @@ automática, sin volver a pasar por el inicio de sesión del navegador.
 1. `make install` (compila, firma y copia a /Applications) y abre la app.
 2. Con tu cuenta actual en Claude Code, pulsa «Guardar» en el aviso
    «Cuenta activa sin guardar» del panel.
-3. En una terminal: `claude /logout` y `claude /login` con la segunda cuenta;
-   vuelve al panel y guárdala. Repite con la tercera.
+3. Para el resto de cuentas, pulsa «Añadir cuenta»: se abre claude.ai en el
+   navegador (usa ventana privada si ya hay otra sesión), inicias sesión con
+   la cuenta nueva, autorizas, copias el código que aparece y lo pegas en la
+   app. Sin terminal y sin tocar la sesión activa de Claude Code.
 4. A partir de ahí, cambia con un clic o activa el «Cambio automático».
+5. Cuentas compartidas (p. ej. con otra persona): en la ventana de detalle,
+   activa «Cuenta compartida» y fija tus topes de 5 h y semanal; la app la
+   tratará como agotada al llegar a tu tope para dejarle uso al otro.
 
 Notas:
 - La primera vez, macOS pedirá permiso para leer la entrada del Llavero de
