@@ -14,6 +14,8 @@ final class AppState {
     private let profiles: ProfileStore
     private let engine: SwitchEngine
     private let api: AnthropicAPI
+    private let statusAPI: AnthropicStatusAPI
+    private let preferences: AppPreferences
 
     // MARK: Estado observable
 
@@ -28,25 +30,52 @@ final class AppState {
     private(set) var canUndo = false
     private(set) var isRefreshing = false
     private(set) var lastRefreshAt: Date?
+    /// Explica una pausa del endpoint de uso sin mezclarla con errores locales.
+    /// Persiste al abrir/cerrar el panel y se retira al recuperarse las cuentas.
+    private(set) var usageRefreshNotice: String?
+    private(set) var anthropicStatus: AnthropicStatusSnapshot?
+    private(set) var anthropicStatusUnavailable = false
+    private(set) var isCheckingAnthropicStatus = false
 
     // MARK: Ajustes persistidos
 
     var autoSwitchEnabled: Bool {
-        didSet { UserDefaults.standard.set(autoSwitchEnabled, forKey: "autoSwitchEnabled") }
+        didSet { preferences.autoSwitchEnabled = autoSwitchEnabled }
     }
     var triggerThreshold: Double {
-        didSet { UserDefaults.standard.set(triggerThreshold, forKey: "triggerThreshold") }
+        didSet { preferences.triggerThreshold = triggerThreshold }
+    }
+    var weeklyTriggerThreshold: Double {
+        didSet { preferences.weeklyTriggerThreshold = weeklyTriggerThreshold }
+    }
+    var fableTriggerThreshold: Double {
+        didSet { preferences.fableTriggerThreshold = fableTriggerThreshold }
+    }
+    var useFableForAutoSwitch: Bool {
+        didSet { preferences.useFableForAutoSwitch = useFableForAutoSwitch }
     }
     var pollIntervalSeconds: Double {
-        didSet { UserDefaults.standard.set(pollIntervalSeconds, forKey: "pollIntervalSeconds") }
+        didSet { preferences.pollIntervalSeconds = pollIntervalSeconds }
     }
 
     private var pollTask: Task<Void, Never>?
+    private var statusTask: Task<Void, Never>?
     private var identityWatchTask: Task<Void, Never>?
-    private var rateLimitedUntil: Date?
+    private var wakeObserver: NSObjectProtocol?
+    /// Anthropic puede limitar un token concreto. El descanso se guarda por
+    /// cuenta para que una sola sesión no congele la actualización de todas.
+    private var rateLimitedUntilByAccount: [String: Date] = [:]
+    private var usageRefreshPlanner = UsageRefreshPlanner()
+    private var usageIssueByAccount: [String: UsageIssue] = [:]
+    private var identityTracker = ActiveIdentityTracker()
+    /// Permite detectar también un `/login` de la misma cuenta, donde el UUID
+    /// no cambia pero Claude Code reescribe su identidad y rota credenciales.
+    private var lastObservedIdentityWrite: Date?
     /// Última cuenta que activó ClaudeSwitch. Sirve para distinguir un cambio
     /// hecho por la app de un `/login` manual del usuario en la terminal.
     private var lastSwitchByApp: String?
+    /// Evita que dos clics o un cambio manual y uno automático se solapen.
+    private var isSwitchingAccount = false
     /// Instante del último login manual detectado. El cambio automático se
     /// mantiene en pausa un rato después para no pisar la elección del usuario.
     private(set) var manualLoginAt: Date?
@@ -56,45 +85,134 @@ final class AppState {
 
     init(store: ClaudeCodeStore = ClaudeCodeStore(),
          profiles: ProfileStore = ProfileStore(),
-         api: AnthropicAPI = AnthropicAPI()) {
+         api: AnthropicAPI = AnthropicAPI(),
+         statusAPI: AnthropicStatusAPI = AnthropicStatusAPI(),
+         preferences: AppPreferences = AppPreferences()) {
         self.store = store
         self.profiles = profiles
+        self.preferences = preferences
         self.engine = SwitchEngine(store: store, profiles: profiles)
         self.api = api
-        let d = UserDefaults.standard
-        self.autoSwitchEnabled = d.bool(forKey: "autoSwitchEnabled")
-        self.triggerThreshold = d.object(forKey: "triggerThreshold") as? Double ?? 90
-        self.pollIntervalSeconds = d.object(forKey: "pollIntervalSeconds") as? Double ?? 180
-        // El estado local se carga fuera del hilo principal: leer el Llavero
-        // puede quedarse esperando un diálogo de autorización del sistema y
-        // congelaría toda la interfaz.
-        // Arrancar NUNCA toca el Llavero: si el llavero del sistema está
-        // pidiendo autorización, una migración al inicio dispara una decena de
-        // diálogos seguidos. Las cuentas se recuperan desde "Añadir cuenta",
-        // que no usa el Llavero en absoluto.
+        self.statusAPI = statusAPI
+        self.autoSwitchEnabled = preferences.autoSwitchEnabled
+        self.triggerThreshold = preferences.triggerThreshold
+        self.weeklyTriggerThreshold = preferences.weeklyTriggerThreshold
+        self.fableTriggerThreshold = preferences.fableTriggerThreshold
+        // Fable es un cupo independiente: agotarlo no impide seguir usando
+        // otros modelos con el cupo general. Solo participa si el usuario lo
+        // activa expresamente.
+        self.useFableForAutoSwitch = preferences.useFableForAutoSwitch
+        self.pollIntervalSeconds = preferences.pollIntervalSeconds
+        self.rateLimitedUntilByAccount = Self.loadUsageCooldowns(
+            from: preferences
+        )
+        // El estado local se carga fuera del hilo principal. El único Llavero
+        // que se consulta al arrancar es el almacén privado de ClaudeSwitch,
+        // con interacción desactivada; nunca se toca la sesión activa de
+        // Claude Code durante el arranque.
         Task {
+            await migrateLegacyStorage()
             await reloadLocalState()
+            startStatusPolling()
             startPolling()
+        }
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.refreshAfterResume()
+            }
         }
         startIdentityWatcher()
     }
 
-    /// Vigila `~/.claude.json` cada pocos segundos (solo lectura de fichero,
-    /// sin tocar el Llavero) para reflejar al instante un `/login` hecho por
-    /// el usuario en la terminal.
+    /// Vigila `~/.claude.json` para reflejar un cambio real de cuenta hecho
+    /// mediante `/login`. Las reescrituras ordinarias del fichero con la misma
+    /// identidad se ignoran; un token renovado para esa misma cuenta se recoge
+    /// al consultar el uso. ClaudeSwitch nunca renueva tokens por su cuenta.
     private func startIdentityWatcher() {
         identityWatchTask?.cancel()
         let store = self.store
+        let engine = self.engine
         identityWatchTask = Task { [weak self] in
+            guard let self else { return }
+            self.lastObservedIdentityWrite = await self.offMain {
+                store.identityModificationDate()
+            }
+            let initialIdentity = await self.offMain {
+                try? store.readActiveIdentity()
+            }
+            let initialAccountUuid = initialIdentity?.accountUuid
+            let previouslyObserved =
+                self.preferences.lastObservedAccountUuid
+            self.identityTracker = ActiveIdentityTracker(
+                accountUuid: initialAccountUuid
+            )
+            if let previouslyObserved,
+               let initialAccountUuid,
+               previouslyObserved != initialAccountUuid {
+                // La identidad cambió mientras ClaudeSwitch estaba cerrado:
+                // esta sí es una elección externa que conviene respetar.
+                self.manualLoginAt = Date()
+            }
+            self.preferences.lastObservedAccountUuid = initialAccountUuid
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(5))
-                guard let self else { return }
-                let uuid = await self.offMain { (try? store.readActiveIdentity())?.accountUuid }
-                guard let uuid, uuid != self.activeAccountUuid else { continue }
-                // Cambió la cuenta activa. Si no fue la app, es un login manual.
-                if uuid != self.lastSwitchByApp {
+                try? await Task.sleep(for: .seconds(3))
+                let modified = await self.offMain {
+                    store.identityModificationDate()
+                }
+                guard modified != self.lastObservedIdentityWrite else {
+                    continue
+                }
+                self.lastObservedIdentityWrite = modified
+                let identity = await self.offMain {
+                    try? store.readActiveIdentity()
+                }
+                guard let identity else { continue }
+
+                let change = self.identityTracker.observe(
+                    accountUuid: identity.accountUuid,
+                    expectedAppAccountUuid: self.lastSwitchByApp
+                )
+                if change == .unchanged {
+                    // Claude Code reescribe este fichero por otros motivos.
+                    // No renovar la pausa ni volver a consultar el uso.
+                    if identity.accountUuid == self.lastSwitchByApp {
+                        self.lastSwitchByApp = nil
+                    }
+                    continue
+                }
+                self.lastSwitchByApp = nil
+                self.preferences.lastObservedAccountUuid =
+                    identity.accountUuid
+                if change == .manual {
                     self.manualLoginAt = Date()
                     self.infoMessage = nil
+                    // Claude Code termina de confirmar el Llavero alrededor
+                    // de la escritura de ~/.claude.json. Un breve margen evita
+                    // capturar el par a medio actualizar.
+                    try? await Task.sleep(for: .milliseconds(750))
+                    if self.profilesList.contains(where: {
+                        $0.accountUuid == identity.accountUuid
+                    }) {
+                        let result = await self.offMain {
+                            Result { try engine.syncActiveIntoProfile() }
+                        }
+                        switch result {
+                        case .success:
+                            self.clearUsageCooldown(
+                                for: identity.accountUuid
+                            )
+                        case .failure(let error):
+                            self.lastError =
+                                L10n.tr(
+                                    "state.login_sync_failed",
+                                    self.describe(error)
+                                )
+                        }
+                    }
                 }
                 await self.reloadLocalState()
                 await self.refreshAll()
@@ -117,10 +235,47 @@ final class AppState {
         pollTask?.cancel()
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
-                await self?.refreshAll()
-                let interval = self?.pollIntervalSeconds ?? 180
-                try? await Task.sleep(for: .seconds(max(60, interval)))
+                guard let self else { return }
+                await self.refreshNextScheduledAccount()
+                let spacing = UsageRefreshPlanner.spacing(
+                    fullCycleInterval: self.pollIntervalSeconds,
+                    accountCount: self.availableUsageAccountCount
+                )
+                try? await Task.sleep(for: .seconds(spacing))
             }
+        }
+    }
+
+    /// La página pública es muy ligera. Durante una incidencia se consulta
+    /// cada minuto para que la recuperación aparezca pronto; en estado normal,
+    /// cada tres minutos.
+    private func startStatusPolling() {
+        statusTask?.cancel()
+        statusTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                await self.refreshAnthropicStatus()
+                let disrupted =
+                    self.anthropicStatus?.relevantHealth.isDisrupted ?? true
+                try? await Task.sleep(
+                    for: .seconds(disrupted ? 60 : 180)
+                )
+            }
+        }
+    }
+
+    func refreshAnthropicStatus() async {
+        if isCheckingAnthropicStatus { return }
+        isCheckingAnthropicStatus = true
+        defer { isCheckingAnthropicStatus = false }
+        do {
+            anthropicStatus = try await statusAPI.fetch()
+            anthropicStatusUnavailable = false
+        } catch {
+            // Conservar el último estado conocido, pero dejar claro que no se
+            // pudo actualizar. No confundir una red local sin conexión con una
+            // caída confirmada de Anthropic.
+            anthropicStatusUnavailable = true
         }
     }
 
@@ -128,9 +283,20 @@ final class AppState {
     func refreshIfStale() {
         Task {
             await reloadLocalState()
-            if let last = lastRefreshAt, Date().timeIntervalSince(last) < 30 { return }
+            if let activeAccountUuid,
+               let last = usageByAccount[activeAccountUuid]?.fetchedAt,
+               Date().timeIntervalSince(last) < 30 {
+                return
+            }
             await refreshAll()
         }
+    }
+
+    /// Al volver del reposo o reactivar la app se comprueba el uso de
+    /// inmediato si los datos no son recientes. El panel no tiene que estar
+    /// abierto para que el sondeo periódico y el cambio automático funcionen.
+    func refreshAfterResume() {
+        refreshIfStale()
     }
 
     // MARK: Estado local (sin red)
@@ -142,30 +308,73 @@ final class AppState {
         var activeUnsaved: AccountIdentity?
     }
 
+    private struct LocalLoadOutcome: Sendable {
+        var snapshot: LocalSnapshot?
+        var errorMessage: String?
+    }
+
+    private func migrateLegacyStorage() async {
+        let profiles = self.profiles
+        let outcome = await offMain { () -> String? in
+            do {
+                _ = try profiles.migrateLegacyFileIfNeeded()
+                return nil
+            } catch {
+                return UserFacingError.describe(error)
+            }
+        }
+        if let outcome {
+            lastError = L10n.tr(
+                "state.legacy_migration_failed",
+                outcome
+            )
+        }
+    }
+
     private func reloadLocalState() async {
         let store = self.store
         let profiles = self.profiles
         let engine = self.engine
-        let snapshot = await offMain { () -> LocalSnapshot in
-            var list = profiles.loadProfiles()
-            let identity = try? store.readActiveIdentity()
-            let unsaved = identity.flatMap { id in
-                list.contains { $0.accountUuid == id.accountUuid } ? nil : id
-            }
-            // La cuenta en uso siempre la primera; el resto por correo.
-            let activeUuid = identity?.accountUuid
-            list.sort { a, b in
-                if (a.accountUuid == activeUuid) != (b.accountUuid == activeUuid) {
-                    return a.accountUuid == activeUuid
+        let outcome = await offMain { () -> LocalLoadOutcome in
+            do {
+                var list = try profiles.loadProfiles()
+                let identity = try store.readActiveIdentity()
+                let unsaved = identity.flatMap { id in
+                    list.contains { $0.accountUuid == id.accountUuid } ? nil : id
                 }
-                return a.emailAddress.localizedCaseInsensitiveCompare(b.emailAddress) == .orderedAscending
+                // La cuenta en uso siempre la primera; el resto por correo.
+                let activeUuid = identity?.accountUuid
+                list.sort { a, b in
+                    if (a.accountUuid == activeUuid)
+                        != (b.accountUuid == activeUuid) {
+                        return a.accountUuid == activeUuid
+                    }
+                    return a.emailAddress.localizedCaseInsensitiveCompare(
+                        b.emailAddress
+                    ) == .orderedAscending
+                }
+                return LocalLoadOutcome(
+                    snapshot: LocalSnapshot(
+                        profiles: list,
+                        activeAccountUuid: identity?.accountUuid,
+                        canUndo: engine.canUndo,
+                        activeUnsaved: unsaved
+                    ),
+                    errorMessage: nil
+                )
+            } catch {
+                return LocalLoadOutcome(
+                    snapshot: nil,
+                    errorMessage: UserFacingError.describe(error)
+                )
             }
-            return LocalSnapshot(
-                profiles: list,
-                activeAccountUuid: identity?.accountUuid ?? engine.activeAccountUuid(),
-                canUndo: engine.canUndo,
-                activeUnsaved: unsaved
-            )
+        }
+        guard let snapshot = outcome.snapshot else {
+            if let message = outcome.errorMessage {
+                lastError =
+                    L10n.tr("state.local_read_failed", message)
+            }
+            return
         }
         profilesList = snapshot.profiles
         activeAccountUuid = snapshot.activeAccountUuid
@@ -175,64 +384,396 @@ final class AppState {
 
     // MARK: Refresco de red
 
-    func refreshAll() async {
-        if isRefreshing { return }
-        if let until = rateLimitedUntil, Date() < until { return }
-        isRefreshing = true
-        defer {
-            isRefreshing = false
-            lastRefreshAt = Date()
-        }
-        lastError = nil
-        await reloadLocalState()
-        // Aquí no se toca la entrada del Llavero de Claude Code (abriría un
-        // diálogo de autorización): el uso se consulta con las credenciales
-        // propias de cada perfil. Esa entrada solo se lee al cambiar de cuenta
-        // o al guardar la sesión activa como perfil.
+    private enum UsageRefreshOutcome {
+        case updated
+        case unchanged
+        case waitingForSession
+        case rateLimited(until: Date)
+        case failed(UsageRefreshFailure)
+    }
 
-        for profile in profilesList where !profile.needsLogin {
-            await refreshUsage(for: profile)
-        }
+    private enum UsageRefreshFailure {
+        case server(Int)
+        case connection
+    }
+
+    private enum UsageIssue {
+        case waitingForSession
+        case server(Int)
+        case connection
+    }
+
+    /// El botón y los eventos de ciclo de vida actualizan únicamente la cuenta
+    /// activa. El resto se reparte mediante `refreshNextScheduledAccount` para
+    /// no enviar una ráfaga de peticiones. Solo el botón fuerza la consulta
+    /// aunque los datos sean muy recientes; los eventos automáticos la omiten
+    /// para no encadenar peticiones que acaben en una pausa del servidor.
+    func refreshAll(force: Bool = false) async {
+        await refreshAnthropicStatus()
         await reloadLocalState()
+        guard let activeAccountUuid else {
+            usageRefreshNotice = nil
+            return
+        }
+        await refreshUsageAccount(activeAccountUuid, force: force)
+    }
+
+    private var availableUsageAccountCount: Int {
+        let now = Date()
+        return max(
+            1,
+            profilesList.filter { profile in
+                guard !profile.needsLogin else { return false }
+                return rateLimitedUntilByAccount[profile.accountUuid]
+                    .map { $0 <= now } ?? true
+            }.count
+        )
+    }
+
+    private func refreshNextScheduledAccount() async {
+        await reloadLocalState()
+        let now = Date()
+        clearExpiredUsageCooldowns(now: now)
+        let refreshable = profilesList.filter { !$0.needsLogin }
+        let blocked: Set<String> = Set(
+            refreshable.compactMap { profile in
+                guard let until =
+                        rateLimitedUntilByAccount[profile.accountUuid],
+                      until > now else {
+                    return nil
+                }
+                return profile.accountUuid
+            }
+        )
+        guard let target = usageRefreshPlanner.nextAccount(
+            accountUuids: refreshable.map(\.accountUuid),
+            activeAccountUuid: activeAccountUuid,
+            blockedAccountUuids: blocked
+        ) else {
+            updateActiveUsageNotice()
+            return
+        }
+        await refreshUsageAccount(target)
+    }
+
+    private func refreshUsageAccount(
+        _ accountUuid: String,
+        force: Bool = false
+    ) async {
+        if isRefreshing { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
+        await reloadLocalState()
+        // Aquí no se toca la entrada del Llavero de Claude Code: el uso se
+        // consulta con las credenciales propias de cada perfil. La sesión
+        // oficial solo se lee al cambiar o capturar una cuenta.
+
+        let now = Date()
+        clearExpiredUsageCooldowns(now: now)
+        guard let profile = profilesList.first(where: {
+            $0.accountUuid == accountUuid && !$0.needsLogin
+        }) else {
+            updateActiveUsageNotice()
+            return
+        }
+        if let until = rateLimitedUntilByAccount[accountUuid],
+           until > now {
+            updateActiveUsageNotice()
+            return
+        }
+
+        usageRefreshPlanner.recordRefresh(of: accountUuid)
+        // Tras un cambio de cuenta coinciden varios disparadores (vigilante de
+        // identidad, apertura del panel y sondeo). Un dato muy reciente no se
+        // vuelve a pedir: encadenar peticiones provoca la pausa del servidor.
+        if !force,
+           let fetchedAt = usageByAccount[accountUuid]?.fetchedAt,
+           now.timeIntervalSince(fetchedAt) < 30 {
+            updateActiveUsageNotice()
+            return
+        }
+        switch await refreshUsage(for: profile) {
+        case .updated:
+            rateLimitedUntilByAccount[accountUuid] = nil
+            usageIssueByAccount[accountUuid] = nil
+            if accountUuid == activeAccountUuid {
+                lastRefreshAt = Date()
+            }
+        case .rateLimited(let until):
+            rateLimitedUntilByAccount[accountUuid] = until
+            usageIssueByAccount[accountUuid] = nil
+        case .waitingForSession:
+            usageIssueByAccount[accountUuid] = .waitingForSession
+        case .failed(.server(let code)):
+            usageIssueByAccount[accountUuid] = .server(code)
+        case .failed(.connection):
+            usageIssueByAccount[accountUuid] = .connection
+        case .unchanged:
+            usageIssueByAccount[accountUuid] = nil
+        }
+        persistUsageCooldowns()
+        await reloadLocalState()
+        updateActiveUsageNotice()
         await runAutoSwitchIfNeeded()
     }
 
-    private func refreshUsage(for profile: AccountProfile) async {
+    private func clearExpiredUsageCooldowns(now: Date) {
+        let expired = rateLimitedUntilByAccount.compactMap {
+            $0.value <= now ? $0.key : nil
+        }
+        guard !expired.isEmpty else { return }
+        for accountUuid in expired {
+            rateLimitedUntilByAccount[accountUuid] = nil
+        }
+        persistUsageCooldowns()
+    }
+
+    private func refreshUsage(
+        for profile: AccountProfile
+    ) async -> UsageRefreshOutcome {
         do {
             guard var creds = try await credentials(for: profile.accountUuid) else {
                 markNeedsLogin(profile.accountUuid, true)
-                return
+                return .unchanged
             }
             if creds.isRefreshTokenExpired() {
                 markNeedsLogin(profile.accountUuid, true)
-                return
+                return .unchanged
             }
+            // La cuenta activa es propiedad de Claude Code: su token se
+            // recoge del Llavero oficial cuando Claude Code lo renueva.
+            // Las cuentas inactivas no tienen ninguna terminal detrás, así
+            // que su sesión del almacén privado se renueva aquí mismo con el
+            // flujo OAuth estándar; sin esto quedarían sin datos («—») en
+            // cuanto caducara su access token.
             if creds.isAccessTokenExpired() {
-                creds = try await refreshCredentials(creds, for: profile.accountUuid)
+                switch await renewedCredentials(
+                    for: profile,
+                    previousAccessToken: creds.accessToken,
+                    current: creds
+                ) {
+                case .success(let renewed):
+                    creds = renewed
+                case .failure(let outcome):
+                    return outcome
+                }
             }
             do {
-                usageByAccount[profile.accountUuid] = try await api.fetchUsage(accessToken: creds.accessToken)
+                usageByAccount[profile.accountUuid] = try await api.fetchUsage(
+                    accessToken: creds.accessToken
+                )
+                return .updated
             } catch AnthropicAPIError.httpError(401) {
-                // Token rechazado pese a no constar caducado: renovar y reintentar una vez.
-                creds = try await refreshCredentials(creds, for: profile.accountUuid)
-                usageByAccount[profile.accountUuid] = try await api.fetchUsage(accessToken: creds.accessToken)
+                // El servidor rechazó un token que parecía vigente: renovar la
+                // sesión una única vez y reintentar.
+                switch await renewedCredentials(
+                    for: profile,
+                    previousAccessToken: creds.accessToken,
+                    current: creds
+                ) {
+                case .success(let renewed):
+                    usageByAccount[profile.accountUuid] =
+                        try await api.fetchUsage(
+                            accessToken: renewed.accessToken
+                        )
+                    return .updated
+                case .failure(let outcome):
+                    return outcome
+                }
             }
-        } catch AnthropicAPIError.refreshTokenInvalid {
-            markNeedsLogin(profile.accountUuid, true)
-        } catch AnthropicAPIError.rateLimited {
-            rateLimitedUntil = Date().addingTimeInterval(600)
-            lastError = "Límite de peticiones alcanzado; se reintentará en unos minutos"
+        } catch AnthropicAPIError.rateLimited(let retryAfter) {
+            // Respetar la espera indicada por Anthropic. Sin cabecera se usa
+            // un descanso prudente de 10 minutos; se acota para evitar tanto
+            // bucles agresivos como bloqueos absurdamente largos.
+            let delay = min(max(retryAfter ?? 600, 60), 3_600)
+            return .rateLimited(
+                until: Date().addingTimeInterval(delay)
+            )
+        } catch AnthropicAPIError.httpError(let code) where code >= 500 {
+            return .failed(.server(code))
         } catch {
-            lastError = "No se pudo consultar el uso (¿sin conexión?)"
+            return .failed(.connection)
+        }
+    }
+
+    private enum CredentialRenewal {
+        case success(OAuthCredentials)
+        case failure(UsageRefreshOutcome)
+    }
+
+    /// Obtiene credenciales vigentes para una consulta de uso.
+    ///
+    /// - Cuenta activa: se recoge la sesión que Claude Code ya renovó en su
+    ///   Llavero oficial. ClaudeSwitch nunca rota el token de la sesión
+    ///   activa, porque una terminal abierta quedaría invalidada.
+    /// - Cuenta inactiva: ninguna terminal la está usando (su entrada del
+    ///   Llavero oficial fue sustituida al cambiar), así que su sesión del
+    ///   almacén privado se renueva con el flujo OAuth estándar y el token
+    ///   rotado se guarda en ese mismo almacén.
+    private func renewedCredentials(
+        for profile: AccountProfile,
+        previousAccessToken: String,
+        current creds: OAuthCredentials
+    ) async -> CredentialRenewal {
+        if profile.accountUuid == activeAccountUuid {
+            guard let synchronized = await synchronizeActiveCredentials(
+                for: profile,
+                previousAccessToken: previousAccessToken
+            ) else {
+                return .failure(.waitingForSession)
+            }
+            return .success(synchronized)
+        }
+        do {
+            let refreshed = try await api.refreshAccessToken(
+                refreshToken: creds.refreshToken
+            )
+            let expiresAt = refreshed.expiresIn.map {
+                Int(Date().addingTimeInterval($0)
+                    .timeIntervalSince1970 * 1000)
+            }
+            let updated = try creds.updating(
+                accessToken: refreshed.accessToken,
+                refreshToken: refreshed.refreshToken,
+                expiresAt: expiresAt
+            )
+            let profiles = self.profiles
+            let accountUuid = profile.accountUuid
+            try await offMain {
+                Result {
+                    try profiles.updateCredentials(
+                        updated,
+                        for: accountUuid
+                    )
+                }
+            }.get()
+            return .success(updated)
+        } catch AnthropicAPIError.invalidGrant {
+            markNeedsLogin(profile.accountUuid, true)
+            return .failure(.unchanged)
+        } catch AnthropicAPIError.rateLimited(let retryAfter) {
+            let delay = min(max(retryAfter ?? 600, 60), 3_600)
+            return .failure(
+                .rateLimited(until: Date().addingTimeInterval(delay))
+            )
+        } catch AnthropicAPIError.httpError(let code) where code >= 500 {
+            return .failure(.failed(.server(code)))
+        } catch {
+            return .failure(.failed(.connection))
+        }
+    }
+
+    /// Recoge únicamente una credencial que Claude Code ya haya renovado para
+    /// la cuenta activa. No escribe en la sesión oficial ni llama al endpoint
+    /// OAuth, así que las terminales abiertas y `/login` siguen siendo los
+    /// propietarios del ciclo de autenticación.
+    private func synchronizeActiveCredentials(
+        for profile: AccountProfile,
+        previousAccessToken: String
+    ) async -> OAuthCredentials? {
+        guard profile.accountUuid == activeAccountUuid else { return nil }
+        let engine = self.engine
+        let result = await offMain {
+            Result { try engine.syncActiveIntoProfile() }
+        }
+        guard case .success = result,
+              let synchronized = try? await credentials(
+                for: profile.accountUuid
+              ),
+              synchronized.accessToken != previousAccessToken,
+              !synchronized.isAccessTokenExpired() else {
+            return nil
+        }
+        clearUsageCooldown(for: profile.accountUuid)
+        return synchronized
+    }
+
+    /// Los problemas de cuentas inactivas quedan reflejados por la antigüedad
+    /// de sus datos, sin convertirlos en una alerta global. El aviso naranja
+    /// solo aparece si la cuenta que el usuario está utilizando necesita
+    /// esperar o renovar su sesión.
+    private func updateActiveUsageNotice() {
+        guard let activeAccountUuid,
+              let profile = profilesList.first(where: {
+                $0.accountUuid == activeAccountUuid
+              }) else {
+            usageRefreshNotice = nil
+            return
+        }
+        if let until = rateLimitedUntilByAccount[activeAccountUuid],
+           until > Date() {
+            let minutes = max(
+                1,
+                Int(ceil(until.timeIntervalSinceNow / 60))
+            )
+            usageRefreshNotice = L10n.tr(
+                "usage.cooldown.active",
+                minutes
+            )
+            return
+        }
+        switch usageIssueByAccount[activeAccountUuid] {
+        case .waitingForSession:
+            usageRefreshNotice = L10n.tr(
+                "usage.refresh.session_waiting",
+                profile.emailAddress
+            )
+        case .server(let code):
+            usageRefreshNotice =
+                anthropicStatus?.relevantHealth.isDisrupted == true
+                ? nil
+                : L10n.tr("usage.refresh.server_error", code)
+        case .connection:
+            usageRefreshNotice =
+                anthropicStatus?.relevantHealth.isDisrupted == true
+                ? nil
+                : L10n.tr("usage.refresh.connection_error")
+        case nil:
+            usageRefreshNotice = nil
+        }
+    }
+
+    private static func loadUsageCooldowns(
+        from preferences: AppPreferences
+    ) -> [String: Date] {
+        let now = Date()
+        let raw = preferences.usageCooldownTimestamps
+        return raw.reduce(into: [:]) { result, entry in
+            let date = Date(timeIntervalSince1970: entry.value)
+            if date > now {
+                result[entry.key] = date
+            }
+        }
+    }
+
+    private func persistUsageCooldowns() {
+        let now = Date()
+        rateLimitedUntilByAccount = rateLimitedUntilByAccount.filter {
+            $0.value > now
+        }
+        let raw = rateLimitedUntilByAccount.mapValues(
+            \.timeIntervalSince1970
+        )
+        preferences.usageCooldownTimestamps = raw
+    }
+
+    private func clearUsageCooldown(for accountUuid: String) {
+        let removedCooldown = rateLimitedUntilByAccount.removeValue(
+            forKey: accountUuid
+        ) != nil
+        usageIssueByAccount[accountUuid] = nil
+        if removedCooldown {
+            persistUsageCooldowns()
+        }
+        if accountUuid == activeAccountUuid {
+            updateActiveUsageNotice()
         }
     }
 
     /// Credenciales para consultar el uso.
     ///
-    /// Se usan SIEMPRE las del perfil de ClaudeSwitch, incluida la cuenta
-    /// activa. La entrada "Claude Code-credentials" la creó otra aplicación y
-    /// cada acceso abre un diálogo de autorización del sistema, así que el
-    /// refresco periódico no la toca nunca: solo se lee al cambiar de cuenta.
+    /// Se usan siempre las del almacén privado de ClaudeSwitch. El refresco
+    /// periódico nunca consulta ni modifica "Claude Code-credentials".
     private func credentials(for accountUuid: String) async throws -> OAuthCredentials? {
         let profiles = self.profiles
         return try await offMain { Result { try profiles.credentials(for: accountUuid) } }.get()
@@ -240,22 +781,15 @@ final class AppState {
 
     private func markNeedsLogin(_ accountUuid: String, _ flag: Bool) {
         let profiles = self.profiles
-        Task { _ = await offMain { profiles.markNeedsLogin(accountUuid, flag) } }
-    }
-
-    /// Renueva y persiste en el perfil. La renovación rota el refresh token y
-    /// perder el nuevo sería fatal, así que se reintenta antes de rendirse.
-    private func refreshCredentials(_ creds: OAuthCredentials, for accountUuid: String) async throws -> OAuthCredentials {
-        let renewed = try await api.refresh(creds)
-        let profiles = self.profiles
-        var persisted = await offMain { (try? profiles.updateCredentials(renewed, for: accountUuid)) != nil }
-        if !persisted {
-            try? await Task.sleep(for: .milliseconds(300))
-            persisted = await offMain { (try? profiles.updateCredentials(renewed, for: accountUuid)) != nil }
+        Task {
+            let result = await offMain {
+                Result { try profiles.markNeedsLogin(accountUuid, flag) }
+            }
+            if case .failure(let error) = result {
+                lastError =
+                    L10n.tr("state.profile_update_failed", describe(error))
+            }
         }
-        guard persisted else { throw KeychainError.notUTF8 }
-        _ = await offMain { profiles.markNeedsLogin(accountUuid, false) }
-        return renewed
     }
 
     // MARK: Cambio automático
@@ -281,6 +815,7 @@ final class AppState {
 
     private func runAutoSwitchIfNeeded() async {
         guard autoSwitchEnabled, let active = activeAccountUuid else { return }
+        guard !isSwitchingAccount else { return }
         // Un login manual reciente manda: no se le cambia la cuenta al usuario
         // justo después de que la haya elegido a mano en la terminal.
         guard !autoSwitchPausedByManualLogin else { return }
@@ -295,67 +830,177 @@ final class AppState {
             )
         }
         guard let activeState = states.first(where: { $0.accountUuid == active }) else { return }
-        let policy = AutoSwitchPolicy(triggerThreshold: triggerThreshold)
+        let policy = AutoSwitchPolicy(
+            triggerThreshold: triggerThreshold,
+            weeklyThreshold: weeklyTriggerThreshold,
+            fableThreshold: fableTriggerThreshold,
+            considersFable: useFableForAutoSwitch
+        )
+        let triggerDescription = autoSwitchTriggerDescription(activeState)
         guard let target = policy.decision(active: activeState, all: states) else {
             if policy.shouldSwitch(active: activeState) {
                 Notifier.notify(
-                    title: "Sin cuentas con margen",
-                    body: "Todas las cuentas están cerca de sus límites. \(nextResetText(states: states))"
+                    title: L10n.tr("auto_switch.no_available.title"),
+                    body: L10n.tr(
+                        "auto_switch.no_available.body",
+                        nextResetText(states: states)
+                    )
                 )
             }
             return
         }
         let engine = self.engine
+        isSwitchingAccount = true
+        defer { isSwitchingAccount = false }
+        lastSwitchByApp = target
         let result: Result<AccountIdentity, Error> = await offMain {
             Result { try engine.switchTo(target) }
         }
         switch result {
         case .success(let identity):
-            lastSwitchByApp = target
+            preferences.lastObservedAccountUuid = identity.accountUuid
             await reloadLocalState()
+            lastRefreshAt = usageByAccount[target]?.fetchedAt
+            updateActiveUsageNotice()
             let pct = usageByAccount[target]?.fiveHour.map { Int($0.utilization) } ?? 0
             Notifier.notify(
-                title: "Cambiado a \(identity.emailAddress)",
-                body: "Ventana de 5 h al \(pct) %. Las sesiones abiertas siguen con la cuenta anterior."
+                title: L10n.tr(
+                    "auto_switch.changed.title",
+                    identity.emailAddress
+                ),
+                body: L10n.tr(
+                    "auto_switch.changed.body",
+                    triggerDescription,
+                    pct
+                )
             )
         case .failure(let error):
-            lastError = "El cambio automático falló: \(describe(error))"
+            if lastSwitchByApp == target {
+                lastSwitchByApp = nil
+            }
+            lastError = L10n.tr("auto_switch.error", describe(error))
         }
     }
 
+    private func autoSwitchTriggerDescription(
+        _ active: AccountUsageState
+    ) -> String {
+        guard let usage = active.usage else {
+            return L10n.tr("auto_switch.trigger.generic")
+        }
+        if useFableForAutoSwitch,
+           let fable = usage.sevenDayOpus,
+           fable.utilization >= fableTriggerThreshold {
+            return L10n.tr(
+                "auto_switch.trigger.fable",
+                Int(fable.utilization)
+            )
+        }
+        if let weekly = usage.sevenDay,
+           weekly.utilization >= weeklyTriggerThreshold {
+            return L10n.tr(
+                "auto_switch.trigger.weekly",
+                Int(weekly.utilization)
+            )
+        }
+        if let fiveHour = usage.fiveHour {
+            return L10n.tr(
+                "auto_switch.trigger.five_hour",
+                Int(fiveHour.utilization)
+            )
+        }
+        return L10n.tr("auto_switch.trigger.generic")
+    }
+
     private func nextResetText(states: [AccountUsageState]) -> String {
-        let resets = states.compactMap { $0.usage?.fiveHour?.resetsAt }.sorted()
+        let resets = states.flatMap { state in
+            var accountResets = [
+                state.usage?.fiveHour?.resetsAt,
+                state.usage?.sevenDay?.resetsAt
+            ]
+            if useFableForAutoSwitch {
+                accountResets.append(state.usage?.sevenDayOpus?.resetsAt)
+            }
+            return accountResets.compactMap { $0 }
+        }.sorted()
         guard let next = resets.first else { return "" }
         let f = RelativeDateTimeFormatter()
-        f.locale = Locale(identifier: "es_ES")
-        return "El primer reseteo llega \(f.localizedString(for: next, relativeTo: Date()))."
+        f.locale = L10n.locale
+        return L10n.tr(
+            "auto_switch.next_reset",
+            f.localizedString(for: next, relativeTo: Date())
+        )
     }
 
     // MARK: Acciones del usuario
 
     func switchTo(_ accountUuid: String) {
+        guard !isSwitchingAccount else { return }
+        isSwitchingAccount = true
         let engine = self.engine
+        lastError = nil
+        infoMessage = nil
+        lastSwitchByApp = accountUuid
         Task {
-            let result: Result<AccountIdentity, Error> = await offMain {
-                Result { try engine.switchTo(accountUuid) }
+            defer { isSwitchingAccount = false }
+            let result: Result<(AccountIdentity, Bool), Error> = await offMain {
+                Result {
+                    do {
+                        return (try engine.switchTo(accountUuid), false)
+                    } catch let error as CoreError {
+                        guard case .malformedJSON = error else {
+                            throw error
+                        }
+                        return (
+                            try engine.repairAndSwitchTo(accountUuid),
+                            true
+                        )
+                    } catch SwitchError.inconsistentActiveState {
+                        return (
+                            try engine.repairAndSwitchTo(accountUuid),
+                            true
+                        )
+                    }
+                }
             }
-            if case .success = result {
-                lastSwitchByApp = accountUuid
+            if case .failure = result,
+               lastSwitchByApp == accountUuid {
+                lastSwitchByApp = nil
             }
             await reloadLocalState()
+            lastRefreshAt = activeAccountUuid.flatMap {
+                usageByAccount[$0]?.fetchedAt
+            }
+            updateActiveUsageNotice()
             switch result {
-            case .success(let identity):
-                infoMessage = "Ahora \(identity.emailAddress) es la cuenta activa. Las sesiones de Claude Code abiertas siguen con la anterior hasta reiniciarlas."
+            case .success(let outcome):
+                preferences.lastObservedAccountUuid =
+                    outcome.0.accountUuid
+                infoMessage = outcome.1
+                    ? L10n.tr(
+                        "state.session_repaired",
+                        outcome.0.emailAddress
+                    )
+                    : L10n.tr(
+                        "state.account_switched",
+                        outcome.0.emailAddress
+                    )
             case .failure(SwitchError.profileNeedsLogin):
-                lastError = "Esa cuenta necesita iniciar sesión de nuevo: añádela otra vez con «Añadir cuenta»"
+                lastError = L10n.tr("state.account_needs_login")
             case .failure(let error):
-                lastError = "No se pudo cambiar de cuenta: \(describe(error))"
+                lastError = L10n.tr(
+                    "state.account_switch_failed",
+                    describe(error)
+                )
             }
         }
     }
 
     func captureActive() {
+        guard !isSwitchingAccount else { return }
         let engine = self.engine
+        lastError = nil
+        infoMessage = nil
         Task {
             let result: Result<AccountProfile, Error> = await offMain {
                 Result { try engine.captureActiveAsProfile() }
@@ -363,106 +1008,177 @@ final class AppState {
             await reloadLocalState()
             switch result {
             case .success(let profile):
-                infoMessage = "Cuenta \(profile.emailAddress) guardada."
+                infoMessage = L10n.tr(
+                    "state.account_saved",
+                    profile.emailAddress
+                )
                 await refreshAll()
             case .failure(let error):
-                lastError = "No se pudo guardar la cuenta activa: \(describe(error))"
+                lastError = L10n.tr(
+                    "state.account_save_failed",
+                    describe(error)
+                )
             }
         }
     }
 
     func undo() {
+        guard !isSwitchingAccount else { return }
+        isSwitchingAccount = true
         let engine = self.engine
+        lastError = nil
+        infoMessage = nil
         Task {
+            defer { isSwitchingAccount = false }
             let result: Result<AccountIdentity, Error> = await offMain {
                 Result { try engine.undoLastSwitch() }
             }
             await reloadLocalState()
+            lastRefreshAt = activeAccountUuid.flatMap {
+                usageByAccount[$0]?.fetchedAt
+            }
+            updateActiveUsageNotice()
             switch result {
             case .success(let identity):
-                infoMessage = "De vuelta en \(identity.emailAddress)."
+                lastSwitchByApp = identity.accountUuid
+                preferences.lastObservedAccountUuid =
+                    identity.accountUuid
+                infoMessage = L10n.tr(
+                    "state.undo_success",
+                    identity.emailAddress
+                )
             case .failure(let error):
-                lastError = "No se pudo deshacer: \(describe(error))"
+                lastError = L10n.tr("state.undo_failed", describe(error))
             }
         }
     }
 
-    // MARK: Alta de cuenta desde la propia app (sin terminal)
+    // MARK: Alta mediante el login oficial de Claude Code
 
     var addAccountVisible = false
-    private(set) var addAccountSession: AnthropicAPI.LoginSession?
+    private(set) var reconnectingProfile: AccountProfile?
     private(set) var addAccountError: String?
     private(set) var addAccountBusy = false
 
-    /// Abre el navegador con la página de autorización y muestra la hoja
-    /// para pegar el código. No toca la sesión activa de Claude Code.
     func beginAddAccount() {
-        let session = AnthropicAPI.makeLoginSession()
-        addAccountSession = session
+        reconnectingProfile = nil
         addAccountError = nil
         addAccountVisible = true
-        NSWorkspace.shared.open(session.url)
     }
 
-    func reopenAddAccountPage() {
-        guard let session = addAccountSession else { return }
-        NSWorkspace.shared.open(session.url)
+    func beginReconnect(_ profile: AccountProfile) {
+        reconnectingProfile = profile
+        addAccountError = nil
+        addAccountVisible = true
     }
 
-    func completeAddAccount(code: String) async {
-        guard let session = addAccountSession else { return }
+    /// Copia el comando oficial y abre Terminal. No usa AppleScript ni
+    /// automatización de teclado, evitando otra clase de permisos del sistema.
+    func prepareOfficialLogin() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(
+            "claude auth login --claudeai",
+            forType: .string
+        )
+        if let terminal = NSWorkspace.shared.urlForApplication(
+            withBundleIdentifier: "com.apple.Terminal"
+        ) {
+            NSWorkspace.shared.open(terminal)
+        }
+    }
+
+    /// Tras completar el login en la terminal, captura exactamente el par
+    /// identidad/credenciales que Claude Code dejó activo.
+    func completeAddAccount() async {
         addAccountBusy = true
         addAccountError = nil
         defer { addAccountBusy = false }
-        do {
-            let (creds, identity) = try await api.exchangeAuthorizationCode(code, session: session)
-            let profiles = self.profiles
-            let saved: AccountProfile = try await offMain {
-                Result { try profiles.saveProfile(identity: identity, credentials: creds) }
-            }.get()
-            addAccountSession = nil
+        let engine = self.engine
+        let target = reconnectingProfile
+        let result = await offMain {
+            Result {
+                try engine.captureActiveAsProfile(
+                    expectedAccountUuid: target?.accountUuid
+                )
+            }
+        }
+        switch result {
+        case .success(let saved):
+            reconnectingProfile = nil
             addAccountVisible = false
-            infoMessage = "Cuenta \(saved.emailAddress) añadida."
+            infoMessage = target == nil
+                ? L10n.tr("state.account_added", saved.emailAddress)
+                : L10n.tr("state.account_reconnected", saved.emailAddress)
             await reloadLocalState()
             Task { await refreshAll() }
-        } catch AnthropicAPIError.invalidAuthorizationCode {
-            addAccountError = "El código no es válido o ya se usó. Vuelve a abrir la página y pega el código nuevo."
-        } catch {
-            addAccountError = "No se pudo completar el alta: \(describe(error))"
+        case .failure(SwitchError.unexpectedActiveAccount(_, _)):
+            if let target {
+                addAccountError =
+                    L10n.tr(
+                        "state.unexpected_reconnect_account",
+                        target.emailAddress
+                    )
+            } else {
+                addAccountError =
+                    L10n.tr("state.account_changed_while_saving")
+            }
+        case .failure(let error):
+            addAccountError = L10n.tr(
+                "state.enrollment_failed",
+                describe(error)
+            )
         }
     }
 
     func cancelAddAccount() {
-        addAccountSession = nil
+        reconnectingProfile = nil
         addAccountVisible = false
         addAccountError = nil
+    }
+
+    func openAnthropicStatusPage() {
+        NSWorkspace.shared.open(
+            URL(string: "https://status.claude.com")!
+        )
     }
 
     func setSharedCaps(fiveHour: Double?, weekly: Double?, for accountUuid: String) {
         let profiles = self.profiles
         Task {
-            _ = await offMain { profiles.setSharedCaps(fiveHour: fiveHour, weekly: weekly, for: accountUuid) }
+            let result = await offMain {
+                Result {
+                    try profiles.setSharedCaps(
+                        fiveHour: fiveHour,
+                        weekly: weekly,
+                        for: accountUuid
+                    )
+                }
+            }
             await reloadLocalState()
+            if case .failure(let error) = result {
+                lastError = L10n.tr(
+                    "state.shared_caps_failed",
+                    describe(error)
+                )
+            }
         }
     }
 
     func removeProfile(_ accountUuid: String) {
         let profiles = self.profiles
+        clearUsageCooldown(for: accountUuid)
         Task {
             let ok = await offMain { (try? profiles.removeProfile(accountUuid)) != nil }
             usageByAccount[accountUuid] = nil
             await reloadLocalState()
-            if !ok { lastError = "No se pudo eliminar el perfil" }
+            if !ok {
+                lastError = L10n.tr("state.profile_delete_failed")
+            }
         }
     }
 
-    func clearMessages() {
-        infoMessage = nil
-        lastError = nil
-    }
-
     private func describe(_ error: Error) -> String {
-        (error as? LocalizedError)?.errorDescription ?? String(describing: error)
+        UserFacingError.describe(error)
     }
 
     // MARK: Datos derivados para la interfaz

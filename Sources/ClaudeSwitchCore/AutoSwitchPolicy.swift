@@ -15,35 +15,68 @@ public struct AccountUsageState: Sendable {
 
 /// Política pura (sin efectos) del cambio automático.
 ///
-/// Disparo: la ventana de 5 h de la cuenta activa alcanza `triggerThreshold`.
+/// Disparo: la ventana de 5 h o la semana general alcanzan su umbral. Fable
+/// participa únicamente cuando `considersFable` está activado.
 /// Candidatas: cuentas con sesión válida, datos de uso, y las ventanas
-/// semanales (total y de Opus/Fable) por debajo de `weeklyCeiling`.
+/// relevantes por debajo de sus respectivos umbrales.
 /// Elección: menor uso de 5 h; desempate por mayor margen ponderado
-/// 0,6·(100−semanal) + 0,4·(100−opus).
+/// de los cupos que estén habilitados.
 public struct AutoSwitchPolicy: Sendable {
     public var triggerThreshold: Double
-    public var weeklyCeiling: Double
+    public var weeklyThreshold: Double
+    public var fableThreshold: Double
+    public var considersFable: Bool
 
-    public init(triggerThreshold: Double = 90, weeklyCeiling: Double = 95) {
+    public init(
+        triggerThreshold: Double = 90,
+        weeklyThreshold: Double = 95,
+        fableThreshold: Double = 95,
+        considersFable: Bool = false
+    ) {
         self.triggerThreshold = triggerThreshold
-        self.weeklyCeiling = weeklyCeiling
+        self.weeklyThreshold = weeklyThreshold
+        self.fableThreshold = fableThreshold
+        self.considersFable = considersFable
     }
 
     public func shouldSwitch(active: AccountUsageState) -> Bool {
-        guard let fiveHour = active.usage?.fiveHour else { return false }
-        return fiveHour.utilization >= triggerThreshold
+        guard let usage = active.usage else { return false }
+        if let fiveHour = usage.fiveHour,
+           fiveHour.utilization >= triggerThreshold {
+            return true
+        }
+        if let weekly = usage.sevenDay,
+           weekly.utilization >= weeklyThreshold {
+            return true
+        }
+        if considersFable,
+           let fable = usage.sevenDayOpus,
+           fable.utilization >= fableThreshold {
+            return true
+        }
+        return false
     }
 
     public func isCandidate(_ account: AccountUsageState) -> Bool {
         guard !account.needsLogin, let usage = account.usage, let fiveHour = usage.fiveHour else { return false }
         if fiveHour.utilization >= triggerThreshold { return false }
-        if let sevenDay = usage.sevenDay, sevenDay.utilization >= weeklyCeiling { return false }
-        if let opus = usage.sevenDayOpus, opus.utilization >= weeklyCeiling { return false }
+        if let sevenDay = usage.sevenDay,
+           sevenDay.utilization >= weeklyThreshold {
+            return false
+        }
+        if considersFable,
+           let opus = usage.sevenDayOpus,
+           opus.utilization >= fableThreshold {
+            return false
+        }
         return true
     }
 
     func weeklyMargin(_ account: AccountUsageState) -> Double {
         let sevenDay = account.usage?.sevenDay?.utilization ?? 0
+        guard considersFable else {
+            return 100 - sevenDay
+        }
         let opus = account.usage?.sevenDayOpus?.utilization ?? 0
         return 0.6 * (100 - sevenDay) + 0.4 * (100 - opus)
     }

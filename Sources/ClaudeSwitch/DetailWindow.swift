@@ -11,12 +11,35 @@ struct DetailView: View {
             VStack(alignment: .leading, spacing: 20) {
                 headline
 
+                AnthropicStatusBanner(
+                    snapshot: state.anthropicStatus,
+                    unavailable: state.anthropicStatusUnavailable,
+                    checking: state.isCheckingAnthropicStatus,
+                    compact: false,
+                    openOfficialPage: state.openAnthropicStatusPage
+                )
+
+                if let notice = state.usageRefreshNotice {
+                    Label(notice, systemImage: "clock.arrow.circlepath")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 2)
+                }
+
                 if let unsaved = state.activeUnsaved {
                     HStack {
-                        Text("La cuenta activa \(unsaved.emailAddress) no está guardada todavía.")
+                        Text(
+                            L10n.tr(
+                                "account.unsaved.detail",
+                                unsaved.emailAddress
+                            )
+                        )
                             .font(.callout)
                         Spacer()
-                        Button("Guardar cuenta") { state.captureActive() }
+                        Button(L10n.tr("account.save_account")) {
+                            state.captureActive()
+                        }
                     }
                     .padding(14)
                     .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.accentColor.opacity(0.08)))
@@ -45,7 +68,12 @@ struct DetailView: View {
                 Text("ClaudeSwitch")
                     .font(.system(size: 22, weight: .semibold))
                 if let active = state.activeProfile {
-                    Text("Cuenta activa: \(active.emailAddress)")
+                    Text(
+                        L10n.tr(
+                            "account.active.detail",
+                            active.emailAddress
+                        )
+                    )
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -54,7 +82,7 @@ struct DetailView: View {
             Button {
                 state.beginAddAccount()
             } label: {
-                Label("Añadir cuenta", systemImage: "plus")
+                Label(L10n.tr("account.add"), systemImage: "plus")
             }
         }
     }
@@ -83,19 +111,26 @@ struct DetailView: View {
                 Spacer(minLength: 12)
 
                 if isActive {
-                    Text("Activa")
+                    Text(L10n.tr("account.active"))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.green)
                         .fixedSize()
                 } else {
-                    Button("Cambiar a esta") { state.switchTo(profile.accountUuid) }
+                    Button(L10n.tr("account.change_to")) {
+                        state.switchTo(profile.accountUuid)
+                    }
                         .controlSize(.small)
                         .disabled(profile.needsLogin)
                         .fixedSize()
                 }
 
                 Menu {
-                    Button("Eliminar perfil", role: .destructive) { state.removeProfile(profile.accountUuid) }
+                    Button(
+                        L10n.tr("account.delete_profile"),
+                        role: .destructive
+                    ) {
+                        state.removeProfile(profile.accountUuid)
+                    }
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.system(size: 13, weight: .semibold))
@@ -110,22 +145,36 @@ struct DetailView: View {
             }
 
             if profile.needsLogin {
-                Text("Requiere iniciar sesión de nuevo: entra en Claude Code con esta cuenta y guárdala otra vez.")
+                HStack(spacing: 10) {
+                    Text(
+                        L10n.tr("account.needs_login.explanation")
+                    )
                     .font(.caption)
                     .foregroundStyle(.orange)
+                    Spacer()
+                    Button(L10n.tr("account.login_again")) {
+                        state.beginReconnect(profile)
+                    }
+                    .controlSize(.small)
+                }
             }
 
             HStack(spacing: 24) {
-                UsageRing(label: "5 horas", window: usage?.fiveHour)
-                UsageRing(label: "Semana", window: usage?.sevenDay)
-                UsageRing(label: "Fable", window: usage?.sevenDayOpus)
-                Spacer()
+                UsageRing(label: L10n.tr("usage.five_hours"), window: usage?.fiveHour)
+                UsageRing(label: L10n.tr("usage.week"), window: usage?.sevenDay)
+                UsageRing(label: L10n.tr("usage.fable"), window: usage?.sevenDayOpus)
             }
+            .frame(maxWidth: .infinity, alignment: .center)
 
             SharedAccountControls(profile: profile, state: state)
 
             if let fetched = usage?.fetchedAt {
-                Text("Datos actualizados \(ResetFormatter.since(fetched))")
+                Text(
+                    L10n.tr(
+                        "usage.updated",
+                        ResetFormatter.since(fetched)
+                    )
+                )
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -140,35 +189,62 @@ struct DetailView: View {
 
     private var settingsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Ajustes")
+            Text(L10n.tr("settings.title"))
                 .font(.system(size: 15, weight: .semibold))
 
-            Toggle("Cambio automático de cuenta", isOn: $state.autoSwitchEnabled)
+            Toggle(
+                L10n.tr("auto_switch.settings_label"),
+                isOn: $state.autoSwitchEnabled
+            )
                 .toggleStyle(.switch)
 
             if state.autoSwitchEnabled && state.autoSwitchPausedByManualLogin {
-                Text("En pausa: has iniciado sesión a mano en Claude Code y se respeta tu elección durante 15 minutos.")
+                Text(L10n.tr("auto_switch.paused_manual_login"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            HStack {
-                Text("Cambiar cuando la ventana de 5 horas supere el \(Int(state.triggerThreshold)) %")
-                    .font(.callout)
-                Spacer()
-                Slider(value: $state.triggerThreshold, in: 50...99, step: 1)
-                    .frame(width: 180)
+            thresholdRow(
+                L10n.tr("auto_switch.threshold.five_hour"),
+                value: $state.triggerThreshold
+            )
+            thresholdRow(
+                L10n.tr("auto_switch.threshold.weekly"),
+                value: $state.weeklyTriggerThreshold
+            )
+
+            Toggle(
+                L10n.tr("auto_switch.use_fable"),
+                isOn: $state.useFableForAutoSwitch
+            )
+            .toggleStyle(.switch)
+            .controlSize(.small)
+
+            if state.useFableForAutoSwitch {
+                thresholdRow(
+                    L10n.tr("auto_switch.threshold.fable"),
+                    value: $state.fableTriggerThreshold
+                )
             }
 
+            Text(
+                state.useFableForAutoSwitch
+                    ? L10n.tr("auto_switch.fable.enabled_explanation")
+                    : L10n.tr("auto_switch.fable.disabled_explanation")
+            )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
             HStack {
-                Text("Frecuencia de actualización")
+                Text(L10n.tr("settings.refresh_frequency"))
                     .font(.callout)
                 Spacer()
                 Picker("", selection: $state.pollIntervalSeconds) {
-                    Text("3 min").tag(180.0)
-                    Text("5 min").tag(300.0)
-                    Text("10 min").tag(600.0)
+                    Text(L10n.tr("settings.minutes", 3)).tag(180.0)
+                    Text(L10n.tr("settings.minutes", 5)).tag(300.0)
+                    Text(L10n.tr("settings.minutes", 10)).tag(600.0)
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 200)
@@ -180,11 +256,25 @@ struct DetailView: View {
         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.quinary))
     }
 
-    private func relative(_ date: Date) -> String {
-        let f = RelativeDateTimeFormatter()
-        f.locale = Locale(identifier: "es_ES")
-        return f.localizedString(for: date, relativeTo: Date())
+    private func thresholdRow(
+        _ title: String,
+        value: Binding<Double>
+    ) -> some View {
+        HStack {
+            Text(
+                L10n.tr(
+                    "auto_switch.threshold.format",
+                    Int(value.wrappedValue),
+                    title.lowercased(with: L10n.locale)
+                )
+            )
+                .font(.callout)
+            Spacer()
+            Slider(value: value, in: 50...99, step: 1)
+                .frame(width: 180)
+        }
     }
+
 }
 
 /// Controles de cuenta compartida: tope personal de uso de 5 h y semanal para
@@ -220,14 +310,20 @@ private struct SharedAccountControls: View {
                         .font(.system(size: 10, weight: .semibold))
                         .rotationEffect(.degrees(expanded ? 90 : 0))
                         .foregroundStyle(.secondary)
-                    Text("Cuenta compartida")
+                    Text(L10n.tr("shared.title"))
                         .font(.callout)
                     if shared {
-                        Text("mis topes: \(Int(fiveHourCap)) % / \(Int(weeklyCap)) %")
+                        Text(
+                            L10n.tr(
+                                "shared.caps_summary",
+                                Int(fiveHourCap),
+                                Int(weeklyCap)
+                            )
+                        )
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
-                        Text("desactivada")
+                        Text(L10n.tr("shared.disabled"))
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                     }
@@ -238,15 +334,15 @@ private struct SharedAccountControls: View {
             .buttonStyle(.plain)
 
             if expanded {
-                Toggle("Reservar uso para otra persona", isOn: $shared)
+                Toggle(L10n.tr("shared.reserve"), isOn: $shared)
                     .toggleStyle(.switch)
                     .controlSize(.small)
                     .onChange(of: shared) { apply() }
 
                 if shared {
-                    capSlider("Mi tope de 5 horas", value: $fiveHourCap)
-                    capSlider("Mi tope semanal (incluye Fable)", value: $weeklyCap)
-                    Text("ClaudeSwitch tratará esta cuenta como agotada al llegar a tu tope, dejando el resto disponible.")
+                    capSlider(L10n.tr("shared.five_hour_cap"), value: $fiveHourCap)
+                    capSlider(L10n.tr("shared.weekly_cap"), value: $weeklyCap)
+                    Text(L10n.tr("shared.explanation"))
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
@@ -284,7 +380,7 @@ private struct LaunchAtLoginToggle: View {
     @State private var enabled = SMAppService.mainApp.status == .enabled
 
     var body: some View {
-        Toggle("Abrir al iniciar sesión", isOn: $enabled)
+        Toggle(L10n.tr("settings.launch_at_login"), isOn: $enabled)
             .toggleStyle(.switch)
             .onChange(of: enabled) {
                 do {

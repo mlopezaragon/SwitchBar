@@ -1,51 +1,66 @@
 import Foundation
 
-/// Almacén de secretos en fichero (`secrets.json`, permisos 0600: solo legible
-/// por el usuario). Es el mismo enfoque que usa Claude Code cuando no hay
-/// Llavero disponible.
+/// Lector del formato legado `secrets.json`.
 ///
-/// Motivo: los secretos de los perfiles guardados en el Llavero provocaban un
-/// diálogo de autorización del sistema en cada consulta de uso (una por cuenta
-/// y ronda), y esas autorizaciones se invalidaban con cada actualización de la
-/// app. Un fichero 0600 en el directorio del usuario elimina los diálogos por
-/// completo con una protección equivalente a la de `~/.claude.json`.
+/// Ya no es el almacén de producción: los tokens vuelven al Llavero. Se
+/// conserva únicamente para migrar instalaciones que usaron temporalmente el
+/// fichero 0600. A diferencia de la versión antigua, un JSON corrupto nunca se
+/// interpreta como un almacén vacío.
 public final class FileVault: KeychainStoring, @unchecked Sendable {
     private let fileURL: URL
     private let lock = NSLock()
 
     public init(directoryURL: URL) {
-        try? FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
         self.fileURL = directoryURL.appendingPathComponent("secrets.json")
     }
 
-    private func load() -> [String: String] {
-        guard let data = try? Data(contentsOf: fileURL),
-              let dict = try? JSONDecoder().decode([String: String].self, from: data) else { return [:] }
-        return dict
+    private func load() throws -> [String: String] {
+        guard let data = try SecureFileIO.readIfPresent(fileURL) else { return [:] }
+        do {
+            return try JSONDecoder().decode([String: String].self, from: data)
+        } catch {
+            throw CoreError.malformedJSON(
+                L10n.tr("core.error.file_vault_corrupt")
+            )
+        }
     }
 
     private func save(_ dict: [String: String]) throws {
         let data = try JSONEncoder().encode(dict)
-        try data.write(to: fileURL, options: [.atomic])
-        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: fileURL.path)
+        try SecureFileIO.writeAtomically(data, to: fileURL)
     }
 
     public func readString(service: String) throws -> String? {
         lock.lock(); defer { lock.unlock() }
-        return load()[service]
+        return try load()[service]
     }
 
     public func writeString(_ value: String, service: String) throws {
         lock.lock(); defer { lock.unlock() }
-        var dict = load()
+        var dict = try load()
         dict[service] = value
         try save(dict)
     }
 
     public func delete(service: String) throws {
         lock.lock(); defer { lock.unlock() }
-        var dict = load()
+        var dict = try load()
         dict[service] = nil
         try save(dict)
+    }
+
+    func allValues() throws -> [String: String] {
+        lock.lock(); defer { lock.unlock() }
+        return try load()
+    }
+
+    var exists: Bool {
+        FileManager.default.fileExists(atPath: fileURL.path)
+    }
+
+    func removeStorageFile() throws {
+        lock.lock(); defer { lock.unlock() }
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
+        try FileManager.default.removeItem(at: fileURL)
     }
 }

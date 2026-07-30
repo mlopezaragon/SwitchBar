@@ -31,6 +31,29 @@ private let politica = AutoSwitchPolicy()
     #expect(decision == "c")
 }
 
+@Test func semanalGeneralDisparaAunqueCincoHorasEsteBajo() {
+    let decision = politica.decision(
+        active: estado("a", fiveHour: 20, sevenDay: 98, opus: 10),
+        all: [
+            estado("a", fiveHour: 20, sevenDay: 98, opus: 10),
+            estado("b", fiveHour: 30, sevenDay: 20, opus: 20)
+        ]
+    )
+    #expect(decision == "b")
+}
+
+@Test func fableDisparaIndependientementeDelSemanalGeneral() {
+    let conFable = AutoSwitchPolicy(considersFable: true)
+    let decision = conFable.decision(
+        active: estado("a", fiveHour: 20, sevenDay: 10, opus: 98),
+        all: [
+            estado("a", fiveHour: 20, sevenDay: 10, opus: 98),
+            estado("b", fiveHour: 30, sevenDay: 20, opus: 20)
+        ]
+    )
+    #expect(decision == "b")
+}
+
 @Test func descartaCuentasConSemanalAgotado() {
     let decision = politica.decision(
         active: estado("a", fiveHour: 95),
@@ -40,7 +63,8 @@ private let politica = AutoSwitchPolicy()
 }
 
 @Test func descartaCuentasConOpusAgotado() {
-    let decision = politica.decision(
+    let conFable = AutoSwitchPolicy(considersFable: true)
+    let decision = conFable.decision(
         active: estado("a", fiveHour: 95),
         all: [estado("b", fiveHour: 5, opus: 97), estado("c", fiveHour: 50, opus: 10)]
     )
@@ -72,9 +96,10 @@ private let politica = AutoSwitchPolicy()
     #expect(decision == "c")
 }
 
-@Test func opusNuloCuentaComoMargenCompleto() {
+@Test func fableNuloCuentaComoMargenCompletoCuandoEstaActivado() {
     // Sin ventana de Opus, ese término aporta margen completo.
-    let decision = politica.decision(
+    let conFable = AutoSwitchPolicy(considersFable: true)
+    let decision = conFable.decision(
         active: estado("a", fiveHour: 95),
         all: [estado("b", fiveHour: 20, sevenDay: 50, opus: 90), estado("c", fiveHour: 20, sevenDay: 50, opus: nil)]
     )
@@ -82,7 +107,92 @@ private let politica = AutoSwitchPolicy()
 }
 
 @Test func umbralPersonalizadoSeRespeta() {
-    let estricta = AutoSwitchPolicy(triggerThreshold: 50, weeklyCeiling: 95)
+    let estricta = AutoSwitchPolicy(
+        triggerThreshold: 50,
+        weeklyThreshold: 80,
+        fableThreshold: 70,
+        considersFable: true
+    )
     #expect(estricta.decision(active: estado("a", fiveHour: 55), all: [estado("b", fiveHour: 10)]) == "b")
     #expect(estricta.decision(active: estado("a", fiveHour: 45), all: [estado("b", fiveHour: 10)]) == nil)
+    #expect(
+        estricta.decision(
+            active: estado("a", fiveHour: 10, sevenDay: 81, opus: 10),
+            all: [estado("b", fiveHour: 10)]
+        ) == "b"
+    )
+    #expect(
+        estricta.decision(
+            active: estado("a", fiveHour: 10, sevenDay: 10, opus: 71),
+            all: [estado("b", fiveHour: 10)]
+        ) == "b"
+    )
+}
+
+@Test func umbralesSemanalYFableSonIndependientesAlElegirDestino() {
+    let separada = AutoSwitchPolicy(
+        triggerThreshold: 90,
+        weeklyThreshold: 80,
+        fableThreshold: 60,
+        considersFable: true
+    )
+    let active = estado("a", fiveHour: 95)
+
+    #expect(
+        separada.decision(
+            active: active,
+            all: [
+                estado("b", fiveHour: 5, sevenDay: 81, opus: 10),
+                estado("c", fiveHour: 20, sevenDay: 10, opus: 20)
+            ]
+        ) == "c"
+    )
+    #expect(
+        separada.decision(
+            active: active,
+            all: [
+                estado("b", fiveHour: 5, sevenDay: 10, opus: 61),
+                estado("c", fiveHour: 20, sevenDay: 10, opus: 20)
+            ]
+        ) == "c"
+    )
+}
+
+@Test func fableAlCienNoDisparaCuandoEstaDesactivado() {
+    let sinFable = AutoSwitchPolicy(considersFable: false)
+    let active = estado("a", fiveHour: 20, sevenDay: 10, opus: 100)
+    #expect(sinFable.shouldSwitch(active: active) == false)
+    #expect(
+        sinFable.decision(
+            active: active,
+            all: [active, estado("b", fiveHour: 10)]
+        ) == nil
+    )
+}
+
+@Test func cuentaConFableAgotadoSigueSiendoCandidataCuandoSeIgnora() {
+    let sinFable = AutoSwitchPolicy(considersFable: false)
+    let candidate = estado(
+        "b",
+        fiveHour: 10,
+        sevenDay: 20,
+        opus: 100
+    )
+    #expect(sinFable.isCandidate(candidate))
+    #expect(
+        sinFable.decision(
+            active: estado("a", fiveHour: 95),
+            all: [candidate]
+        ) == "b"
+    )
+}
+
+@Test func fableNoInfluyeEnElMargenCuandoEstaDesactivado() {
+    let sinFable = AutoSwitchPolicy(considersFable: false)
+    let agotado = estado("a", fiveHour: 20, sevenDay: 40, opus: 100)
+    let libre = estado("b", fiveHour: 20, sevenDay: 40, opus: 0)
+    #expect(sinFable.weeklyMargin(agotado) == sinFable.weeklyMargin(libre))
+
+    let conFable = AutoSwitchPolicy(considersFable: true)
+    #expect(conFable.weeklyMargin(agotado) < conFable.weeklyMargin(libre))
 }
