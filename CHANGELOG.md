@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.0-beta.3 — 2026-07-30
+
+- All accounts appear instantly on launch: the last known usage snapshot
+  of every account is cached on disk (0600) and restored at startup, with
+  expired windows discarded. Fresh data replaces it within seconds.
+- First refresh round is accelerated (5-second stride) whenever any
+  account has no data or stale data — new installs, newly added accounts,
+  and cold starts get fully fresh numbers in about 15 seconds without
+  triggering the server's burst penalty.
+- Fixed: usage bars were twice as thick on accounts with a personal cap
+  configured; the cap tick no longer inflates the bar height.
+- Homebrew tap available: `brew install --cask mlopezaragon/tap/switchbar`.
+
 ## 1.0.0-beta.2 — 2026-07-30
 
 - Fixed: the app asked for the Keychain password on every usage refresh and
