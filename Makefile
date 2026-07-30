@@ -1,9 +1,11 @@
-# ClaudeSwitch — atajos de construcción y prueba.
+# SwitchBar — atajos de construcción y prueba.
 
-APP = ClaudeSwitch.app
+APP = SwitchBar.app
 INSTALLED = /Applications/$(APP)
 
-.PHONY: build test app install run stop clean
+VERSION = 1.0.0-beta.1
+
+.PHONY: build test app install run stop clean dmg notarize
 
 ## Compila el binario en debug.
 build:
@@ -13,11 +15,11 @@ build:
 test:
 	swift test
 
-## Ensambla y firma ClaudeSwitch.app (detecta sola la identidad local estable).
+## Ensambla y firma SwitchBar.app (detecta sola la identidad local estable).
 app:
 	scripts/build-app.sh "$(SIGN)"
 
-## Copia ClaudeSwitch.app a /Applications.
+## Copia SwitchBar.app a /Applications.
 install: app
 	rm -rf "$(INSTALLED)"
 	cp -R "$(APP)" /Applications/
@@ -29,8 +31,16 @@ run:
 
 ## Cierra la app si está corriendo.
 stop:
-	-pkill -x ClaudeSwitch || true
+	-pkill -x SwitchBar || true
+
+## Empaqueta la app en un DMG de distribución con su SHA-256.
+dmg: app
+	scripts/make-dmg.sh "$(VERSION)"
+
+## Notariza el DMG y adjunta el ticket (requiere credenciales guardadas).
+notarize:
+	scripts/notarize.sh "SwitchBar-$(VERSION).dmg"
 
 ## Borra los artefactos de build.
 clean:
-	rm -rf .build "$(APP)"
+	rm -rf .build "$(APP)" SwitchBar-*.dmg SwitchBar-*.dmg.sha256

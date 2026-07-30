@@ -2,29 +2,29 @@
 import PackageDescription
 
 let package = Package(
-    name: "ClaudeSwitch",
+    name: "SwitchBar",
     defaultLocalization: "es",
     platforms: [.macOS(.v26)],
-    products: [.library(name: "ClaudeSwitchCore", targets: ["ClaudeSwitchCore"])],
+    products: [.library(name: "SwitchBarCore", targets: ["SwitchBarCore"])],
     targets: [
         // Lógica sin UI (perfiles, Llavero, API, política de cambio): testeable y headless.
     .target(
-      name: "ClaudeSwitchCore",
-      path: "Sources/ClaudeSwitchCore",
+      name: "SwitchBarCore",
+      path: "Sources/SwitchBarCore",
       resources: [
         .process("Resources")
       ]
     ),
-        // Ejecutable delgado (SwiftUI) que enlaza ClaudeSwitchCore.
+        // Ejecutable delgado (SwiftUI) que enlaza SwitchBarCore.
         .executableTarget(
-            name: "ClaudeSwitch",
-            dependencies: ["ClaudeSwitchCore"],
-            path: "Sources/ClaudeSwitch"
+            name: "SwitchBar",
+            dependencies: ["SwitchBarCore"],
+            path: "Sources/SwitchBar"
         ),
         .testTarget(
-            name: "ClaudeSwitchCoreTests",
-            dependencies: ["ClaudeSwitchCore"],
-            path: "Tests/ClaudeSwitchCoreTests"
+            name: "SwitchBarCoreTests",
+            dependencies: ["SwitchBarCore"],
+            path: "Tests/SwitchBarCoreTests"
         )
     ]
 )
