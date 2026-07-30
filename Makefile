@@ -20,9 +20,12 @@ app:
 	scripts/build-app.sh "$(SIGN)"
 
 ## Copia SwitchBar.app a /Applications.
+## La copia local se borra después: si queda junto al proyecto, el Dock y
+## Spotlight muestran la app duplicada.
 install: app
 	rm -rf "$(INSTALLED)"
 	cp -R "$(APP)" /Applications/
+	rm -rf "$(APP)"
 	@echo "Instalada en $(INSTALLED)"
 
 ## Lanza la app instalada.
@@ -36,6 +39,7 @@ stop:
 ## Empaqueta la app en un DMG de distribución con su SHA-256.
 dmg: app
 	scripts/make-dmg.sh "$(VERSION)"
+	rm -rf "$(APP)"
 
 ## Notariza el DMG y adjunta el ticket (requiere credenciales guardadas).
 notarize:
