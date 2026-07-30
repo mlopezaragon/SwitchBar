@@ -1,0 +1,49 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never paste tokens, Keychain output, or the contents of
+        `~/.claude.json`. Redact e-mail addresses if you prefer.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "26.1"
+    validations:
+      required: true
+  - type: input
+    id: switchbar
+    attributes:
+      label: SwitchBar version
+      placeholder: "1.0.0-beta.1"
+    validations:
+      required: true
+  - type: input
+    id: claudecode
+    attributes:
+      label: Claude Code version
+      placeholder: "claude --version"
+  - type: dropdown
+    id: plan
+    attributes:
+      label: Plan of the affected account(s)
+      options:
+        - Pro
+        - Max
+        - Mixed
+        - I don't know
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Screenshots (redact e-mails if needed), number of accounts, whether the account is shared, etc.

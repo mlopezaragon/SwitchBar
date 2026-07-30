@@ -1,0 +1,24 @@
+name: Feature request
+description: Propose an improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What situation is not well served today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What would you like SwitchBar to do?
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        Note: proposals that require new network destinations, telemetry,
+        or touching the active Claude Code session will not be accepted —
+        see CONTRIBUTING.md.

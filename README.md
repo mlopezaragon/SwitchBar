@@ -1,101 +1,108 @@
-# ClaudeSwitch
+# SwitchBar
 
-App nativa de barra de menús para macOS Tahoe que muestra el uso de varias
-cuentas de Claude Code y cambia la cuenta activa con un clic o mediante una
-política automática.
+Native macOS menu bar app that shows live usage for several Claude Code
+accounts and switches the active account — with one click, or automatically
+when a usage window fills up.
 
-## Seguridad y convivencia con Claude Code
+> **Unofficial project.** SwitchBar is independent and is not affiliated
+> with, endorsed by, or supported by Anthropic. "Claude" and "Claude Code"
+> are trademarks of Anthropic, PBC.
 
-- Claude Code conserva su sesión oficial en `Claude Code-credentials` y su
-  identidad en `~/.claude.json`.
-- ClaudeSwitch guarda los perfiles en una única entrada privada del Llavero.
-  `profiles.json` solo contiene metadatos y se escribe con permisos `0600`.
-- Al cambiar, sustituye únicamente `claudeAiOauth` y `oauthAccount`. Las
-  credenciales MCP y las demás claves se preservan.
-- La app usa el mismo `/usr/bin/security` que Claude Code para su entrada y
-  nunca emplea `-A` ni cambia la ACL a “cualquier aplicación”. Los valores
-  normales viajan por la entrada estándar; si una sesión es demasiado grande,
-  replica el mecanismo alternativo oficial de Claude Code para impedir que
-  `security -i` la corte y corrompa el JSON.
-- `claude auth login --claudeai` y `/login` siguen siendo los únicos dueños
-  del alta de sesión. La sesión de la cuenta activa nunca se renueva desde
-  ClaudeSwitch: se recoge del Llavero oficial cuando Claude Code la rota, de
-  modo que ninguna terminal abierta queda invalidada. Las cuentas inactivas
-  no tienen ninguna terminal detrás, así que su sesión del almacén privado sí
-  se renueva con el flujo OAuth estándar (el mismo endpoint y client_id que
-  usa Claude Code) para que su uso siga visible y el cambio automático nunca
-  decida con datos viejos.
-- Las operaciones privadas del Llavero desactivan la interfaz de
-  autenticación: ante un Llavero bloqueado se muestra un error en la app, no
-  una cadena de cuadros solicitando la contraseña.
-- La app consulta cada minuto durante las incidencias el estado público oficial
-  de `status.claude.com`. Muestra por separado la API y Claude Code, los
-  incidentes activos y su fase, sin enviar credenciales.
+[Versión en español](README.es.md)
 
-## Primeros pasos
+## Features
 
-1. Ejecuta `make install` y abre `/Applications/ClaudeSwitch.app`.
-2. Pulsa «Añadir cuenta».
-3. Usa el botón para copiar `claude auth login --claudeai` y abrir Terminal,
-   o ejecuta `/login` dentro de Claude Code.
-4. Cuando el navegador confirme que Claude Code está listo, vuelve a la app y
-   pulsa «Ya terminé: guardar cuenta».
-5. Repite una sola vez por cada cuenta. A partir de ahí, los cambios no
-   requieren contraseña ni otro login mientras la sesión siga vigente.
+- Usage bars per account: 5-hour window, weekly window, and the separate
+  Opus/Fable weekly quota, each with its reset time.
+- One-click switching of the active Claude Code account, with undo.
+- Automatic switching with independent, configurable thresholds per window.
+- Shared accounts: set a personal cap (for example 70 %) so the app treats
+  the account as exhausted early and leaves margin for the other person.
+- Anthropic public status (status.claude.com) shown during incidents, so a
+  server-side outage is never confused with a local problem.
+- Pauses automatic switching for 15 minutes after you pick an account by
+  hand with `/login` — your explicit choice wins.
+- Localized in 10 languages. No telemetry of any kind.
 
-Cuando una cuenta pierde la sesión, su propia tarjeta ofrece «Iniciar sesión
-de nuevo» y abre el mismo asistente, ya preparado para esa dirección de correo.
-La app comprueba que hayas elegido la cuenta correcta antes de reemplazar sus
-credenciales.
+## Requirements
 
-Un `/login` manual continúa funcionando. La app pausa el cambio automático
-durante 15 minutos únicamente cuando detecta que realmente cambió la cuenta
-activa; las escrituras ordinarias de `~/.claude.json` con la misma cuenta no
-renuevan esa pausa. Si Claude Code rota el token de la misma cuenta, se recoge
-en la siguiente consulta de uso. Las sesiones de terminal que ya estaban
-abiertas conservan su cuenta hasta reiniciarlas.
+- macOS 26 (Tahoe), Apple Silicon or Intel (universal binary).
+- [Claude Code](https://code.claude.com) with one or more Claude
+  subscription accounts (Pro/Max).
 
-Si actualizas desde una versión que guardaba `secrets.json`, la app lo importa
-al Llavero y elimina el archivo únicamente después de verificar la copia. Si
-una cuenta antigua no conserva su secreto, hay que enlazarla una última vez
-con el flujo oficial anterior.
+## Install
 
-## Cambio automático
+1. Download `SwitchBar-<version>.dmg` from
+   [Releases](../../releases) and verify its published SHA-256:
+   `shasum -a 256 SwitchBar-<version>.dmg`
+2. Drag SwitchBar to Applications and open it.
+   Beta builds are Developer ID signed but not yet notarized: the first
+   time, right-click the app and choose "Open".
+3. Click "Add account", sign in once with the official
+   `claude auth login --claudeai` flow, and repeat per account. From then
+   on, switching never asks for a password or another login while the
+   session remains valid.
 
-La ventana de 5 horas y la semana general tienen umbrales independientes y
-configurables. Fable es opcional y está desactivado como criterio por defecto:
-su consumo sigue visible, pero no provoca cambios, no descarta cuentas y no
-influye en cuál se elige. Si se activa expresamente, usa su propio umbral y
-recupera el comportamiento completo para ese cupo independiente.
+## How it works — read this before relying on it
 
-Las consultas de uso se hacen de una en una y se reparten durante todo el
-intervalo elegido; nunca se envían todas las cuentas juntas. La cuenta activa
-tiene prioridad. Un dato con menos de 30 segundos no se vuelve a pedir aunque
-coincidan varios disparadores (cambio de cuenta, apertura del panel y sondeo);
-solo el botón de refresco fuerza la consulta. Si Anthropic limita temporalmente una cuenta, solo esa cuenta
-descansa durante el tiempo indicado por el servidor (diez minutos si no lo
-indica) y las demás continúan actualizándose. La espera se conserva aunque se
-reinicie ClaudeSwitch. Los problemas de una cuenta inactiva se reflejan
-únicamente en la antigüedad de sus datos; el aviso naranja aparece solo cuando
-afecta a la cuenta activa. Los fallos temporales conservan los últimos datos y
-nunca presentan la salida interna del Llavero ni credenciales. Tras un
-`/login` manual, la automatización queda temporalmente en pausa.
+SwitchBar talks to the same private endpoints that Claude Code itself uses
+(the usage endpoint and the standard OAuth refresh flow, with Claude Code's
+own public client id). **These endpoints are not a documented, stable public
+API.** Anthropic may change or restrict them at any time. SwitchBar is
+designed to fail safely when that happens — it keeps the last known data,
+never corrupts your Claude Code session, and marks accounts that need a new
+login — but no permanent compatibility can be promised.
 
-Cerrar el panel no detiene la app: mientras el icono siga en la barra de menús,
-el uso se consulta y el cambio automático continúa en segundo plano. Al
-despertar el Mac o volver a activar ClaudeSwitch se hace una comprobación si
-los datos están desactualizados. Si la app se ha cerrado por completo no puede
-cambiar durante ese tiempo; al abrirla de nuevo comprueba el uso de inmediato
-y cambia en cuanto recibe datos actuales que superan un umbral.
+Login itself always happens through the official Claude Code flow in your
+terminal and browser; SwitchBar never sees your password and never performs
+an OAuth authorization on its own.
 
-## Desarrollo
+## Security model
 
-- `make build`, `make test`, `make app`, `make install`, `make run`.
-- Núcleo en `Sources/ClaudeSwitchCore`; interfaz SwiftUI en
-  `Sources/ClaudeSwitch`.
-- El ensamblado exige una identidad estable. Prefiere automáticamente
-  `Developer ID Application` y después `ClaudeSwitch Self-Signed`; una firma
-  ad-hoc solo puede habilitarse expresamente para desarrollo efímero con
-  `CLAUDESWITCH_ALLOW_ADHOC=1`.
-- `scripts/reparar-llavero.sh` solo hace una prueba inocua de escritura y
-  ejecuta los diagnósticos oficiales. Nunca exporta ni recrea la sesión.
+- Claude Code keeps its official session in its own Keychain entry and
+  `~/.claude.json`. SwitchBar only replaces the `claudeAiOauth` and
+  `oauthAccount` blocks when switching; MCP credentials and every other key
+  are preserved.
+- Saved profiles live in a single private Keychain entry owned by
+  SwitchBar; `profiles.json` holds only non-secret metadata (mode 0600).
+- Keychain access goes through `/usr/bin/security` — the same mechanism
+  Claude Code uses — and never widens an entry's ACL.
+- The active account's credential lifecycle is owned by Claude Code:
+  SwitchBar never rotates its token, so open terminals are never
+  invalidated. Only inactive profiles (which no terminal is using) are
+  refreshed, and the rotated token is stored back in the private vault.
+
+## Privacy
+
+SwitchBar sends network requests exclusively to:
+
+- `api.anthropic.com` — read-only usage query per account.
+- `console.anthropic.com` — standard OAuth token refresh for inactive
+  profiles.
+- `status.claude.com` — public status page (no credentials attached).
+
+Nothing else leaves your Mac. There is no telemetry, no analytics, no
+crash reporting, and no third-party server. See [PRIVACY.md](PRIVACY.md).
+
+## Build from source
+
+```sh
+make test      # run the test suite
+make app       # build and sign SwitchBar.app (universal)
+make install   # copy to /Applications
+make dmg       # distribution DMG with SHA-256
+```
+
+Building requires a stable signing identity (Developer ID or a local
+self-signed certificate); see `scripts/build-app.sh`. The Keychain ties the
+private profile vault to the code signature, so an ad-hoc signature would
+re-prompt for authorization after every rebuild.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Security issues: please follow
+[SECURITY.md](SECURITY.md) instead of opening a public issue.
+
+## License
+
+[Apache 2.0](LICENSE). Copyright 2026 Manuel Lopera.
