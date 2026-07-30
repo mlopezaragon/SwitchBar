@@ -42,6 +42,12 @@ struct UsageBar: View {
                         .fill(fillColor)
                         .frame(width: max(4, geo.size.width * fraction))
                         .opacity(window == nil ? 0 : 1)
+                }
+                // La marca del tope sobresale de la barra a propósito, así que
+                // se dibuja como superposición: dentro del ZStack su altura
+                // mandaría sobre la de las cápsulas y engordaría la barra al
+                // doble solo en las cuentas con tope personal.
+                .overlay(alignment: .leading) {
                     if let cap, cap > 0, cap < 100 {
                         Rectangle()
                             .fill(.secondary)
