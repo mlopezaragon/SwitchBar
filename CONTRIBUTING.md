@@ -24,7 +24,14 @@ Thank you for helping. A few ground rules keep the project safe to use.
    `console.anthropic.com` and `status.claude.com` only. Anything else
    (telemetry included) will not be merged.
 4. **Keychain discipline.** All Keychain access goes through the existing
-   `/usr/bin/security` wrapper, without widening ACLs.
+   wrappers, without widening ACLs.
+5. **Never change the code-signing identifier or the storage identifiers.**
+   `com.mlopara.ClaudeSwitch` (the project's historical name) is baked into
+   the ACL of the private vault, the Application Support folder and the
+   preferences domain. Changing any of them makes macOS treat the app as a
+   different program and prompt for the Keychain password on every single
+   access, and would orphan existing users' saved sessions. The app's
+   visible name is SwitchBar; these identifiers stay as they are.
 
 ## Pull requests
 

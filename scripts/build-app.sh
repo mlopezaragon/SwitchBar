@@ -64,8 +64,12 @@ echo "==> Firmando con identidad: $SIGN_ID"
 # Con firma ad-hoc no hay marca temporal (Apple no la emite para "-").
 TIMESTAMP_FLAG="--timestamp"
 [ "$SIGN_ID" = "-" ] && TIMESTAMP_FLAG=""
+# El identificador de firma NO debe cambiarse: el Llavero guarda el requisito
+# designado de la app que creó la entrada privada de perfiles. Firmar con otro
+# identificador convierte a SwitchBar en «otra aplicación» y macOS pide la
+# contraseña del Llavero en cada acceso. Se conserva el histórico.
 codesign --force --options runtime $TIMESTAMP_FLAG \
-    --identifier com.mlopara.SwitchBar --sign "$SIGN_ID" "$APP"
+    --identifier com.mlopara.ClaudeSwitch --sign "$SIGN_ID" "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 
 echo "==> Listo: $APP"
