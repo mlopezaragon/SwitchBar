@@ -18,7 +18,7 @@ when a usage window fills up.
 ## Features
 
 - Usage bars per account: 5-hour window, weekly window, and the separate
-  Opus/Fable weekly quota, each with its reset time.
+  Fable weekly quota, each with its reset time.
 - One-click switching of the active Claude Code account, with undo.
 - Automatic switching with independent, configurable thresholds per window.
 - Shared accounts: set a personal cap (for example 70 %) so the app treats
