@@ -119,7 +119,7 @@ a{ color:inherit; }
   font-size:14px; color:var(--t3); letter-spacing:-0.01em;
 }
 .hero__icon{
-  display:block; width:112px; height:112px; margin:0 0 32px;
+  display:block; width:112px; height:112px; margin:0 auto 32px;
 }
 
 /* ── nav ──────────────────────────────────────────────────── */
@@ -163,6 +163,8 @@ a{ color:inherit; }
   font-family:var(--mono); font-size:14px; letter-spacing:0;
   color:var(--t1); white-space:nowrap; overflow-x:auto;
   scrollbar-width:none;
+  /* El hero centra su texto; un comando de terminal se lee a la izquierda. */
+  text-align:left;
 }
 .cmd code::-webkit-scrollbar{ display:none; }
 .cmd__prompt{ color:var(--t3); flex:none; }
@@ -182,8 +184,10 @@ a{ color:inherit; }
 .cmd--lg code{ padding:16px 18px; font-size:15px; }
 .cmd--lg .cmd__copy{ padding:0 20px; font-size:15px; }
 
-.hero__cta{ display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
-.hero__cta .cmd{ flex:1 1 380px; }
+.hero__cta{ display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap; }
+/* La base debe dejar ver el comando entero: cortarlo esconde justo lo que
+   la página pide copiar. */
+.hero__cta .cmd{ flex:0 1 560px; max-width:100%; }
 
 .link{
   color:var(--blue); text-decoration:none;
@@ -335,7 +339,7 @@ a{ color:inherit; }
 .footer__links a:hover{ color:var(--t1); }
 .footer__legal{
   margin:0; padding-top:24px; border-top:1px solid var(--hairline);
-  font-size:13px; line-height:1.5; color:var(--t3); max-width:62em;
+  font-size:13px; line-height:1.5; color:var(--t3);
 }
 @media (max-width:560px){
   .footer__links{ margin-left:0; }
@@ -344,6 +348,27 @@ a{ color:inherit; }
 /* ── reveal base state (main.js clears it once GSAP owns it) ─ */
 .js [data-reveal],
 .js [data-reveal-group] > *{ opacity:0; }
+
+/* ── móvil: el comando entero visible y objetos táctiles cómodos ── */
+@media (max-width:640px){
+  /* Cortar el comando esconde justo lo que la página pide copiar: en
+     pantallas estrechas se envuelve y el botón pasa debajo. */
+  .cmd{ flex-direction:column; align-items:stretch; }
+  .cmd code{
+    white-space:pre-wrap; word-break:break-all; overflow-x:visible;
+    align-items:flex-start; font-size:13px;
+  }
+  .cmd--lg code{ font-size:13px; }
+  .cmd__copy{
+    border-left:0; border-top:1px solid var(--hairline);
+    min-height:44px; padding:0 16px;
+  }
+  /* Apple recomienda 44 px de alto mínimo para lo que se toca con el dedo. */
+  .nav__gh, .footer__links a, .link{
+    display:inline-flex; align-items:center; min-height:44px;
+  }
+  .footer__links{ gap:20px; flex-wrap:wrap; }
+}
 
 @media (prefers-reduced-motion:reduce){
   html{ scroll-behavior:auto; }

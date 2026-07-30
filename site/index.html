@@ -79,7 +79,7 @@
       <a class="link" href="https://github.com/mlopezaragon/SwitchBar/releases" target="_blank" rel="noopener">Download DMG</a>
     </div>
 
-    <p class="hero__note" data-reveal>macOS 14 or later · Universal binary · Claude Code with Pro or Max accounts</p>
+    <p class="hero__note" data-reveal>macOS 14 (Sonoma) or later · Universal binary · Claude Code with Pro or Max accounts</p>
   </div>
 </section>
 
@@ -90,8 +90,8 @@
     <h2 class="section__title" data-reveal>Every account, every window.</h2>
     <p class="section__lede" data-reveal>
       Each account lists its 5-hour window, its week, and the separate Fable
-      quota, with the time each one resets. Cross a threshold and the active
-      account moves on its own.
+      weekly quota, with the time each one resets. Cross a threshold and the
+      active account moves on its own.
     </p>
   </div>
 
@@ -193,7 +193,7 @@
       </div>
     </div>
 
-    <p class="stage__caption" id="caption">Blue below 75%, amber above it, red at 90%. The bar on the right of each row is the time until that window resets.</p>
+    <p class="stage__caption" id="caption">Blue below 75%, amber above it, red at 90%. The right-hand column is the time until that window resets.</p>
   </div>
 </section>
 
@@ -247,15 +247,19 @@
     <dl class="specs" data-reveal-group>
       <div class="spec">
         <dt>Requirements</dt>
-        <dd>macOS 26 (Tahoe), Apple Silicon or Intel. Claude Code with one or more Pro/Max accounts.</dd>
+        <dd>macOS 14 (Sonoma) or later, Apple Silicon or Intel. Claude Code with one or more Pro/Max accounts.</dd>
       </div>
       <div class="spec">
         <dt>Manual install</dt>
-        <dd>Download the DMG from <a class="link" href="https://github.com/mlopezaragon/SwitchBar/releases" target="_blank" rel="noopener">Releases</a>, verify its published SHA-256, then drag SwitchBar to Applications.</dd>
+        <dd>Download the DMG from <a class="link" href="https://github.com/mlopezaragon/SwitchBar/releases" target="_blank" rel="noopener">Releases</a>, verify its published SHA-256, then drag SwitchBar to Applications. The app is notarized by Apple and opens without a Gatekeeper prompt.</dd>
       </div>
       <div class="spec">
         <dt>First run</dt>
         <dd>Add each account once through the official Claude Code login flow. Switching never asks again while the session stays valid.</dd>
+      </div>
+      <div class="spec">
+        <dt>Updates</dt>
+        <dd>SwitchBar checks a signed appcast and installs new versions in place.</dd>
       </div>
     </dl>
   </div>

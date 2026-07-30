@@ -7,3 +7,4 @@ ClaudeSwitch.app/
 dist/
 *.xcodeproj
 .swiftpm/
+.vercel
