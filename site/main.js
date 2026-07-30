@@ -387,12 +387,20 @@
        the same words wrap differently in German and in Japanese. */
     function relayout() {
       if (hero.progress() < 1) hero.progress(1);
+      // Refrescar estando dentro del tramo anclado deja el panel fijo
+      // sobre el resto de la página: el pin se mide a medio camino. Se
+      // sale del tramo, se vuelve a medir y se recupera la posición, que
+      // ya entra en el pin por la vía normal del scroll.
+      var y = window.scrollY;
+      window.scrollTo(0, 0);
       splits.forEach(function (s) {
         s.el.removeAttribute('data-plain');   // textContent is the new language
         s.lines = splitLines(s.el);
         gsap.set(s.lines, { yPercent: 0 });
       });
       ScrollTrigger.refresh();
+      var max = document.documentElement.scrollHeight - window.innerHeight;
+      window.scrollTo(0, Math.max(0, Math.min(y, max)));
     }
     window.SB_RELAYOUT = relayout;
 
