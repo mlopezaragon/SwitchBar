@@ -16,6 +16,7 @@ final class AppState {
     private let api: AnthropicAPI
     private let statusAPI: AnthropicStatusAPI
     private let preferences: AppPreferences
+    private let usageCache: UsageSnapshotCache
 
     // MARK: Estado observable
 
@@ -87,10 +88,12 @@ final class AppState {
          profiles: ProfileStore = ProfileStore(),
          api: AnthropicAPI = AnthropicAPI(),
          statusAPI: AnthropicStatusAPI = AnthropicStatusAPI(),
-         preferences: AppPreferences = AppPreferences()) {
+         preferences: AppPreferences = AppPreferences(),
+         usageCache: UsageSnapshotCache = UsageSnapshotCache()) {
         self.store = store
         self.profiles = profiles
         self.preferences = preferences
+        self.usageCache = usageCache
         self.engine = SwitchEngine(store: store, profiles: profiles)
         self.api = api
         self.statusAPI = statusAPI
@@ -113,6 +116,7 @@ final class AppState {
         Task {
             await migrateLegacyStorage()
             await reloadLocalState()
+            await restoreCachedUsage()
             startStatusPolling()
             startPolling()
         }
@@ -237,12 +241,58 @@ final class AppState {
             while !Task.isCancelled {
                 guard let self else { return }
                 await self.refreshNextScheduledAccount()
-                let spacing = UsageRefreshPlanner.spacing(
+                var spacing = UsageRefreshPlanner.spacing(
                     fullCycleInterval: self.pollIntervalSeconds,
                     accountCount: self.availableUsageAccountCount
                 )
+                // Mientras alguna cuenta siga sin datos (primer arranque o
+                // cuenta recién añadida), la vuelta se acelera con un paso
+                // corto pero suficiente para no parecer una ráfaga.
+                if self.hasAccountsAwaitingFirstSnapshot {
+                    spacing = min(spacing, 12)
+                }
                 try? await Task.sleep(for: .seconds(spacing))
             }
+        }
+    }
+
+    /// Alguna cuenta utilizable (con sesión y sin pausa del servidor) sigue
+    /// sin instantánea de uso en memoria.
+    private var hasAccountsAwaitingFirstSnapshot: Bool {
+        let now = Date()
+        return profilesList.contains { profile in
+            guard !profile.needsLogin,
+                  usageByAccount[profile.accountUuid] == nil else {
+                return false
+            }
+            return rateLimitedUntilByAccount[profile.accountUuid]
+                .map { $0 <= now } ?? true
+        }
+    }
+
+    /// Rellena el panel con la última instantánea guardada de cada cuenta,
+    /// sin esperar a la red. Las consultas posteriores las van sustituyendo.
+    private func restoreCachedUsage() async {
+        let usageCache = self.usageCache
+        let cached = await offMain { usageCache.load() }
+        guard !cached.isEmpty else { return }
+        for (account, snapshot) in cached
+        where usageByAccount[account] == nil {
+            usageByAccount[account] = snapshot
+        }
+        if let activeAccountUuid,
+           let restored = usageByAccount[activeAccountUuid] {
+            lastRefreshAt = restored.fetchedAt
+        }
+    }
+
+    /// Guarda la caché en disco sin bloquear el hilo principal. Un fallo de
+    /// escritura solo pierde la comodidad del arranque, nunca datos reales.
+    private func persistUsageCache() {
+        let usageCache = self.usageCache
+        let snapshots = usageByAccount
+        Task.detached(priority: .utility) {
+            try? usageCache.save(snapshots)
         }
     }
 
@@ -499,6 +549,7 @@ final class AppState {
             if accountUuid == activeAccountUuid {
                 lastRefreshAt = Date()
             }
+            persistUsageCache()
         case .rateLimited(let until):
             rateLimitedUntilByAccount[accountUuid] = until
             usageIssueByAccount[accountUuid] = nil
@@ -1170,6 +1221,7 @@ final class AppState {
         Task {
             let ok = await offMain { (try? profiles.removeProfile(accountUuid)) != nil }
             usageByAccount[accountUuid] = nil
+            persistUsageCache()
             await reloadLocalState()
             if !ok {
                 lastError = L10n.tr("state.profile_delete_failed")
