@@ -3,14 +3,18 @@ import PackageDescription
 
 let package = Package(
     name: "ClaudeSwitch",
+    defaultLocalization: "es",
     platforms: [.macOS(.v26)],
     products: [.library(name: "ClaudeSwitchCore", targets: ["ClaudeSwitchCore"])],
     targets: [
         // Lógica sin UI (perfiles, Llavero, API, política de cambio): testeable y headless.
-        .target(
-            name: "ClaudeSwitchCore",
-            path: "Sources/ClaudeSwitchCore"
-        ),
+    .target(
+      name: "ClaudeSwitchCore",
+      path: "Sources/ClaudeSwitchCore",
+      resources: [
+        .process("Resources")
+      ]
+    ),
         // Ejecutable delgado (SwiftUI) que enlaza ClaudeSwitchCore.
         .executableTarget(
             name: "ClaudeSwitch",

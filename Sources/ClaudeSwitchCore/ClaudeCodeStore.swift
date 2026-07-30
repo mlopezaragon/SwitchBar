@@ -31,8 +31,7 @@ public struct ClaudeCodeStore: Sendable {
 
     // MARK: Credenciales (Llavero)
 
-    /// Contenido completo de la entrada del Llavero. Cada acceso puede abrir
-    /// un diálogo de autorización del sistema, así que las operaciones que
+    /// Contenido completo de la entrada del Llavero. Las operaciones que
     /// necesitan leer y escribir (el cambio de cuenta) usan este blob una sola
     /// vez en lugar de encadenar varias lecturas.
     public struct CredentialsBlob: Sendable {
@@ -48,7 +47,9 @@ public struct ClaudeCodeStore: Sendable {
 
         func dictionary() throws -> [String: Any] {
             guard let dict = try JSONSerialization.jsonObject(with: json) as? [String: Any] else {
-                throw CoreError.malformedJSON("entrada del Llavero corrupta")
+                throw CoreError.malformedJSON(
+                    L10n.tr("core.error.keychain_entry_corrupt")
+                )
             }
             return dict
         }
@@ -72,7 +73,9 @@ public struct ClaudeCodeStore: Sendable {
         guard let s = try keychain.readString(service: Self.credentialsService) else { return nil }
         let data = Data(s.utf8)
         guard (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] != nil else {
-            throw CoreError.malformedJSON("la entrada del Llavero de Claude Code no es un objeto JSON")
+            throw CoreError.malformedJSON(
+                L10n.tr("core.error.keychain_entry_object")
+            )
         }
         return CredentialsBlob(json: data)
     }
@@ -94,7 +97,9 @@ public struct ClaudeCodeStore: Sendable {
         var dict: [String: Any] = [:]
         if let s = try keychain.readString(service: Self.credentialsService) {
             guard let existing = try? JSONSerialization.jsonObject(with: Data(s.utf8)) as? [String: Any] else {
-                throw CoreError.malformedJSON("la entrada del Llavero de Claude Code no es un objeto JSON; no se escribe para no destruirla")
+                throw CoreError.malformedJSON(
+                    L10n.tr("core.error.keychain_entry_preserve")
+                )
             }
             dict = existing
         }
@@ -107,11 +112,28 @@ public struct ClaudeCodeStore: Sendable {
     // MARK: Identidad (~/.claude.json)
 
     public func readActiveIdentity() throws -> AccountIdentity? {
-        guard let data = try? Data(contentsOf: claudeJsonURL),
-              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let account = dict["oauthAccount"] as? [String: Any] else { return nil }
+        guard FileManager.default.fileExists(atPath: claudeJsonURL.path) else {
+            return nil
+        }
+        let data = try Data(contentsOf: claudeJsonURL)
+        guard let dict = try? JSONSerialization.jsonObject(with: data)
+            as? [String: Any] else {
+            throw CoreError.malformedJSON(
+                L10n.tr("core.error.claude_json_object")
+            )
+        }
+        guard let account = dict["oauthAccount"] as? [String: Any] else {
+            return nil
+        }
         let json = try JSONSerialization.data(withJSONObject: account, options: [.sortedKeys])
         return try AccountIdentity(oauthAccountJSON: json)
+    }
+
+    public func identityModificationDate() -> Date? {
+        let attributes = try? FileManager.default.attributesOfItem(
+            atPath: claudeJsonURL.path
+        )
+        return attributes?[.modificationDate] as? Date
     }
 
     /// Sustituye el bloque `oauthAccount` preservando el resto del fichero.
@@ -126,19 +148,23 @@ public struct ClaudeCodeStore: Sendable {
         if exists {
             let original = try Data(contentsOf: claudeJsonURL)
             guard let existing = try? JSONSerialization.jsonObject(with: original) as? [String: Any] else {
-                throw CoreError.malformedJSON("~/.claude.json no se pudo interpretar; no se escribe para no destruirlo")
+                throw CoreError.malformedJSON(
+                    L10n.tr("core.error.claude_json_preserve")
+                )
             }
             dict = existing
             let backupURL = claudeJsonURL.appendingPathExtension("claudeswitch-backup")
-            try? original.write(to: backupURL, options: [.atomic])
+            try? SecureFileIO.writeAtomically(original, to: backupURL)
         }
         dict["oauthAccount"] = try identity.asDictionary()
         let data = try JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys])
-        try data.write(to: claudeJsonURL, options: [.atomic])
+        try SecureFileIO.writeAtomically(data, to: claudeJsonURL)
 
         // Verificación: si otra escritura concurrente pisó la nuestra, avisar.
         if try readActiveIdentity()?.accountUuid != identity.accountUuid {
-            throw CoreError.malformedJSON("otra escritura concurrente sobre ~/.claude.json pisó el cambio; reinténtalo")
+            throw CoreError.malformedJSON(
+                L10n.tr("core.error.concurrent_write")
+            )
         }
     }
 }

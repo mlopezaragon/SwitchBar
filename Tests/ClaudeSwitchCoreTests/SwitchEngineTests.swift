@@ -115,6 +115,74 @@ private func activarCuenta(_ e: Entorno, uuid: String, email: String, token: Str
     #expect(try e.profiles.credentials(for: "uA")?.accessToken == "tA")
 }
 
+@Test func reparacionExplicitaRecuperaUnLlaveroTruncado() throws {
+    let e = try makeEntorno()
+    try activarCuenta(e, uuid: "uA", email: "a@a.com", token: "tA")
+    try e.engine.captureActiveAsProfile()
+    let idB = try AccountIdentity(
+        oauthAccountJSON: Data(
+            "{\"accountUuid\": \"uB\", \"emailAddress\": \"b@b.com\"}".utf8
+        )
+    )
+    let credsB = try OAuthCredentials(
+        claudeAiOauthJSON: Data(
+            "{\"accessToken\": \"tB\", \"refreshToken\": \"refB\"}".utf8
+        )
+    )
+    try e.profiles.saveProfile(identity: idB, credentials: credsB)
+    try e.keychain.writeString(
+        "{\"claudeAiOauth\":{\"accessToken\":\"cortado",
+        service: ClaudeCodeStore.credentialsService
+    )
+
+    let repaired = try e.engine.repairAndSwitchTo("uB")
+
+    #expect(repaired.accountUuid == "uB")
+    #expect(try e.store.readActiveCredentials()?.accessToken == "tB")
+    #expect(try e.store.readActiveIdentity()?.accountUuid == "uB")
+    #expect(try e.profiles.credentials(for: "uA")?.accessToken == "tA")
+}
+
+@Test func reparacionConBlobLegibleConservaMcpOAuth() throws {
+    let e = try makeEntorno()
+    try activarCuenta(e, uuid: "uA", email: "a@a.com", token: "tA")
+    try e.engine.captureActiveAsProfile()
+    let idB = try AccountIdentity(
+        oauthAccountJSON: Data(
+            "{\"accountUuid\": \"uB\", \"emailAddress\": \"b@b.com\"}".utf8
+        )
+    )
+    let credsB = try OAuthCredentials(
+        claudeAiOauthJSON: Data(
+            "{\"accessToken\": \"tB\", \"refreshToken\": \"refB\"}".utf8
+        )
+    )
+    try e.profiles.saveProfile(identity: idB, credentials: credsB)
+    try e.keychain.writeString(
+        """
+        {"claudeAiOauth":{"accessToken":"tB","refreshToken":"refB"},
+         "mcpOAuth":{"srv":{"accessToken":"mcp-token"}}}
+        """,
+        service: ClaudeCodeStore.credentialsService
+    )
+
+    try e.engine.repairAndSwitchTo("uA")
+
+    let stored = try e.keychain.readString(
+        service: ClaudeCodeStore.credentialsService
+    )
+    let encoded = try #require(stored)
+    let blob = try #require(
+        JSONSerialization.jsonObject(
+            with: Data(encoded.utf8)
+        ) as? [String: Any]
+    )
+    let mcp = try #require(blob["mcpOAuth"] as? [String: Any])
+    let server = try #require(mcp["srv"] as? [String: Any])
+    #expect(server["accessToken"] as? String == "mcp-token")
+    #expect(try e.store.readActiveCredentials()?.accessToken == "tA")
+}
+
 @Test func cambiarACuentaConRefreshTokenCaducadoFalla() throws {
     let e = try makeEntorno()
     let idB = try AccountIdentity(oauthAccountJSON: Data("{\"accountUuid\": \"uB\", \"emailAddress\": \"b@b.com\"}".utf8))
@@ -124,7 +192,7 @@ private func activarCuenta(_ e: Entorno, uuid: String, email: String, token: Str
         try e.engine.switchTo("uB")
     }
     // Y queda marcada como pendiente de sesión.
-    #expect(e.profiles.loadProfiles().first?.needsLogin == true)
+    #expect(try e.profiles.loadProfiles().first?.needsLogin == true)
 }
 
 @Test func cambiarAPerfilInexistenteFalla() throws {
@@ -139,8 +207,38 @@ private func activarCuenta(_ e: Entorno, uuid: String, email: String, token: Str
     let idB = try AccountIdentity(oauthAccountJSON: Data("{\"accountUuid\": \"uB\", \"emailAddress\": \"b@b.com\"}".utf8))
     let credsB = try OAuthCredentials(claudeAiOauthJSON: Data("{\"accessToken\": \"tB\", \"refreshToken\": \"refB\", \"expiresAt\": 2}".utf8))
     try e.profiles.saveProfile(identity: idB, credentials: credsB)
-    e.profiles.markNeedsLogin("uB", true)
+    try e.profiles.markNeedsLogin("uB", true)
     #expect(throws: SwitchError.profileNeedsLogin("uB")) {
         try e.engine.switchTo("uB")
     }
+}
+
+@Test func reconectarUnaCuentaNoAceptaOtraCuentaActiva() throws {
+    let e = try makeEntorno()
+    try activarCuenta(e, uuid: "uA", email: "a@a.com", token: "tA")
+    try e.engine.captureActiveAsProfile()
+    let idB = try AccountIdentity(
+        oauthAccountJSON: Data(
+            "{\"accountUuid\": \"uB\", \"emailAddress\": \"b@b.com\"}".utf8
+        )
+    )
+    let credsB = try OAuthCredentials(
+        claudeAiOauthJSON: Data(
+            "{\"accessToken\": \"tB\", \"refreshToken\": \"refB\"}".utf8
+        )
+    )
+    try e.profiles.saveProfile(identity: idB, credentials: credsB)
+    try e.profiles.markNeedsLogin("uB", true)
+
+    #expect(
+        throws: SwitchError.unexpectedActiveAccount(
+            expected: "uB",
+            actual: "uA"
+        )
+    ) {
+        try e.engine.captureActiveAsProfile(expectedAccountUuid: "uB")
+    }
+    #expect(try e.profiles.loadProfiles().first {
+        $0.accountUuid == "uB"
+    }?.needsLogin == true)
 }

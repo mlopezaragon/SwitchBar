@@ -1,5 +1,6 @@
 import Foundation
 import UserNotifications
+import ClaudeSwitchCore
 
 /// Notificaciones nativas. Sin bundle (ejecución con `swift run`) se omiten
 /// en silencio: UNUserNotificationCenter requiere una app empaquetada.
@@ -15,7 +16,10 @@ enum Notifier {
 
     static func notify(title: String, body: String) {
         guard isBundled else {
-            NSLog("Notificación omitida (sin bundle): %@ — %@", title, body)
+            NSLog(
+                "%@",
+                L10n.tr("notification.omitted_unbundled", title, body)
+            )
             return
         }
         let content = UNMutableNotificationContent()

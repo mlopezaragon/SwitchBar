@@ -24,39 +24,71 @@ public final class SecurityCLIKeychain: KeychainStoring {
     /// de su alcance por construcción, no por convención.
     public static let allowedServices: Set<String> = [
         ClaudeCodeStore.credentialsService,
-        "ClaudeSwitch-credentials",
         "ClaudeSwitch-selftest"
     ]
 
     private static func isAllowed(_ service: String) -> Bool {
-        allowedServices.contains(service) || service.hasPrefix("ClaudeSwitch-profile-")
+        allowedServices.contains(service)
     }
 
     private struct Result_ {
         var status: Int32
         var stdout: String
         var stderr: String
+        var timedOut: Bool
     }
 
-    private static func run(_ arguments: [String]) -> Result_ {
+    private static func run(
+        _ arguments: [String],
+        input: Data? = nil,
+        timeout: TimeInterval = 12
+    ) -> Result_ {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: binary)
         process.arguments = arguments
         let out = Pipe(), err = Pipe()
         process.standardOutput = out
         process.standardError = err
+        let inputPipe = input.map { _ in Pipe() }
+        process.standardInput = inputPipe ?? FileHandle.nullDevice
+        let finished = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in finished.signal() }
         do {
             try process.run()
         } catch {
-            return Result_(status: -1, stdout: "", stderr: String(describing: error))
+            return Result_(
+                status: -1,
+                stdout: "",
+                stderr: String(describing: error),
+                timedOut: false
+            )
+        }
+        if let input, let inputPipe {
+            do {
+                try inputPipe.fileHandleForWriting.write(contentsOf: input)
+                try inputPipe.fileHandleForWriting.close()
+            } catch {
+                process.terminate()
+                return Result_(
+                    status: -1,
+                    stdout: "",
+                    stderr: String(describing: error),
+                    timedOut: false
+                )
+            }
+        }
+        let timedOut = finished.wait(timeout: .now() + timeout) == .timedOut
+        if timedOut {
+            process.terminate()
+            _ = finished.wait(timeout: .now() + 2)
         }
         let outData = out.fileHandleForReading.readDataToEndOfFile()
         let errData = err.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
         return Result_(
             status: process.terminationStatus,
             stdout: String(data: outData, encoding: .utf8) ?? "",
-            stderr: String(data: errData, encoding: .utf8) ?? ""
+            stderr: String(data: errData, encoding: .utf8) ?? "",
+            timedOut: timedOut
         )
     }
 
@@ -76,38 +108,95 @@ public final class SecurityCLIKeychain: KeychainStoring {
     public func readString(service: String) throws -> String? {
         guard Self.isAllowed(service) else { return nil }
         let result = Self.run(["find-generic-password", "-s", service, "-w"])
+        if result.timedOut { throw KeychainError.interactionRequired }
         if result.status == 44 { return nil } // errSecItemNotFound
         guard result.status == 0 else {
             if result.stderr.contains("SecKeychainSearchCopyNext") { return nil }
-            throw KeychainError.osStatus(OSStatus(result.status))
+            throw KeychainError.commandFailed(result.status)
         }
-        let value = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        // `security -w` añade un salto de línea que no forma parte del valor.
+        let value = result.stdout.hasSuffix("\n")
+            ? String(result.stdout.dropLast())
+            : result.stdout
         return value.isEmpty ? nil : value
     }
 
     public func writeString(_ value: String, service: String) throws {
         guard Self.isAllowed(service) else { throw KeychainError.serviceNotAllowed(service) }
-        // -U actualiza la entrada si ya existe, conservando su identidad.
-        // -A la deja accesible sin diálogo para los programas del usuario: es
-        // lo que permite que ni esta app ni Claude Code vuelvan a pedir la
-        // contraseña del Llavero en cada acceso. La protección efectiva pasa a
-        // ser la de la sesión del usuario, como el fichero de credenciales que
-        // usa Claude Code en Linux.
+        // Claude Code 2.1.x escribe por `security -i` y pasa el secreto como
+        // hexadecimal por stdin mientras cabe en el límite del intérprete.
+        // Para blobs grandes usa directamente `add-generic-password -X`:
+        // `security -i` corta silenciosamente las líneas alrededor de 4 KiB
+        // y dejaría la entrada como un JSON incompleto.
+        //
+        // Al no indicar -A/-T, la ACL nueva confía únicamente en el proceso
+        // creador: /usr/bin/security. Tanto Claude Code como ClaudeSwitch usan
+        // ese mismo binario, por lo que /login y los cambios de cuenta siguen
+        // siendo compatibles sin diálogos repetidos.
         let account = existingAccount(service: service) ?? self.account
-        let result = Self.run([
-            "add-generic-password", "-U", "-A",
-            "-s", service,
-            "-a", account,
-            "-w", value
-        ])
-        guard result.status == 0 else { throw KeychainError.osStatus(OSStatus(result.status)) }
+        let invocation = Self.writeInvocation(
+            value: value,
+            service: service,
+            account: account
+        )
+        let result = Self.run(
+            invocation.arguments,
+            input: invocation.input.isEmpty
+                ? nil
+                : Data(invocation.input.utf8)
+        )
+        if result.timedOut { throw KeychainError.interactionRequired }
+        guard result.status == 0 else {
+            throw KeychainError.commandFailed(result.status)
+        }
     }
 
     public func delete(service: String) throws {
         guard Self.isAllowed(service) else { throw KeychainError.serviceNotAllowed(service) }
         let result = Self.run(["delete-generic-password", "-s", service])
+        if result.timedOut { throw KeychainError.interactionRequired }
         guard result.status == 0 || result.status == 44 else {
-            throw KeychainError.osStatus(OSStatus(result.status))
+            throw KeychainError.commandFailed(result.status)
         }
+    }
+
+    /// El intérprete de `security -i` acepta comillas dobles. Los servicios
+    /// permitidos son constantes, pero se escapa también la cuenta por defensa
+    /// en profundidad.
+    private static func escaped(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "")
+            .replacingOccurrences(of: "\r", with: "")
+    }
+
+    /// Margen conservador bajo el búfer de 4 KiB de `security -i`.
+    private static let maximumInteractiveCommandBytes = 3_500
+
+    /// Construcción pura usada por las pruebas. Los valores normales viajan
+    /// por stdin. Para valores grandes se replica el fallback oficial de
+    /// Claude Code a argv, porque truncarlos sería mucho más grave.
+    static func writeInvocation(
+        value: String,
+        service: String,
+        account: String
+    ) -> (arguments: [String], input: String) {
+        let hex = Data(value.utf8).map { String(format: "%02x", $0) }.joined()
+        let interactive =
+            "add-generic-password -U -a \"\(escaped(account))\" "
+            + "-s \"\(escaped(service))\" -X \(hex)\n"
+        if interactive.utf8.count <= maximumInteractiveCommandBytes {
+            return (["-i"], interactive)
+        }
+        return (
+            [
+                "add-generic-password", "-U",
+                "-a", account,
+                "-s", service,
+                "-X", hex
+            ],
+            ""
+        )
     }
 }

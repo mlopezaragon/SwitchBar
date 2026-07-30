@@ -7,6 +7,7 @@ struct AccountCardView: View {
     let usage: UsageSnapshot?
     let isActive: Bool
     let onSwitch: () -> Void
+    let onReconnect: () -> Void
 
     @State private var hovering = false
 
@@ -16,7 +17,13 @@ struct AccountCardView: View {
     }
 
     var body: some View {
-        Button(action: { if !isActive && !profile.needsLogin { onSwitch() } }) {
+        Button(action: {
+            if profile.needsLogin {
+                onReconnect()
+            } else if !isActive {
+                onSwitch()
+            }
+        }) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Circle()
@@ -28,30 +35,30 @@ struct AccountCardView: View {
                         .truncationMode(.middle)
                     Spacer()
                     if isActive {
-                        Text("Activa")
+                        Text(L10n.tr("account.active"))
                             .font(.caption2.weight(.semibold))
                             .padding(.horizontal, 7)
                             .padding(.vertical, 2)
                             .background(Capsule().fill(Color.green.opacity(0.15)))
                             .foregroundStyle(.green)
                     } else if profile.needsLogin {
-                        Text("Requiere sesión")
+                        Text(L10n.tr("account.login"))
                             .font(.caption2.weight(.semibold))
                             .padding(.horizontal, 7)
                             .padding(.vertical, 2)
                             .background(Capsule().fill(Color.orange.opacity(0.15)))
                             .foregroundStyle(.orange)
                     } else if hovering {
-                        Text("Cambiar")
+                        Text(L10n.tr("account.change"))
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
 
                 VStack(spacing: 5) {
-                    UsageBar(label: "5 horas", window: usage?.fiveHour, cap: profile.sharedFiveHourCap)
-                    UsageBar(label: "Semana", window: usage?.sevenDay, cap: profile.sharedWeeklyCap)
-                    UsageBar(label: "Fable", window: usage?.sevenDayOpus, cap: profile.sharedWeeklyCap)
+                    UsageBar(label: L10n.tr("usage.five_hours"), window: usage?.fiveHour, cap: profile.sharedFiveHourCap)
+                    UsageBar(label: L10n.tr("usage.week"), window: usage?.sevenDay, cap: profile.sharedWeeklyCap)
+                    UsageBar(label: L10n.tr("usage.fable"), window: usage?.sevenDayOpus, cap: profile.sharedWeeklyCap)
                 }
             }
             .padding(12)

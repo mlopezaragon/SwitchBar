@@ -4,9 +4,27 @@ public enum SwitchError: Error, Equatable {
     case profileNotFound(String)
     case profileNeedsLogin(String)
     case nothingToUndo
+    case unexpectedActiveAccount(expected: String, actual: String)
     /// El Llavero y ~/.claude.json no describen la misma cuenta: no es seguro
     /// volcar ni capturar hasta que Claude Code (o un cambio) los realinee.
     case inconsistentActiveState
+}
+
+extension SwitchError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .profileNotFound(let account):
+            L10n.tr("switch.error.profile_not_found", account)
+        case .profileNeedsLogin:
+            L10n.tr("switch.error.profile_needs_login")
+        case .nothingToUndo:
+            L10n.tr("switch.error.nothing_to_undo")
+        case .unexpectedActiveAccount:
+            L10n.tr("switch.error.unexpected_active_account")
+        case .inconsistentActiveState:
+            L10n.tr("switch.error.inconsistent_active_state")
+        }
+    }
 }
 
 /// Cambio de cuenta activa de Claude Code.
@@ -18,6 +36,10 @@ public final class SwitchEngine: @unchecked Sendable {
     private let store: ClaudeCodeStore
     private let profiles: ProfileStore
     private let defaults: UserDefaults
+    /// Serializa cambios manuales, automáticos y capturas disparadas por
+    /// `/login`. Dos operaciones simultáneas podrían guardar credenciales de
+    /// una cuenta bajo la identidad de otra.
+    private let operationLock = NSRecursiveLock()
 
     private static let lastSwitchKey = "lastSwitchFromTo"
 
@@ -28,7 +50,8 @@ public final class SwitchEngine: @unchecked Sendable {
     }
 
     public func activeAccountUuid() -> String? {
-        try? store.readActiveIdentity()?.accountUuid
+        operationLock.lock(); defer { operationLock.unlock() }
+        return try? store.readActiveIdentity()?.accountUuid
     }
 
     /// Lee identidad y credenciales activas comprobando que describen la
@@ -52,7 +75,7 @@ public final class SwitchEngine: @unchecked Sendable {
             throw SwitchError.inconsistentActiveState
         }
         let fingerprint = AccountProfile.fingerprint(of: credentials.refreshToken)
-        for other in profiles.loadProfiles() where other.accountUuid != identity.accountUuid {
+        for other in try profiles.loadProfiles() where other.accountUuid != identity.accountUuid {
             if let known = other.refreshTokenFingerprint, known == fingerprint {
                 throw SwitchError.inconsistentActiveState
             }
@@ -61,16 +84,19 @@ public final class SwitchEngine: @unchecked Sendable {
 
     /// Vuelca el estado activo (credenciales + identidad) a su perfil, si existe.
     public func syncActiveIntoProfile() throws {
+        operationLock.lock(); defer { operationLock.unlock() }
         guard let (identity, creds) = try readActivePair() else { return }
-        let known = profiles.loadProfiles().contains { $0.accountUuid == identity.accountUuid }
+        let known = try profiles.loadProfiles().contains {
+            $0.accountUuid == identity.accountUuid
+        }
         guard known else { return }
         try profiles.saveProfile(identity: identity, credentials: creds)
-        profiles.markNeedsLogin(identity.accountUuid, false)
     }
 
     @discardableResult
     public func switchTo(_ accountUuid: String) throws -> AccountIdentity {
-        let all = profiles.loadProfiles()
+        operationLock.lock(); defer { operationLock.unlock() }
+        let all = try profiles.loadProfiles()
         guard let target = all.first(where: { $0.accountUuid == accountUuid }) else {
             throw SwitchError.profileNotFound(accountUuid)
         }
@@ -79,7 +105,7 @@ public final class SwitchEngine: @unchecked Sendable {
             throw SwitchError.profileNeedsLogin(accountUuid)
         }
         if creds.isRefreshTokenExpired() {
-            profiles.markNeedsLogin(accountUuid, true)
+            try profiles.markNeedsLogin(accountUuid, true)
             throw SwitchError.profileNeedsLogin(accountUuid)
         }
 
@@ -95,7 +121,6 @@ public final class SwitchEngine: @unchecked Sendable {
            all.contains(where: { $0.accountUuid == previousIdentity.accountUuid }) {
             try checkPairConsistency(identity: previousIdentity, credentials: previousCreds)
             try profiles.saveProfile(identity: previousIdentity, credentials: previousCreds)
-            profiles.markNeedsLogin(previousIdentity.accountUuid, false)
         }
 
         let identity = try target.identity()
@@ -116,21 +141,83 @@ public final class SwitchEngine: @unchecked Sendable {
         return identity
     }
 
+    /// Recuperación explícita tras una entrada activa corrupta o descasada.
+    ///
+    /// No intenta guardar la sesión saliente porque no se puede demostrar a
+    /// qué cuenta pertenece. Si el blob aún es legible conserva sus claves
+    /// auxiliares (mcpOAuth); si está truncado, reconstruye únicamente
+    /// `claudeAiOauth` desde el perfil destino.
+    @discardableResult
+    public func repairAndSwitchTo(
+        _ accountUuid: String
+    ) throws -> AccountIdentity {
+        operationLock.lock(); defer { operationLock.unlock() }
+        let all = try profiles.loadProfiles()
+        guard let target = all.first(where: {
+            $0.accountUuid == accountUuid
+        }) else {
+            throw SwitchError.profileNotFound(accountUuid)
+        }
+        if target.needsLogin {
+            throw SwitchError.profileNeedsLogin(accountUuid)
+        }
+        guard let creds = try profiles.credentials(for: accountUuid) else {
+            throw SwitchError.profileNeedsLogin(accountUuid)
+        }
+        if creds.isRefreshTokenExpired() {
+            try profiles.markNeedsLogin(accountUuid, true)
+            throw SwitchError.profileNeedsLogin(accountUuid)
+        }
+
+        let previous = activeAccountUuid()
+        let readableBlob = try? store.readCredentialsBlob()
+        let base = try readableBlob
+            ?? ClaudeCodeStore.CredentialsBlob(dictionary: [:])
+        let repairedBlob = try base.replacingCredentials(creds)
+        try store.writeCredentialsBlob(repairedBlob)
+
+        let identity = try target.identity()
+        do {
+            try store.writeActiveIdentity(identity)
+        } catch {
+            if let readableBlob {
+                try? store.writeCredentialsBlob(readableBlob)
+            }
+            throw error
+        }
+        if let previous, previous != accountUuid {
+            defaults.set([previous, accountUuid], forKey: Self.lastSwitchKey)
+        }
+        return identity
+    }
+
     /// Alta de cuenta: guarda la sesión activa de Claude Code como perfil.
     @discardableResult
-    public func captureActiveAsProfile() throws -> AccountProfile {
+    public func captureActiveAsProfile(
+        expectedAccountUuid: String? = nil
+    ) throws -> AccountProfile {
+        operationLock.lock(); defer { operationLock.unlock() }
         guard let (identity, creds) = try readActivePair() else {
-            throw SwitchError.profileNotFound("cuenta activa")
+            throw SwitchError.profileNotFound(L10n.tr("core.active_account"))
+        }
+        if let expectedAccountUuid,
+           identity.accountUuid != expectedAccountUuid {
+            throw SwitchError.unexpectedActiveAccount(
+                expected: expectedAccountUuid,
+                actual: identity.accountUuid
+            )
         }
         return try profiles.saveProfile(identity: identity, credentials: creds)
     }
 
     public var canUndo: Bool {
-        (defaults.array(forKey: Self.lastSwitchKey) as? [String])?.count == 2
+        operationLock.lock(); defer { operationLock.unlock() }
+        return (defaults.array(forKey: Self.lastSwitchKey) as? [String])?.count == 2
     }
 
     @discardableResult
     public func undoLastSwitch() throws -> AccountIdentity {
+        operationLock.lock(); defer { operationLock.unlock() }
         guard let pair = defaults.array(forKey: Self.lastSwitchKey) as? [String], pair.count == 2 else {
             throw SwitchError.nothingToUndo
         }

@@ -1,43 +1,34 @@
 #!/bin/bash
-# Reconstruye la entrada "Claude Code-credentials" del Llavero con una lista de
-# accesos permisiva (-A), para que ni Claude Code ni ClaudeSwitch vuelvan a
-# pedir la contraseña del Llavero en cada acceso.
+# Diagnóstico conservador del Llavero para Claude Code y ClaudeSwitch.
 #
-# Por qué hace falta: al escribir esa entrada con la API SecItem, macOS ató su
-# autorización a la firma de la app que la escribió y dejó fuera a
-# /usr/bin/security, que es el programa con el que Claude Code lee y escribe su
-# sesión. Actualizar la entrada no repara esa lista; hay que recrearla.
-#
-# La contraseña del Llavero se pide UNA vez, al leer el valor actual.
+# Este script nunca lee, exporta, borra ni recrea "Claude Code-credentials".
+# Tampoco usa `-A` (acceso para cualquier app) ni guarda tokens en ficheros.
 set -euo pipefail
 
-SERVICE="Claude Code-credentials"
-ACCOUNT="$(id -un)"
-BACKUP="$HOME/.claude-credentials-backup-$(date +%Y%m%d-%H%M%S).json"
+LOGIN_KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
+TEST_SERVICE="ClaudeSwitch-selftest"
+TEST_ACCOUNT="$(id -un)"
 
-echo "==> Leyendo la sesión actual de Claude Code (pedirá la contraseña una vez)…"
-VALUE="$(/usr/bin/security find-generic-password -s "$SERVICE" -w)"
+echo "==> Comprobando que el Llavero login admite escritura…"
+security add-generic-password \
+    -U \
+    -a "$TEST_ACCOUNT" \
+    -s "$TEST_SERVICE" \
+    -w "escritura-ok" \
+    "$LOGIN_KEYCHAIN" >/dev/null
+security delete-generic-password \
+    -a "$TEST_ACCOUNT" \
+    -s "$TEST_SERVICE" \
+    "$LOGIN_KEYCHAIN" >/dev/null
+echo "OK: escritura y borrado funcionan."
 
-if ! printf '%s' "$VALUE" | python3 -c "import json,sys; d=json.load(sys.stdin); assert 'claudeAiOauth' in d" 2>/dev/null; then
-    echo "ERROR: el contenido leído no es una sesión válida. No se toca nada." >&2
-    exit 1
-fi
+echo "==> Estado oficial de Claude Code…"
+claude auth status --text
 
-printf '%s' "$VALUE" > "$BACKUP"
-chmod 600 "$BACKUP"
-echo "==> Copia de seguridad en $BACKUP"
+echo "==> Diagnóstico oficial…"
+claude doctor
 
-echo "==> Recreando la entrada con acceso permanente…"
-/usr/bin/security delete-generic-password -s "$SERVICE" >/dev/null 2>&1 || true
-/usr/bin/security add-generic-password -U -A -s "$SERVICE" -a "$ACCOUNT" -w "$VALUE"
-
-echo "==> Comprobando que ya se lee sin pedir nada…"
-CHECK="$(/usr/bin/security find-generic-password -s "$SERVICE" -w)"
-if [ "$CHECK" = "$VALUE" ]; then
-    echo "LISTO: la sesión está intacta y el acceso ya no pedirá contraseña."
-    echo "Si todo va bien, puedes borrar la copia: rm $BACKUP"
-else
-    echo "ERROR: la verificación no coincide. Restaura con:" >&2
-    echo "  /usr/bin/security add-generic-password -U -A -s '$SERVICE' -a '$ACCOUNT' -w \"\$(cat $BACKUP)\"" >&2
-    exit 1
-fi
+echo
+echo "No se ha modificado ninguna sesión."
+echo "Si Claude Code no figura conectado, ejecuta:"
+echo "  claude auth login --claudeai"

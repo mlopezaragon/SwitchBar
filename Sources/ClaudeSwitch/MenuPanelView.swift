@@ -9,6 +9,14 @@ struct MenuPanelView: View {
         VStack(alignment: .leading, spacing: 10) {
             header
 
+            AnthropicStatusBanner(
+                snapshot: state.anthropicStatus,
+                unavailable: state.anthropicStatusUnavailable,
+                checking: state.isCheckingAnthropicStatus,
+                compact: true,
+                openOfficialPage: state.openAnthropicStatusPage
+            )
+
             if let unsaved = state.activeUnsaved {
                 unsavedBanner(unsaved)
             }
@@ -22,7 +30,11 @@ struct MenuPanelView: View {
                     profile: profile,
                     usage: state.usageByAccount[profile.accountUuid],
                     isActive: profile.accountUuid == state.activeAccountUuid,
-                    onSwitch: { state.switchTo(profile.accountUuid) }
+                    onSwitch: { state.switchTo(profile.accountUuid) },
+                    onReconnect: {
+                        DetailWindowController.shared.show()
+                        state.beginReconnect(profile)
+                    }
                 )
             }
 
@@ -30,7 +42,7 @@ struct MenuPanelView: View {
                 DetailWindowController.shared.show()
                 state.beginAddAccount()
             } label: {
-                Label("Añadir cuenta", systemImage: "plus")
+                Label(L10n.tr("account.add"), systemImage: "plus")
                     .font(.caption)
             }
             .buttonStyle(.plain)
@@ -42,11 +54,22 @@ struct MenuPanelView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if let error = state.lastError {
-                Text(error)
+            if let notice = state.usageRefreshNotice {
+                Label(notice, systemImage: "clock.arrow.circlepath")
                     .font(.caption)
                     .foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+            if let error = state.lastError {
+                Label {
+                    Text(error)
+                        .lineLimit(4)
+                } icon: {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                }
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
             }
 
             Divider()
@@ -55,7 +78,6 @@ struct MenuPanelView: View {
         .padding(12)
         .frame(width: 360)
         .onAppear {
-            state.clearMessages()
             state.refreshIfStale()
         }
     }
@@ -74,28 +96,28 @@ struct MenuPanelView: View {
                     .foregroundStyle(.tertiary)
             }
             Button {
-                Task { await state.refreshAll() }
+                Task { await state.refreshAll(force: true) }
             } label: {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 11, weight: .medium))
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help("Actualizar ahora")
+            .help(L10n.tr("usage.refresh_now"))
         }
     }
 
     private func unsavedBanner(_ identity: AccountIdentity) -> some View {
         HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Cuenta activa sin guardar")
+                Text(L10n.tr("account.unsaved"))
                     .font(.caption.weight(.semibold))
                 Text(identity.emailAddress)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Button("Guardar") { state.captureActive() }
+            Button(L10n.tr("account.save")) { state.captureActive() }
                 .controlSize(.small)
         }
         .padding(10)
@@ -104,9 +126,9 @@ struct MenuPanelView: View {
 
     private var emptyState: some View {
         VStack(spacing: 6) {
-            Text("Sin cuentas guardadas")
+            Text(L10n.tr("account.empty.title"))
                 .font(.callout.weight(.medium))
-            Text("Inicia sesión en Claude Code con cada cuenta y pulsa «Guardar» cuando aparezca aquí.")
+            Text(L10n.tr("account.empty.explanation"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -118,7 +140,7 @@ struct MenuPanelView: View {
     private var footer: some View {
         HStack(spacing: 10) {
             Toggle(isOn: $state.autoSwitchEnabled) {
-                Text("Cambio automático")
+                Text(L10n.tr("auto_switch.label"))
                     .font(.caption)
             }
             .toggleStyle(.switch)
@@ -127,7 +149,7 @@ struct MenuPanelView: View {
             Spacer()
 
             if state.canUndo {
-                Button("Deshacer") { state.undo() }
+                Button(L10n.tr("action.undo")) { state.undo() }
                     .buttonStyle(.plain)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -141,7 +163,7 @@ struct MenuPanelView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help("Abrir detalle y ajustes")
+            .help(L10n.tr("action.open_details"))
 
             Button {
                 NSApp.terminate(nil)
@@ -151,7 +173,7 @@ struct MenuPanelView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help("Salir de ClaudeSwitch")
+            .help(L10n.tr("action.quit"))
         }
     }
 

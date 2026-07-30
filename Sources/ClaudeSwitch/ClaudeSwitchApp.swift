@@ -12,8 +12,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func applicationDidBecomeActive(_ notification: Notification) {
+        AppState.shared.refreshAfterResume()
+    }
+
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         DetailWindowController.shared.show()
+        AppState.shared.refreshAfterResume()
         return true
     }
 }

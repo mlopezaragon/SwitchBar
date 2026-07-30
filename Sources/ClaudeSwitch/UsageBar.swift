@@ -47,7 +47,7 @@ struct UsageBar: View {
                             .fill(.secondary)
                             .frame(width: 1.5, height: 8)
                             .offset(x: geo.size.width * cap / 100)
-                            .help("Tope personal: \(Int(cap)) %")
+                            .help(L10n.tr("usage.personal_cap", Int(cap)))
                     }
                 }
             }

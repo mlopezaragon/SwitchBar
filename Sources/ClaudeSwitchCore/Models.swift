@@ -8,6 +8,17 @@ public enum CoreError: Error, Equatable {
     case missingField(String)
 }
 
+extension CoreError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .malformedJSON(let detail):
+            L10n.tr("core.error.malformed_json", detail)
+        case .missingField(let field):
+            L10n.tr("core.error.missing_field", field)
+        }
+    }
+}
+
 // MARK: - Fechas ISO 8601 (con y sin fracciones de segundo)
 
 enum ISO8601 {
@@ -89,7 +100,9 @@ public struct UsageSnapshot: Sendable, Equatable {
     /// `seven_day_opus`.
     public static func parse(_ data: Data, fetchedAt: Date) throws -> UsageSnapshot {
         guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw CoreError.malformedJSON("respuesta de uso no es un objeto JSON")
+            throw CoreError.malformedJSON(
+                L10n.tr("core.error.usage_response_object")
+            )
         }
         var byKind: [String: UsageWindow] = [:]
         if let limits = dict["limits"] as? [[String: Any]] {
@@ -131,7 +144,9 @@ public struct OAuthCredentials: Sendable, Equatable {
 
     public init(claudeAiOauthJSON data: Data) throws {
         guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw CoreError.malformedJSON("claudeAiOauth no es un objeto JSON")
+            throw CoreError.malformedJSON(
+                L10n.tr("core.error.oauth_credentials_object")
+            )
         }
         guard let access = dict["accessToken"] as? String else { throw CoreError.missingField("accessToken") }
         guard let refresh = dict["refreshToken"] as? String else { throw CoreError.missingField("refreshToken") }
@@ -146,7 +161,9 @@ public struct OAuthCredentials: Sendable, Equatable {
     /// Diccionario del objeto `claudeAiOauth` tal cual está en `rawJSON`.
     public func asDictionary() throws -> [String: Any] {
         guard let dict = try? JSONSerialization.jsonObject(with: rawJSON) as? [String: Any] else {
-            throw CoreError.malformedJSON("rawJSON corrupto")
+            throw CoreError.malformedJSON(
+                L10n.tr("core.error.raw_json_corrupt")
+            )
         }
         return dict
     }
@@ -186,7 +203,9 @@ public struct AccountIdentity: Sendable, Equatable {
 
     public init(oauthAccountJSON data: Data) throws {
         guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw CoreError.malformedJSON("oauthAccount no es un objeto JSON")
+            throw CoreError.malformedJSON(
+                L10n.tr("core.error.oauth_account_object")
+            )
         }
         guard let uuid = dict["accountUuid"] as? String else { throw CoreError.missingField("accountUuid") }
         guard let email = dict["emailAddress"] as? String else { throw CoreError.missingField("emailAddress") }
@@ -198,7 +217,9 @@ public struct AccountIdentity: Sendable, Equatable {
 
     public func asDictionary() throws -> [String: Any] {
         guard let dict = try? JSONSerialization.jsonObject(with: rawJSON) as? [String: Any] else {
-            throw CoreError.malformedJSON("rawJSON corrupto")
+            throw CoreError.malformedJSON(
+                L10n.tr("core.error.raw_json_corrupt")
+            )
         }
         return dict
     }
