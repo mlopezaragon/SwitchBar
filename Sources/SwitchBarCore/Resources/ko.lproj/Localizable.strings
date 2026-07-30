@@ -96,6 +96,8 @@
 "settings.refresh_frequency" = "새로고침 간격";
 "settings.minutes" = "%d분";
 "settings.launch_at_login" = "로그인 시 열기";
+"settings.version" = "버전 %@";
+"settings.check_updates" = "업데이트 확인…";
 
 "shared.title" = "공유 계정";
 "shared.caps_summary" = "내 한도: %1$d%% / %2$d%%";

@@ -96,6 +96,8 @@
 "settings.refresh_frequency" = "重新整理頻率";
 "settings.minutes" = "%d 分鐘";
 "settings.launch_at_login" = "登入時開啟";
+"settings.version" = "版本 %@";
+"settings.check_updates" = "檢查更新…";
 
 "shared.title" = "共享帳號";
 "shared.caps_summary" = "我的上限：%1$d%% / %2$d%%";

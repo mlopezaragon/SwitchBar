@@ -96,6 +96,8 @@
 "settings.refresh_frequency" = "Aktualisierungsintervall";
 "settings.minutes" = "%d Min.";
 "settings.launch_at_login" = "Bei Anmeldung öffnen";
+"settings.version" = "Version %@";
+"settings.check_updates" = "Nach Updates suchen…";
 
 "shared.title" = "Geteilter Account";
 "shared.caps_summary" = "meine Limits: %1$d %% / %2$d %%";

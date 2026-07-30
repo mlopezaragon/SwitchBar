@@ -96,6 +96,8 @@
 "settings.refresh_frequency" = "Fréquence d’actualisation";
 "settings.minutes" = "%d min";
 "settings.launch_at_login" = "Ouvrir à la connexion";
+"settings.version" = "Version %@";
+"settings.check_updates" = "Rechercher des mises à jour…";
 
 "shared.title" = "Compte partagé";
 "shared.caps_summary" = "mes plafonds : %1$d %% / %2$d %%";

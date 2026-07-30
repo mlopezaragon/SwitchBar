@@ -96,6 +96,8 @@
 "settings.refresh_frequency" = "刷新频率";
 "settings.minutes" = "%d 分钟";
 "settings.launch_at_login" = "登录时打开";
+"settings.version" = "版本 %@";
+"settings.check_updates" = "检查更新…";
 
 "shared.title" = "共享账户";
 "shared.caps_summary" = "我的上限：%1$d%% / %2$d%%";

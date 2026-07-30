@@ -1,4 +1,21 @@
+import Sparkle
 import SwiftUI
+
+/// Actualizador Sparkle compartido. Comprueba en segundo plano contra el
+/// appcast firmado (EdDSA) publicado en el repositorio; el usuario también
+/// puede comprobar a mano desde la ventana de detalle.
+@MainActor
+enum AppUpdater {
+    static let controller = SPUStandardUpdaterController(
+        startingUpdater: true,
+        updaterDelegate: nil,
+        userDriverDelegate: nil
+    )
+
+    static func checkForUpdates() {
+        controller.checkForUpdates(nil)
+    }
+}
 
 /// Delegado: la ventana de detalle se abre al arrancar sin cuentas guardadas y
 /// cada vez que se reabre la app (doble clic en /Aplicaciones, Spotlight). Sin
@@ -7,6 +24,9 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         Notifier.requestPermission()
+        // Arranca el actualizador ya: las comprobaciones automáticas de
+        // Sparkle solo se programan si el controlador existe desde el inicio.
+        _ = AppUpdater.controller
         if AppState.shared.profilesList.isEmpty {
             DetailWindowController.shared.show()
         }
