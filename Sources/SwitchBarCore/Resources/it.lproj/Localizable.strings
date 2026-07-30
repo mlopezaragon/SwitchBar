@@ -19,7 +19,7 @@
 "add_account.introduction.add" = "Accedi una sola volta con Claude Code. SwitchBar salverà quindi l’account nel proprio Portachiavi privato, così potrai cambiare account senza inserire la password del Mac.";
 "add_account.introduction.reconnect" = "Riconnettiamo %@. Devi completare l’accesso ufficiale una sola volta; in seguito potrai passare a questo account da SwitchBar senza inserire la password del Mac.";
 "add_account.step.command" = "Esegui in un nuovo terminale il comando ufficiale copiato negli appunti.";
-"add_account.step.choose" = "Apri l’accesso ufficiale e scegli %@ nel browser.";
+"add_account.step.choose" = "Apri l'accesso ufficiale e scegli %@ nel browser. Se il browser è già connesso a un altro account, autorizzerà quello: esci da claude.ai o usa una finestra privata.";
 "add_account.step.slash_login" = "Puoi anche digitare /login in una sessione di Claude Code.";
 "add_account.step.return" = "Quando il browser conferma che è tutto pronto, torna qui e salva l’account attivo.";
 "add_account.copy_and_open_terminal" = "Copia comando e apri Terminale";
@@ -141,7 +141,7 @@
 "state.undo_failed" = "Impossibile annullare il cambio: %@";
 "state.account_added" = "Account %@ aggiunto.";
 "state.account_reconnected" = "Account %@ riconnesso.";
-"state.unexpected_reconnect_account" = "In Claude Code è attivo un altro account. Esegui /login, scegli %@ e fai di nuovo clic su “Fatto”.";
+"state.unexpected_reconnect_account" = "L'accesso ha lasciato attivo %1$@, non %2$@. Il browser autorizza di solito l'account già connesso: esci da claude.ai (o usa una finestra privata), ripeti l'accesso scegliendo %2$@ e premi di nuovo «Ho finito».";
 "state.account_changed_while_saving" = "Claude Code ha cambiato account durante il salvataggio. Controlla l’account attivo e riprova.";
 "state.enrollment_failed" = "Impossibile aggiungere l’account: %@";
 "state.shared_caps_failed" = "Impossibile salvare i limiti: %@";
@@ -179,3 +179,16 @@
 "switch.error.nothing_to_undo" = "Non ci sono cambi da annullare";
 "switch.error.unexpected_active_account" = "In Claude Code è attivo un account diverso da quello previsto";
 "switch.error.inconsistent_active_state" = "L’identità e le credenziali attive non appartengono allo stesso account";
+
+"add_account.open_sign_in" = "Accedi dal browser";
+"add_account.reopen_sign_in" = "Riapri l'accesso";
+"add_account.private_window_hint" = "Si aprirà la pagina ufficiale di Anthropic. Se il browser è già connesso a un altro account, autorizzerà quello: usa una finestra privata o esci prima da claude.ai.";
+"add_account.paste_code_label" = "Incolla qui il codice mostrato dal browser:";
+"add_account.paste_code_placeholder" = "Codice di autorizzazione";
+"add_account.save" = "Salva account";
+"add_account.show_terminal_path" = "Preferisco usare il terminale";
+"add_account.hide_terminal_path" = "Nascondi il metodo del terminale";
+"add_account.terminal_path_title" = "Alternativa: accesso ufficiale dal terminale";
+"add_account.error.bad_code" = "Questo codice non appartiene a questo tentativo. Riapri l'accesso e copia per intero il nuovo codice.";
+"add_account.error.code_rejected" = "Anthropic ha rifiutato il codice. Di solito è già stato usato o è passato troppo tempo: ripeti l'accesso.";
+"add_account.error.profile_unreadable" = "La sessione è stata creata, ma non è stato possibile leggere i dati dell'account. Usa il metodo del terminale.";

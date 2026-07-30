@@ -19,7 +19,7 @@
 "add_account.introduction.add" = "Melde dich einmal bei Claude Code an. SwitchBar speichert diesen Account anschließend in seinem privaten Schlüsselbund, damit du ohne Eingabe deines Mac-Passworts zwischen Accounts wechseln kannst.";
 "add_account.introduction.reconnect" = "Wir verbinden %@ erneut. Du musst die offizielle Anmeldung nur einmal durchführen; danach kannst du in SwitchBar zu diesem Account wechseln, ohne dein Mac-Passwort einzugeben.";
 "add_account.step.command" = "Führe den offiziellen, in die Zwischenablage kopierten Befehl in einem neuen Terminal aus.";
-"add_account.step.choose" = "Öffne die offizielle Anmeldung und wähle %@ im Browser aus.";
+"add_account.step.choose" = "Öffne die offizielle Anmeldung und wähle %@ im Browser. Ist der Browser bereits bei einem anderen Konto angemeldet, wird dieses autorisiert: Melde dich bei claude.ai ab oder nutze ein privates Fenster.";
 "add_account.step.slash_login" = "Du kannst auch /login in einer Claude Code-Sitzung eingeben.";
 "add_account.step.return" = "Wenn der Browser bestätigt, dass alles bereit ist, kehre hierher zurück und sichere den aktiven Account.";
 "add_account.copy_and_open_terminal" = "Befehl kopieren und Terminal öffnen";
@@ -141,7 +141,7 @@
 "state.undo_failed" = "Der Wechsel konnte nicht rückgängig gemacht werden: %@";
 "state.account_added" = "Account %@ hinzugefügt.";
 "state.account_reconnected" = "Account %@ erneut verbunden.";
-"state.unexpected_reconnect_account" = "In Claude Code ist ein anderer Account aktiv. Führe /login aus, wähle %@ und klicke erneut auf „Fertig“.";
+"state.unexpected_reconnect_account" = "Nach der Anmeldung ist %1$@ aktiv, nicht %2$@. Der Browser autorisiert meist das bereits angemeldete Konto: Melde dich bei claude.ai ab (oder nutze ein privates Fenster), wiederhole die Anmeldung mit %2$@ und klicke erneut auf „Fertig“.";
 "state.account_changed_while_saving" = "Claude Code hat während des Sicherns den Account gewechselt. Prüfe den aktiven Account und versuche es erneut.";
 "state.enrollment_failed" = "Der Account konnte nicht hinzugefügt werden: %@";
 "state.shared_caps_failed" = "Die Limits konnten nicht gesichert werden: %@";
@@ -179,3 +179,16 @@
 "switch.error.nothing_to_undo" = "Es gibt keinen Wechsel, der rückgängig gemacht werden kann";
 "switch.error.unexpected_active_account" = "In Claude Code ist ein anderer Account als erwartet aktiv";
 "switch.error.inconsistent_active_state" = "Die aktive Identität und die Anmeldedaten gehören nicht zum selben Account";
+
+"add_account.open_sign_in" = "Im Browser anmelden";
+"add_account.reopen_sign_in" = "Anmeldung erneut öffnen";
+"add_account.private_window_hint" = "Die offizielle Seite von Anthropic wird geöffnet. Ist der Browser bereits bei einem anderen Konto angemeldet, wird dieses autorisiert: Nutze ein privates Fenster oder melde dich zuvor bei claude.ai ab.";
+"add_account.paste_code_label" = "Füge hier den Code ein, den der Browser anzeigt:";
+"add_account.paste_code_placeholder" = "Autorisierungscode";
+"add_account.save" = "Konto speichern";
+"add_account.show_terminal_path" = "Ich nutze lieber das Terminal";
+"add_account.hide_terminal_path" = "Terminal-Methode ausblenden";
+"add_account.terminal_path_title" = "Alternative: offizielle Anmeldung im Terminal";
+"add_account.error.bad_code" = "Dieser Code gehört nicht zu diesem Versuch. Öffne die Anmeldung erneut und kopiere den vollständigen neuen Code.";
+"add_account.error.code_rejected" = "Anthropic hat den Code abgelehnt. Meist wurde er bereits verwendet oder es verging zu viel Zeit: Anmeldung wiederholen.";
+"add_account.error.profile_unreadable" = "Die Sitzung wurde erstellt, aber die Kontodaten konnten nicht gelesen werden. Nutze die Terminal-Methode.";

@@ -1117,17 +1117,127 @@ final class AppState {
     private(set) var reconnectingProfile: AccountProfile?
     private(set) var addAccountError: String?
     private(set) var addAccountBusy = false
+    /// Petición de login en curso iniciada desde la app. Guarda el
+    /// verificador PKCE, que solo vive en memoria durante el alta.
+    private(set) var loginFlow: OAuthLoginFlow?
+    /// Código que el usuario pega desde el navegador.
+    var pastedLoginCode = ""
 
     func beginAddAccount() {
         reconnectingProfile = nil
         addAccountError = nil
+        resetLoginFlow()
         addAccountVisible = true
     }
 
     func beginReconnect(_ profile: AccountProfile) {
         reconnectingProfile = profile
         addAccountError = nil
+        resetLoginFlow()
         addAccountVisible = true
+    }
+
+    private func resetLoginFlow() {
+        loginFlow = nil
+        pastedLoginCode = ""
+    }
+
+    // MARK: Alta sin terminal (autorización desde la propia app)
+
+    /// Abre la pantalla oficial de inicio de sesión de Anthropic.
+    ///
+    /// Cada pulsación crea una petición nueva: reutilizar el verificador de
+    /// un intento anterior haría que el canje fuese rechazado.
+    func startInAppLogin() {
+        let flow = OAuthLoginFlow()
+        loginFlow = flow
+        pastedLoginCode = ""
+        addAccountError = nil
+        NSWorkspace.shared.open(flow.authorizationURL)
+    }
+
+    /// Canjea el código pegado, obtiene la identidad de la cuenta y la
+    /// guarda como perfil. No toca la sesión de Claude Code: la cuenta se
+    /// añade al almacén privado y el usuario decide cuándo cambiar a ella.
+    func completeInAppLogin() async {
+        guard let flow = loginFlow else { return }
+        guard let code = flow.normalizedCode(from: pastedLoginCode) else {
+            addAccountError = L10n.tr("add_account.error.bad_code")
+            return
+        }
+        addAccountBusy = true
+        addAccountError = nil
+        defer { addAccountBusy = false }
+
+        let api = self.api
+        let profiles = self.profiles
+        let target = reconnectingProfile
+        do {
+            let tokens = try await api.exchangeAuthorizationCode(
+                code,
+                verifier: flow.verifier,
+                state: flow.state
+            )
+            let identity = try await api.fetchProfile(
+                accessToken: tokens.accessToken
+            )
+            if let target, identity.accountUuid != target.accountUuid {
+                addAccountError = L10n.tr(
+                    "state.unexpected_reconnect_account",
+                    identity.emailAddress,
+                    target.emailAddress
+                )
+                return
+            }
+            let credentials = try Self.credentials(from: tokens)
+            try await offMain {
+                Result {
+                    try profiles.saveProfile(
+                        identity: identity,
+                        credentials: credentials
+                    )
+                }
+            }.get()
+            resetLoginFlow()
+            reconnectingProfile = nil
+            addAccountVisible = false
+            infoMessage = target == nil
+                ? L10n.tr("state.account_added", identity.emailAddress)
+                : L10n.tr("state.account_reconnected", identity.emailAddress)
+            await reloadLocalState()
+            await refreshAll(force: true)
+        } catch AnthropicAPIError.invalidGrant {
+            addAccountError = L10n.tr("add_account.error.code_rejected")
+        } catch AnthropicAPIError.malformedResponse {
+            addAccountError = L10n.tr("add_account.error.profile_unreadable")
+        } catch {
+            addAccountError = L10n.tr(
+                "state.enrollment_failed",
+                describe(error)
+            )
+        }
+    }
+
+    /// Construye el bloque `claudeAiOauth` con la forma que espera Claude
+    /// Code, para que la sesión sea intercambiable con la suya.
+    private static func credentials(
+        from tokens: RefreshedTokens
+    ) throws -> OAuthCredentials {
+        var dict: [String: Any] = [
+            "accessToken": tokens.accessToken,
+            "refreshToken": tokens.refreshToken ?? "",
+            "scopes": OAuthLoginFlow.scopes
+        ]
+        if let expiresIn = tokens.expiresIn {
+            dict["expiresAt"] = Int(
+                Date().addingTimeInterval(expiresIn).timeIntervalSince1970 * 1000
+            )
+        }
+        let data = try JSONSerialization.data(
+            withJSONObject: dict,
+            options: [.sortedKeys]
+        )
+        return try OAuthCredentials(claudeAiOauthJSON: data)
     }
 
     /// Copia el comando oficial y abre Terminal. No usa AppleScript ni
@@ -1170,12 +1280,20 @@ final class AppState {
             await reloadLocalState()
             Task { await refreshAll() }
         case .failure(SwitchError.unexpectedActiveAccount(_, _)):
+            // Casi siempre ocurre porque el navegador ya tenía abierta la
+            // sesión de otra cuenta y el login oficial la autorizó sin
+            // preguntar. Nombrar la cuenta que quedó activa evita repetir
+            // el mismo intento a ciegas.
+            let store = self.store
+            let actualEmail = await offMain {
+                (try? store.readActiveIdentity())?.emailAddress
+            }
             if let target {
-                addAccountError =
-                    L10n.tr(
-                        "state.unexpected_reconnect_account",
-                        target.emailAddress
-                    )
+                addAccountError = L10n.tr(
+                    "state.unexpected_reconnect_account",
+                    actualEmail ?? "—",
+                    target.emailAddress
+                )
             } else {
                 addAccountError =
                     L10n.tr("state.account_changed_while_saving")

@@ -19,7 +19,7 @@
 "add_account.introduction.add" = "只需在 Claude Code 中登入一次。SwitchBar 會將該帳號存入專用的鑰匙圈，之後切換帳號時無需輸入 Mac 密碼。";
 "add_account.introduction.reconnect" = "現在重新連結 %@。只需完成一次官方登入，之後便可在 SwitchBar 中切換到此帳號，無需輸入 Mac 密碼。";
 "add_account.step.command" = "在新的「終端機」視窗中執行已複製到剪貼簿的官方指令。";
-"add_account.step.choose" = "開啟官方登入頁面，並在瀏覽器中選擇 %@。";
+"add_account.step.choose" = "開啟官方登入並在瀏覽器中選擇 %@。如果瀏覽器已登入其他帳戶，將授權該帳戶：請登出 claude.ai 或使用無痕視窗。";
 "add_account.step.slash_login" = "你也可以在 Claude Code 工作階段中輸入 /login。";
 "add_account.step.return" = "瀏覽器顯示準備完成後，請返回此處並儲存目前帳號。";
 "add_account.copy_and_open_terminal" = "複製指令並開啟終端機";
@@ -141,7 +141,7 @@
 "state.undo_failed" = "無法還原切換：%@";
 "state.account_added" = "已加入帳號 %@。";
 "state.account_reconnected" = "已重新連結帳號 %@。";
-"state.unexpected_reconnect_account" = "Claude Code 目前使用的是另一個帳號。請執行 /login，選擇 %@，然後再次按一下「已完成」。";
+"state.unexpected_reconnect_account" = "登入後生效的是 %1$@，而不是 %2$@。瀏覽器通常會授權已登入的帳戶：請登出 claude.ai（或使用無痕視窗），選擇 %2$@ 重新登入，然後再次點擊「我已完成」。";
 "state.account_changed_while_saving" = "儲存期間 Claude Code 切換了帳號。請檢查目前帳號後重試。";
 "state.enrollment_failed" = "無法加入帳號：%@";
 "state.shared_caps_failed" = "無法儲存上限：%@";
@@ -179,3 +179,16 @@
 "switch.error.nothing_to_undo" = "沒有可還原的切換";
 "switch.error.unexpected_active_account" = "Claude Code 的目前帳號與預期不符";
 "switch.error.inconsistent_active_state" = "目前識別資訊和憑證不屬於同一個帳號";
+
+"add_account.open_sign_in" = "在瀏覽器中登入";
+"add_account.reopen_sign_in" = "重新開啟登入";
+"add_account.private_window_hint" = "將開啟 Anthropic 官方頁面。如果瀏覽器已登入其他帳戶，將授權該帳戶：請使用無痕視窗，或先登出 claude.ai。";
+"add_account.paste_code_label" = "在此貼上瀏覽器顯示的代碼：";
+"add_account.paste_code_placeholder" = "授權碼";
+"add_account.save" = "儲存帳戶";
+"add_account.show_terminal_path" = "我想用終端機";
+"add_account.hide_terminal_path" = "隱藏終端機方式";
+"add_account.terminal_path_title" = "替代方式：在終端機進行官方登入";
+"add_account.error.bad_code" = "這個代碼不屬於本次嘗試。請重新開啟登入並完整複製新代碼。";
+"add_account.error.code_rejected" = "Anthropic 拒絕了該代碼。通常是已使用過或時間過久：請重新登入。";
+"add_account.error.profile_unreadable" = "工作階段已建立，但無法讀取帳戶資訊。請改用終端機方式新增。";

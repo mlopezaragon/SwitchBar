@@ -19,7 +19,7 @@
 "add_account.introduction.add" = "Claude Code で一度サインインしてください。SwitchBar がそのアカウントを専用のキーチェーンに保存するため、以後は Mac のパスワードを入力せずに切り替えられます。";
 "add_account.introduction.reconnect" = "%@ を再接続します。公式のサインインを一度完了すれば、その後は Mac のパスワードを入力せずに SwitchBar からこのアカウントへ切り替えられます。";
 "add_account.step.command" = "クリップボードにコピーされた公式コマンドを新しいターミナルで実行します。";
-"add_account.step.choose" = "公式のサインイン画面を開き、ブラウザで %@ を選択します。";
+"add_account.step.choose" = "公式のサインインを開き、ブラウザで %@ を選びます。ブラウザが別のアカウントにログイン済みだと、そちらが承認されます。claude.ai からログアウトするか、シークレットウィンドウを使ってください。";
 "add_account.step.slash_login" = "Claude Code のセッション内で /login と入力することもできます。";
 "add_account.step.return" = "ブラウザに準備完了と表示されたら、ここに戻って使用中のアカウントを保存します。";
 "add_account.copy_and_open_terminal" = "コマンドをコピーしてターミナルを開く";
@@ -141,7 +141,7 @@
 "state.undo_failed" = "切り替えを元に戻せませんでした：%@";
 "state.account_added" = "アカウント %@ を追加しました。";
 "state.account_reconnected" = "アカウント %@ を再接続しました。";
-"state.unexpected_reconnect_account" = "Claude Code では別のアカウントが使用中です。/login を実行して %@ を選び、もう一度「完了」をクリックしてください。";
+"state.unexpected_reconnect_account" = "サインインの結果、有効になったのは %2$@ ではなく %1$@ です。ブラウザはすでにログイン中のアカウントを承認しがちです。claude.ai からログアウトする（またはシークレットウィンドウを使う）→ %2$@ を選んでサインインし直す → もう一度「完了」を押してください。";
 "state.account_changed_while_saving" = "保存中に Claude Code のアカウントが変わりました。使用中のアカウントを確認して再試行してください。";
 "state.enrollment_failed" = "アカウントを追加できませんでした：%@";
 "state.shared_caps_failed" = "上限を保存できませんでした：%@";
@@ -179,3 +179,16 @@
 "switch.error.nothing_to_undo" = "元に戻す切り替えがありません";
 "switch.error.unexpected_active_account" = "Claude Code で使用中のアカウントが想定と異なります";
 "switch.error.inconsistent_active_state" = "使用中の識別情報と認証情報が同じアカウントのものではありません";
+
+"add_account.open_sign_in" = "ブラウザでサインイン";
+"add_account.reopen_sign_in" = "サインインをもう一度開く";
+"add_account.private_window_hint" = "Anthropic の公式ページが開きます。ブラウザが別のアカウントにログイン済みだと、そちらが承認されます。シークレットウィンドウを使うか、先に claude.ai からログアウトしてください。";
+"add_account.paste_code_label" = "ブラウザに表示されたコードをここに貼り付けてください:";
+"add_account.paste_code_placeholder" = "認可コード";
+"add_account.save" = "アカウントを保存";
+"add_account.show_terminal_path" = "ターミナルを使いたい";
+"add_account.hide_terminal_path" = "ターミナルの方法を隠す";
+"add_account.terminal_path_title" = "別の方法: ターミナルからの公式サインイン";
+"add_account.error.bad_code" = "このコードは今回の試行のものではありません。サインインを開き直し、新しいコード全体をコピーしてください。";
+"add_account.error.code_rejected" = "Anthropic がコードを拒否しました。すでに使用済みか、時間が経ちすぎた場合に起こります。サインインをやり直してください。";
+"add_account.error.profile_unreadable" = "セッションは作成されましたが、アカウント情報を読み取れませんでした。ターミナルの方法で追加してください。";

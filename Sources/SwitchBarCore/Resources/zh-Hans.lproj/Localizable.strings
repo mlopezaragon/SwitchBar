@@ -19,7 +19,7 @@
 "add_account.introduction.add" = "只需在 Claude Code 中登录一次。SwitchBar 会将该账户存入自己的钥匙串，之后切换账户时无需输入 Mac 密码。";
 "add_account.introduction.reconnect" = "现在重新连接 %@。只需完成一次官方登录，之后便可在 SwitchBar 中切换到此账户，无需输入 Mac 密码。";
 "add_account.step.command" = "在新的终端窗口中运行已复制到剪贴板的官方命令。";
-"add_account.step.choose" = "打开官方登录页面，并在浏览器中选择 %@。";
+"add_account.step.choose" = "打开官方登录并在浏览器中选择 %@。如果浏览器已登录其他账户，将授权那个账户：请退出 claude.ai 或使用无痕窗口。";
 "add_account.step.slash_login" = "你也可以在 Claude Code 会话中输入 /login。";
 "add_account.step.return" = "浏览器显示已准备就绪后，请返回此处并保存当前账户。";
 "add_account.copy_and_open_terminal" = "复制命令并打开终端";
@@ -141,7 +141,7 @@
 "state.undo_failed" = "无法撤销切换：%@";
 "state.account_added" = "已添加账户 %@。";
 "state.account_reconnected" = "已重新连接账户 %@。";
-"state.unexpected_reconnect_account" = "Claude Code 当前使用的是另一个账户。请运行 /login，选择 %@，然后再次点按“已完成”。";
+"state.unexpected_reconnect_account" = "登录后生效的是 %1$@，而不是 %2$@。浏览器通常会授权已登录的账户：请退出 claude.ai（或使用无痕窗口），选择 %2$@ 重新登录，然后再次点击“我已完成”。";
 "state.account_changed_while_saving" = "保存期间 Claude Code 切换了账户。请检查当前账户后重试。";
 "state.enrollment_failed" = "无法添加账户：%@";
 "state.shared_caps_failed" = "无法保存上限：%@";
@@ -179,3 +179,16 @@
 "switch.error.nothing_to_undo" = "没有可撤销的切换";
 "switch.error.unexpected_active_account" = "Claude Code 的当前账户与预期不符";
 "switch.error.inconsistent_active_state" = "当前身份和凭据不属于同一个账户";
+
+"add_account.open_sign_in" = "在浏览器中登录";
+"add_account.reopen_sign_in" = "重新打开登录";
+"add_account.private_window_hint" = "将打开 Anthropic 官方页面。如果浏览器已登录其他账户，将授权该账户：请使用无痕窗口，或先退出 claude.ai。";
+"add_account.paste_code_label" = "在此粘贴浏览器显示的代码：";
+"add_account.paste_code_placeholder" = "授权码";
+"add_account.save" = "保存账户";
+"add_account.show_terminal_path" = "我想用终端";
+"add_account.hide_terminal_path" = "隐藏终端方式";
+"add_account.terminal_path_title" = "备用方式：在终端进行官方登录";
+"add_account.error.bad_code" = "该代码不属于本次尝试。请重新打开登录并完整复制新代码。";
+"add_account.error.code_rejected" = "Anthropic 拒绝了该代码。通常是已被使用或时间过久：请重新登录。";
+"add_account.error.profile_unreadable" = "会话已创建，但无法读取账户信息。请改用终端方式添加。";
