@@ -96,6 +96,8 @@
 "settings.refresh_frequency" = "Refresh frequency";
 "settings.minutes" = "%d min";
 "settings.launch_at_login" = "Open at login";
+"settings.version" = "Version %@";
+"settings.check_updates" = "Check for updates…";
 
 "shared.title" = "Shared account";
 "shared.caps_summary" = "my caps: %1$d%% / %2$d%%";

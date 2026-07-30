@@ -96,6 +96,8 @@
 "settings.refresh_frequency" = "更新間隔";
 "settings.minutes" = "%d分";
 "settings.launch_at_login" = "ログイン時に開く";
+"settings.version" = "バージョン %@";
+"settings.check_updates" = "アップデートを確認…";
 
 "shared.title" = "共有アカウント";
 "shared.caps_summary" = "自分の上限：%1$d%% / %2$d%%";

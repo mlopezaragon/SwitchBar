@@ -41,5 +41,11 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Manuel Lopera</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/mlopezaragon/SwitchBar/main/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>ynPHUKOkww/2CLsTXR8o5NVa3lmBb4P9pneHy+/rcWM=</string>
 </dict>
 </plist>

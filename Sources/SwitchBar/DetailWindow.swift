@@ -251,6 +251,23 @@ struct DetailView: View {
             }
 
             LaunchAtLoginToggle()
+
+            HStack {
+                Text(
+                    L10n.tr(
+                        "settings.version",
+                        Bundle.main.object(
+                            forInfoDictionaryKey: "CFBundleShortVersionString"
+                        ) as? String ?? "—"
+                    )
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                Spacer()
+                Button(L10n.tr("settings.check_updates")) {
+                    AppUpdater.checkForUpdates()
+                }
+            }
         }
         .padding(18)
         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.quinary))

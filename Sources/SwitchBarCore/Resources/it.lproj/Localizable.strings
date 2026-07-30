@@ -96,6 +96,8 @@
 "settings.refresh_frequency" = "Frequenza di aggiornamento";
 "settings.minutes" = "%d min";
 "settings.launch_at_login" = "Apri al login";
+"settings.version" = "Versione %@";
+"settings.check_updates" = "Cerca aggiornamenti…";
 
 "shared.title" = "Account condiviso";
 "shared.caps_summary" = "i miei limiti: %1$d%% / %2$d%%";

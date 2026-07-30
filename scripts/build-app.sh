@@ -59,11 +59,36 @@ done
 find "$BIN_DIR" -maxdepth 1 -type d -name '*SwitchBarCore*.bundle' \
     -exec cp -R {} "$APP/Contents/Resources/" \;
 
+# Sparkle se embebe en la app y el binario aprende a encontrarlo ahí.
+echo "==> Embebiendo Sparkle.framework…"
+mkdir -p "$APP/Contents/Frameworks"
+cp -R "$BIN_DIR/Sparkle.framework" "$APP/Contents/Frameworks/"
+install_name_tool -add_rpath "@executable_path/../Frameworks" \
+    "$APP/Contents/MacOS/SwitchBar" 2>/dev/null || true
+
 echo "==> Firmando con identidad: $SIGN_ID"
 # Hardened runtime y marca temporal segura: requisitos de la notarización.
 # Con firma ad-hoc no hay marca temporal (Apple no la emite para "-").
 TIMESTAMP_FLAG="--timestamp"
 [ "$SIGN_ID" = "-" ] && TIMESTAMP_FLAG=""
+# Los componentes internos de Sparkle se firman de dentro hacia fuera, como
+# exige la notarización (hardened runtime en cada ejecutable anidado).
+FRAMEWORK="$APP/Contents/Frameworks/Sparkle.framework"
+if [ -d "$FRAMEWORK" ]; then
+    for nested in \
+        "$FRAMEWORK/Versions/B/XPCServices/Downloader.xpc" \
+        "$FRAMEWORK/Versions/B/XPCServices/Installer.xpc" \
+        "$FRAMEWORK/Versions/B/Autoupdate" \
+        "$FRAMEWORK/Versions/B/Updater.app"; do
+        [ -e "$nested" ] || continue
+        codesign --force --options runtime $TIMESTAMP_FLAG \
+            --preserve-metadata=entitlements \
+            --sign "$SIGN_ID" "$nested"
+    done
+    codesign --force --options runtime $TIMESTAMP_FLAG \
+        --sign "$SIGN_ID" "$FRAMEWORK"
+fi
+
 # El identificador de firma NO debe cambiarse: el Llavero guarda el requisito
 # designado de la app que creó la entrada privada de perfiles. Firmar con otro
 # identificador convierte a SwitchBar en «otra aplicación» y macOS pide la

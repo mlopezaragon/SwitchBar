@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SwitchBar — live Claude Code usage in your macOS menu bar</title>
+<meta name="description" content="SwitchBar shows live usage for every Claude Code account — 5-hour window, week and Opus quota — and switches the active account with one click or automatically. Open source, no telemetry, macOS menu bar.">
+<meta name="theme-color" content="#0a0a0b">
+<meta name="color-scheme" content="dark">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="SwitchBar — live Claude Code usage in your macOS menu bar">
+<meta property="og:description" content="Every Claude Code account at a glance. Switch before a window runs dry — with one click, or automatically. Open source, no telemetry.">
+<meta property="og:site_name" content="SwitchBar">
+<meta property="og:url" content="https://github.com/mlopezaragon/SwitchBar">
+<meta property="og:image" content="og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="SwitchBar panel showing usage bars for three Claude Code accounts.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="SwitchBar — live Claude Code usage in your macOS menu bar">
+<meta name="twitter:description" content="Every Claude Code account at a glance. Switch before a window runs dry — with one click, or automatically.">
+<meta name="twitter:image" content="og-image.png">
+
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="grain" aria-hidden="true"></div>
+<div class="rules" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+<header class="nav" id="nav">
+  <a class="nav__brand" href="#top" aria-label="SwitchBar, back to top">
+    <span class="mark" aria-hidden="true"><i></i><i></i></span>
+    <span>SwitchBar</span>
+  </a>
+  <nav class="nav__links" aria-label="Sections">
+    <a href="#panel">The panel</a>
+    <a href="#auto">Auto-switch</a>
+    <a href="#privacy">Privacy</a>
+    <a href="#install">Install</a>
+  </nav>
+  <a class="btn btn--ghost nav__gh" href="https://github.com/mlopezaragon/SwitchBar" target="_blank" rel="noopener">
+    GitHub <span aria-hidden="true">↗</span>
+  </a>
+</header>
+
+<main id="main">
+
+<!-- ─────────────────────────────  HERO  ───────────────────────────── -->
+<section class="hero" id="top">
+  <div class="hero__glow" aria-hidden="true"></div>
+
+  <div class="hero__copy">
+    <p class="eyebrow" data-anim="fade">
+      <span class="eyebrow__dot" aria-hidden="true"></span>
+      macOS menu bar · Apache 2.0 · v1.0.0 beta
+    </p>
+
+    <h1 class="display" data-split="lines">
+      Never hit the limit <em>mid&#8209;thought.</em>
+    </h1>
+
+    <p class="lede" data-anim="fade">
+      SwitchBar keeps every Claude Code account in your menu bar — the 5-hour
+      window, the week, the separate Opus quota — and moves you to the next
+      account before one runs dry. One click, or automatically.
+    </p>
+
+    <div class="install-line" data-anim="fade">
+      <code id="brew-cmd"><span class="dim">$</span> brew install --cask mlopezaragon/tap/switchbar</code>
+      <button class="copy" type="button" data-copy="brew install --cask mlopezaragon/tap/switchbar" aria-label="Copy the Homebrew install command">
+        <span class="copy__label">Copy</span>
+      </button>
+    </div>
+
+    <div class="hero__actions" data-anim="fade">
+      <a class="btn btn--solid" href="https://github.com/mlopezaragon/SwitchBar/releases" target="_blank" rel="noopener">Download the DMG</a>
+      <a class="btn btn--ghost" href="https://github.com/mlopezaragon/SwitchBar" target="_blank" rel="noopener">Read the source</a>
+    </div>
+
+    <p class="hero__req" data-anim="fade">Requires macOS 26 (Tahoe) and Claude Code with Pro or Max accounts.</p>
+  </div>
+
+  <!-- ── recreación del panel real ── -->
+  <div class="hero__panel" data-anim="panel">
+    <div class="menubar" aria-hidden="true">
+      <span class="menubar__item mark-sm"><i></i><i></i></span>
+      <span class="menubar__pct">55 %</span>
+      <span class="menubar__spacer"></span>
+      <span class="menubar__glyph">􀙇</span>
+      <span class="menubar__clock">10:24</span>
+    </div>
+
+    <div class="panel" id="panel-hero" role="img" aria-label="SwitchBar panel: three Claude Code accounts with usage bars for the 5-hour window, the week and the Opus quota. alex@example.com is the active account at 55 % of its 5-hour window.">
+      <div class="panel__head">
+        <span class="panel__title">SwitchBar</span>
+        <span class="panel__meta">2 min ago</span>
+        <span class="panel__refresh" aria-hidden="true">↻</span>
+      </div>
+
+      <article class="card is-active">
+        <header class="card__top">
+          <span class="dot dot--green"></span>
+          <span class="card__mail">alex@example.com</span>
+          <span class="badge badge--active">Active</span>
+        </header>
+        <div class="bars">
+          <div class="ubar" data-fill="55"><span class="ubar__label">5 hours</span><span class="track"><i class="fill fill--blue"></i></span><span class="ubar__pct">55 %</span><span class="ubar__reset">2 h 41 m</span></div>
+          <div class="ubar" data-fill="25"><span class="ubar__label">Week</span><span class="track"><i class="fill fill--blue"></i></span><span class="ubar__pct">25 %</span><span class="ubar__reset">4 d 6 h</span></div>
+          <div class="ubar" data-fill="21"><span class="ubar__label">Opus</span><span class="track"><i class="fill fill--blue"></i></span><span class="ubar__pct">21 %</span><span class="ubar__reset">4 d 6 h</span></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <header class="card__top">
+          <span class="dot"></span>
+          <span class="card__mail">sam@example.com</span>
+          <span class="card__hint">Switch</span>
+        </header>
+        <div class="bars">
+          <div class="ubar" data-fill="12"><span class="ubar__label">5 hours</span><span class="track"><i class="fill fill--blue"></i></span><span class="ubar__pct">12 %</span><span class="ubar__reset">4 h 02 m</span></div>
+          <div class="ubar" data-fill="61"><span class="ubar__label">Week</span><span class="track"><i class="fill fill--blue"></i></span><span class="ubar__pct">61 %</span><span class="ubar__reset">4 d 6 h</span></div>
+          <div class="ubar" data-fill="38"><span class="ubar__label">Opus</span><span class="track"><i class="fill fill--blue"></i></span><span class="ubar__pct">38 %</span><span class="ubar__reset">4 d 6 h</span></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <header class="card__top">
+          <span class="dot"></span>
+          <span class="card__mail">team@example.com</span>
+          <span class="badge badge--cap">Cap 70 %</span>
+        </header>
+        <div class="bars">
+          <div class="ubar" data-fill="78" data-cap="70"><span class="ubar__label">5 hours</span><span class="track"><i class="fill fill--orange"></i><b class="cap"></b></span><span class="ubar__pct">78 %</span><span class="ubar__reset">1 h 12 m</span></div>
+          <div class="ubar" data-fill="84" data-cap="70"><span class="ubar__label">Week</span><span class="track"><i class="fill fill--orange"></i><b class="cap"></b></span><span class="ubar__pct">84 %</span><span class="ubar__reset">2 d 3 h</span></div>
+          <div class="ubar" data-fill="92" data-cap="70"><span class="ubar__label">Opus</span><span class="track"><i class="fill fill--red"></i><b class="cap"></b></span><span class="ubar__pct">92 %</span><span class="ubar__reset">2 d 3 h</span></div>
+        </div>
+      </article>
+
+      <div class="panel__foot">
+        <span class="switch" aria-hidden="true"><i></i></span>
+        <span class="panel__footlabel">Automatic switching</span>
+        <span class="panel__spacer"></span>
+        <span class="panel__glyph">⤢</span>
+        <span class="panel__glyph">⏻</span>
+      </div>
+    </div>
+  </div>
+
+  <p class="scrollcue" data-anim="fade" aria-hidden="true"><span>Scroll</span></p>
+</section>
+
+<!-- ─────────────────────────────  TICKER  ───────────────────────────── -->
+<section class="ticker" aria-hidden="true">
+  <div class="ticker__row" id="ticker">
+    <span class="ticker__set">
+      <b>No telemetry</b><i>✳</i><b>Tokens stay in the macOS Keychain</b><i>✳</i><b>Apache 2.0</b><i>✳</i><b>10 languages</b><i>✳</i><b>Universal binary</b><i>✳</i><b>Developer ID signed</b><i>✳</i>
+    </span>
+    <span class="ticker__set">
+      <b>No telemetry</b><i>✳</i><b>Tokens stay in the macOS Keychain</b><i>✳</i><b>Apache 2.0</b><i>✳</i><b>10 languages</b><i>✳</i><b>Universal binary</b><i>✳</i><b>Developer ID signed</b><i>✳</i>
+    </span>
+  </div>
+</section>
+
+<!-- ─────────────────────────────  MANIFESTO  ───────────────────────────── -->
+<section class="manifesto" id="panel">
+  <p class="section-tag" data-anim="fade">01 — The problem</p>
+  <p class="statement" data-split="words">
+    You find out you are out of usage the moment Claude Code stops answering.
+    Two accounts, three windows each, and no way to see any of it.
+    <span class="statement__accent">SwitchBar puts all of it in one place.</span>
+  </p>
+
+  <div class="legend" data-anim="stagger">
+    <div class="legend__item">
+      <span class="legend__key"><i class="swatch swatch--blue"></i>Under 75 %</span>
+      <p>Plenty of room. Blue bar, nothing to do.</p>
+    </div>
+    <div class="legend__item">
+      <span class="legend__key"><i class="swatch swatch--orange"></i>75 % and up</span>
+      <p>Getting close. Time to think about the next account.</p>
+    </div>
+    <div class="legend__item">
+      <span class="legend__key"><i class="swatch swatch--red"></i>90 % and up</span>
+      <p>Effectively spent. Automatic switching kicks in here if you let it.</p>
+    </div>
+    <div class="legend__item">
+      <span class="legend__key"><i class="swatch swatch--cap"></i>Personal cap</span>
+      <p>On a shared account, set your own ceiling and leave margin for the other person.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────  AUTO-SWITCH  ───────────────────────────── -->
+<section class="auto" id="auto">
+  <div class="auto__inner" id="auto-pin">
+    <div class="auto__copy">
+      <p class="section-tag">02 — Automatic switching</p>
+      <h2 class="h2">It moves you<br><em>before</em> you notice.</h2>
+
+      <ol class="steps" id="steps">
+        <li class="step is-on">
+          <span class="step__n">01</span>
+          <h3>Both accounts, live</h3>
+          <p>Usage refreshes on its own. Every window, every account, always current.</p>
+        </li>
+        <li class="step">
+          <span class="step__n">02</span>
+          <h3>alex crosses your threshold</h3>
+          <p>The 5-hour window hits 97 %. You set that limit per window, per account.</p>
+        </li>
+        <li class="step">
+          <span class="step__n">03</span>
+          <h3>sam becomes the active account</h3>
+          <p>No password, no browser, no new login. Your open terminals keep working, and one click undoes it.</p>
+        </li>
+      </ol>
+    </div>
+
+    <div class="auto__stage">
+      <div class="panel panel--demo" id="panel-demo" role="img" aria-label="Animated demonstration: the active account alex@example.com fills its 5-hour window to 97 percent, and SwitchBar makes sam@example.com the active account.">
+        <div class="panel__head">
+          <span class="panel__title">SwitchBar</span>
+          <span class="panel__meta" id="demo-meta">just now</span>
+          <span class="panel__refresh" aria-hidden="true">↻</span>
+        </div>
+
+        <article class="card is-active" id="card-alex">
+          <header class="card__top">
+            <span class="dot dot--green" id="dot-alex"></span>
+            <span class="card__mail">alex@example.com</span>
+            <span class="badge badge--active" id="badge-alex">Active</span>
+          </header>
+          <div class="bars">
+            <div class="ubar" data-fill="55" id="bar-alex"><span class="ubar__label">5 hours</span><span class="track"><i class="fill fill--blue"></i></span><span class="ubar__pct" data-count="55">55 %</span><span class="ubar__reset">2 h 41 m</span></div>
+            <div class="ubar" data-fill="25"><span class="ubar__label">Week</span><span class="track"><i class="fill fill--blue"></i></span><span class="ubar__pct">25 %</span><span class="ubar__reset">4 d 6 h</span></div>
+            <div class="ubar" data-fill="21"><span class="ubar__label">Opus</span><span class="track"><i class="fill fill--blue"></i></span><span class="ubar__pct">21 %</span><span class="ubar__reset">4 d 6 h</span></div>
+          </div>
+        </article>
+
+        <article class="card" id="card-sam">
+          <header class="card__top">
+            <span class="dot" id="dot-sam"></span>
+            <span class="card__mail">sam@example.com</span>
+            <span class="badge badge--active is-hidden" id="badge-sam">Active</span>
+          </header>
+          <div class="bars">
+            <div class="ubar" data-fill="12"><span class="ubar__label">5 hours</span><span class="track"><i class="fill fill--blue"></i></span><span class="ubar__pct">12 %</span><span class="ubar__reset">4 h 02 m</span></div>
+            <div class="ubar" data-fill="61"><span class="ubar__label">Week</span><span class="track"><i class="fill fill--blue"></i></span><span class="ubar__pct">61 %</span><span class="ubar__reset">4 d 6 h</span></div>
+            <div class="ubar" data-fill="38"><span class="ubar__label">Opus</span><span class="track"><i class="fill fill--blue"></i></span><span class="ubar__pct">38 %</span><span class="ubar__reset">4 d 6 h</span></div>
+          </div>
+        </article>
+
+        <div class="toast" id="demo-toast" aria-hidden="true">Switched to sam@example.com · Undo</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────  FEATURES  ───────────────────────────── -->
+<section class="features" id="features">
+  <p class="section-tag" data-anim="fade">03 — What it does</p>
+  <h2 class="h2" data-anim="fade">Small app.<br>Few opinions. <em>All of them useful.</em></h2>
+
+  <div class="bento" data-anim="stagger">
+    <article class="tile tile--wide">
+      <h3>Three windows per account</h3>
+      <p>The 5-hour window, the weekly window and the separate Opus weekly quota — each with the exact time it resets, not a guess.</p>
+    </article>
+    <article class="tile">
+      <h3>Thresholds you choose</h3>
+      <p>Independent limits per window. Automatic switching only fires where you want it to.</p>
+    </article>
+    <article class="tile">
+      <h3>Shared accounts</h3>
+      <p>Set a personal cap — say 70 % — and SwitchBar treats the account as spent early, leaving margin for whoever shares it.</p>
+    </article>
+    <article class="tile">
+      <h3>Your choice wins</h3>
+      <p>Pick an account by hand with <code>/login</code> and automatic switching pauses for 15 minutes. No app should argue with you.</p>
+    </article>
+    <article class="tile">
+      <h3>Anthropic status, inline</h3>
+      <p>Incidents from status.claude.com appear in the panel, so an outage on their side is never mistaken for a problem on yours.</p>
+    </article>
+    <article class="tile tile--wide">
+      <h3>Undo, always</h3>
+      <p>Every switch is reversible from the panel. Claude Code's own session data — MCP credentials and every other key in <code>~/.claude.json</code> — is preserved untouched.</p>
+    </article>
+  </div>
+</section>
+
+<!-- ─────────────────────────────  PRIVACY  ───────────────────────────── -->
+<section class="privacy" id="privacy">
+  <p class="section-tag" data-anim="fade">04 — Privacy</p>
+  <h2 class="h2" data-anim="fade">Three domains.<br><em>Nothing else leaves your Mac.</em></h2>
+
+  <div class="net" data-anim="stagger">
+    <div class="net__origin">
+      <span class="net__machine">Your Mac</span>
+      <span class="net__sub">Tokens in the macOS Keychain</span>
+    </div>
+    <div class="net__lines" aria-hidden="true">
+      <svg viewBox="0 0 120 220" preserveAspectRatio="none" role="presentation">
+        <path d="M0 110 C 60 110, 60 24, 120 24" fill="none" stroke="currentColor" stroke-width="1" class="net__path"/>
+        <path d="M0 110 C 60 110, 60 110, 120 110" fill="none" stroke="currentColor" stroke-width="1" class="net__path"/>
+        <path d="M0 110 C 60 110, 60 196, 120 196" fill="none" stroke="currentColor" stroke-width="1" class="net__path"/>
+      </svg>
+    </div>
+    <ul class="net__ends">
+      <li><code>api.anthropic.com</code><span>Read-only usage query, per account.</span></li>
+      <li><code>console.anthropic.com</code><span>Standard OAuth refresh — inactive profiles only.</span></li>
+      <li><code>status.claude.com</code><span>Public status page. No credentials attached.</span></li>
+    </ul>
+  </div>
+
+  <div class="facts" data-anim="stagger">
+    <div class="fact"><b>0</b><span>analytics, crash reports or third-party servers</span></div>
+    <div class="fact"><b>0600</b><span>file mode on the local profile metadata</span></div>
+    <div class="fact"><b>1</b><span>private Keychain entry, reached through <code>/usr/bin/security</code></span></div>
+    <div class="fact"><b>10</b><span>languages: English, Español, Deutsch, Français, Italiano, 日本語, 한국어, Português, 简体中文, 繁體中文</span></div>
+  </div>
+
+  <div class="honest" data-anim="fade">
+    <h3>Read this before you rely on it</h3>
+    <p>
+      SwitchBar talks to the same private endpoints Claude Code itself uses, with Claude Code's
+      own public client id. Those endpoints are not a documented, stable public API, and Anthropic
+      may change or restrict them at any time. The app is built to fail safely when that happens —
+      it keeps the last known data, never corrupts your Claude Code session, and marks accounts
+      that need a new login — but no permanent compatibility can be promised.
+      Login itself always runs through the official <code>claude auth login --claudeai</code> flow
+      in your terminal: SwitchBar never sees your password.
+    </p>
+  </div>
+</section>
+
+<!-- ─────────────────────────────  INSTALL  ───────────────────────────── -->
+<section class="install" id="install">
+  <p class="section-tag" data-anim="fade">05 — Install</p>
+  <h2 class="display display--sm" data-split="lines">One line, <em>and it's in your bar.</em></h2>
+
+  <div class="install-line install-line--big" data-anim="fade">
+    <code><span class="dim">$</span> brew install --cask mlopezaragon/tap/switchbar</code>
+    <button class="copy" type="button" data-copy="brew install --cask mlopezaragon/tap/switchbar" aria-label="Copy the Homebrew install command">
+      <span class="copy__label">Copy</span>
+    </button>
+  </div>
+
+  <div class="install__grid" data-anim="stagger">
+    <div class="install__col">
+      <h3>Or by hand</h3>
+      <p>Download <code>SwitchBar-&lt;version&gt;.dmg</code> from GitHub Releases, check its published SHA-256 with <code>shasum -a 256</code>, and drag the app to Applications.</p>
+      <a class="btn btn--ghost" href="https://github.com/mlopezaragon/SwitchBar/releases" target="_blank" rel="noopener">Releases <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="install__col">
+      <h3>Then</h3>
+      <p>Click “Add account”, sign in once through the official Claude Code flow, and repeat for each account. From then on, switching never asks for a login while the session stays valid.</p>
+    </div>
+    <div class="install__col">
+      <h3>Requirements</h3>
+      <p>macOS 26 (Tahoe), Apple Silicon or Intel — one universal, Developer ID signed binary. Claude Code with one or more Pro/Max accounts. Beta builds are not notarized yet: right-click, then “Open”, the first time.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="footer__top">
+    <a class="nav__brand" href="#top">
+      <span class="mark" aria-hidden="true"><i></i><i></i></span>
+      <span>SwitchBar</span>
+    </a>
+    <nav class="footer__links" aria-label="Project links">
+      <a href="https://github.com/mlopezaragon/SwitchBar" target="_blank" rel="noopener">Source</a>
+      <a href="https://github.com/mlopezaragon/SwitchBar/releases" target="_blank" rel="noopener">Releases</a>
+      <a href="https://github.com/mlopezaragon/SwitchBar/blob/main/PRIVACY.md" target="_blank" rel="noopener">Privacy</a>
+      <a href="https://github.com/mlopezaragon/SwitchBar/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+    </nav>
+  </div>
+  <p class="disclaimer">
+    Unofficial project. Not affiliated with, endorsed, or supported by Anthropic.
+    Claude and Claude Code are trademarks of Anthropic, PBC.
+  </p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js" integrity="sha384-g4NTh/Iv5PPU4xPyhEWqPcwtNXOvdaDI8LLnyYfyNZOjKJeYQyjzQ9X5275eBjpt" crossorigin="anonymous" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js" integrity="sha384-Z3REaz79l2IaAZqJsSABtTbhjgOUYyV3p90XNnAPCSHg3EMTz1fouunq9WZRtj3d" crossorigin="anonymous" defer></script>
+<script src="main.js" defer></script>
+</body>
+</html>
