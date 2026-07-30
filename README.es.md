@@ -26,7 +26,7 @@ política automática.
 
 ## Requisitos
 
-- macOS 26 (Tahoe), Apple Silicon o Intel (binario universal).
+- macOS 14 (Sonoma) o posterior, Apple Silicon o Intel (binario universal).
 - [Claude Code](https://code.claude.com) con una o más cuentas de
   suscripción (Pro/Max).
 
