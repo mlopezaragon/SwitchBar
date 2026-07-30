@@ -1,12 +1,12 @@
 #!/bin/bash
-# Diagnóstico conservador del Llavero para Claude Code y ClaudeSwitch.
+# Diagnóstico conservador del Llavero para Claude Code y SwitchBar.
 #
 # Este script nunca lee, exporta, borra ni recrea "Claude Code-credentials".
 # Tampoco usa `-A` (acceso para cualquier app) ni guarda tokens en ficheros.
 set -euo pipefail
 
 LOGIN_KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
-TEST_SERVICE="ClaudeSwitch-selftest"
+TEST_SERVICE="SwitchBar-selftest"
 TEST_ACCOUNT="$(id -un)"
 
 echo "==> Comprobando que el Llavero login admite escritura…"
