@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SwitchBar — live Claude Code usage in the macOS menu bar</title>
 <meta name="description" content="SwitchBar shows the 5-hour, weekly and Fable usage windows for every Claude Code account in the macOS menu bar, and switches the active account before a limit stops you. Open source, no telemetry.">
 <meta name="theme-color" content="#0a0a0b">
-<meta name="color-scheme" content="dark">
+<meta name="color-scheme" content="dark light">
 
 <meta property="og:type" content="website">
 <meta property="og:title" content="SwitchBar — live Claude Code usage in the macOS menu bar">
@@ -28,30 +28,70 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+
 <script>
-  /* Set before first paint so revealed elements never flash in and out.
-     main.js removes it again if GSAP is unavailable. */
-  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    document.documentElement.classList.add('js');
-  }
+  /* Blocking on purpose: the theme and the reveal flag must be on the root
+     element before the first paint, or the page flashes the wrong colours. */
+  (function () {
+    var stored = null;
+    try { stored = localStorage.getItem('switchbar-theme'); } catch (e) { /* private mode */ }
+    var theme = (stored === 'light' || stored === 'dark') ? stored
+      : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', theme);
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.documentElement.classList.add('js');
+    }
+  })();
 </script>
 </head>
 <body>
 
-<a class="skip" href="#main">Skip to content</a>
+<a class="skip" href="#main" data-i18n="ui.skip">Skip to content</a>
 
 <header class="nav" id="nav">
+  <div class="nav__bg" id="nav-bg" aria-hidden="true"></div>
   <div class="nav__inner">
     <a class="nav__brand" href="#top">
       <img src="icon-64.png" width="28" height="28" alt="" decoding="async">
       <span>SwitchBar</span>
     </a>
+
     <nav class="nav__links" aria-label="Sections">
-      <a href="#panel">Panel</a>
-      <a href="#features">Features</a>
-      <a href="#install">Install</a>
+      <a href="#panel" data-i18n="nav.panel">Panel</a>
+      <a href="#features" data-i18n="nav.features">Features</a>
+      <a href="#install" data-i18n="nav.install">Install</a>
     </nav>
-    <a class="nav__gh" href="https://github.com/mlopezaragon/SwitchBar" target="_blank" rel="noopener">GitHub</a>
+
+    <div class="nav__tools">
+      <div class="lang">
+        <select id="lang" data-i18n-aria="ui.language" aria-label="Language">
+          <option value="en">English</option>
+          <option value="es">Español</option>
+          <option value="fr">Français</option>
+          <option value="de">Deutsch</option>
+          <option value="pt-BR">Português (BR)</option>
+          <option value="it">Italiano</option>
+          <option value="ja">日本語</option>
+          <option value="ko">한국어</option>
+          <option value="zh-Hans">简体中文</option>
+          <option value="zh-Hant">繁體中文</option>
+        </select>
+        <svg class="lang__chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+
+      <button class="theme" id="theme" type="button" aria-label="Switch to light theme">
+        <svg class="theme__sun" viewBox="0 0 20 20" aria-hidden="true">
+          <circle cx="10" cy="10" r="3.6" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M10 1.6v2.2M10 16.2v2.2M18.4 10h-2.2M3.8 10H1.6M15.9 4.1l-1.6 1.6M5.7 14.3l-1.6 1.6M15.9 15.9l-1.6-1.6M5.7 5.7 4.1 4.1"
+                stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        <svg class="theme__moon" viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M16.3 12.6A7 7 0 0 1 7.4 3.7a7 7 0 1 0 8.9 8.9Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <a class="nav__gh" href="https://github.com/mlopezaragon/SwitchBar" target="_blank" rel="noopener">GitHub</a>
+    </div>
   </div>
 </header>
 
@@ -60,12 +100,12 @@
 <!-- ── hero ─────────────────────────────────────────────────── -->
 <section class="hero" id="top">
   <div class="wrap wrap--text">
-    <img class="hero__icon" data-reveal src="icon-256.png" width="112" height="112"
-         alt="SwitchBar app icon" fetchpriority="high" decoding="async">
+    <img class="hero__icon" src="icon-256.png" width="112" height="112"
+         alt="SwitchBar" fetchpriority="high" decoding="async">
 
-    <h1 class="hero__title" data-reveal>Live usage for every account.</h1>
+    <h1 class="hero__title" data-i18n="hero.title" data-split>Live usage for every account.</h1>
 
-    <p class="hero__sub" data-reveal>
+    <p class="hero__sub" data-i18n="hero.sub" data-reveal>
       SwitchBar shows the 5-hour, weekly and Fable windows for each Claude Code
       account in the macOS menu bar, and switches the active account before a
       limit stops you.
@@ -74,156 +114,161 @@
     <div class="hero__cta" data-reveal>
       <div class="cmd">
         <code><span class="cmd__prompt">$</span>brew install --cask mlopezaragon/tap/switchbar</code>
-        <button class="cmd__copy" type="button" data-copy="brew install --cask mlopezaragon/tap/switchbar" aria-label="Copy the install command">Copy</button>
+        <button class="cmd__copy" type="button" data-copy="brew install --cask mlopezaragon/tap/switchbar" data-i18n="ui.copy">Copy</button>
       </div>
-      <a class="link" href="https://github.com/mlopezaragon/SwitchBar/releases" target="_blank" rel="noopener">Download DMG</a>
+      <a class="link" href="https://github.com/mlopezaragon/SwitchBar/releases" target="_blank" rel="noopener" data-i18n="hero.download">Download DMG</a>
     </div>
 
-    <p class="hero__note" data-reveal>macOS 14 (Sonoma) or later · Universal binary · Claude Code with Pro or Max accounts</p>
+    <p class="hero__note" data-i18n="hero.note" data-reveal>macOS 14 (Sonoma) or later · Universal binary · Claude Code with Pro or Max accounts</p>
   </div>
 </section>
 
 <!-- ── panel ────────────────────────────────────────────────── -->
-<section class="section section--alt" id="panel">
-  <div class="wrap wrap--text">
-    <p class="eyebrow" data-reveal>The panel</p>
-    <h2 class="section__title" data-reveal>Every account, every window.</h2>
-    <p class="section__lede" data-reveal>
-      Each account lists its 5-hour window, its week, and the separate Fable
-      weekly quota, with the time each one resets. Cross a threshold and the
-      active account moves on its own.
-    </p>
-  </div>
-
-  <div class="stage" data-reveal>
-    <div class="panel" id="app-panel" role="img"
-         aria-label="SwitchBar panel listing three Claude Code accounts. alex@example.com is active at 55 percent of its 5-hour window, sam@example.com at 12 percent, and team@example.com at 78 percent with a personal cap of 70 percent.">
-      <div class="panel__bar">
-        <span class="panel__name">SwitchBar</span>
-        <span class="panel__meta">2 min ago</span>
-      </div>
-
-      <article class="acct is-active" id="acct-alex">
-        <div class="acct__top">
-          <span class="dot dot--on" id="dot-alex"></span>
-          <span class="acct__mail">alex@example.com</span>
-          <span class="badge" id="badge-alex">Active</span>
-        </div>
-        <div class="rows">
-          <div class="row" data-fill="55" id="row-alex">
-            <span class="row__label">5 hours</span>
-            <span class="row__track"><i class="row__fill"></i></span>
-            <span class="row__pct">55%</span>
-            <span class="row__reset">2h 41m</span>
-          </div>
-          <div class="row" data-fill="25">
-            <span class="row__label">Week</span>
-            <span class="row__track"><i class="row__fill"></i></span>
-            <span class="row__pct">25%</span>
-            <span class="row__reset">4d 6h</span>
-          </div>
-          <div class="row" data-fill="21">
-            <span class="row__label">Fable</span>
-            <span class="row__track"><i class="row__fill"></i></span>
-            <span class="row__pct">21%</span>
-            <span class="row__reset">4d 6h</span>
-          </div>
-        </div>
-      </article>
-
-      <article class="acct" id="acct-sam">
-        <div class="acct__top">
-          <span class="dot" id="dot-sam"></span>
-          <span class="acct__mail">sam@example.com</span>
-          <span class="badge is-off" id="badge-sam">Active</span>
-        </div>
-        <div class="rows">
-          <div class="row" data-fill="12">
-            <span class="row__label">5 hours</span>
-            <span class="row__track"><i class="row__fill"></i></span>
-            <span class="row__pct">12%</span>
-            <span class="row__reset">4h 02m</span>
-          </div>
-          <div class="row" data-fill="61">
-            <span class="row__label">Week</span>
-            <span class="row__track"><i class="row__fill"></i></span>
-            <span class="row__pct">61%</span>
-            <span class="row__reset">4d 6h</span>
-          </div>
-          <div class="row" data-fill="38">
-            <span class="row__label">Fable</span>
-            <span class="row__track"><i class="row__fill"></i></span>
-            <span class="row__pct">38%</span>
-            <span class="row__reset">4d 6h</span>
-          </div>
-        </div>
-      </article>
-
-      <article class="acct">
-        <div class="acct__top">
-          <span class="dot"></span>
-          <span class="acct__mail">team@example.com</span>
-          <span class="badge badge--quiet">Cap 70%</span>
-        </div>
-        <div class="rows">
-          <div class="row" data-fill="78" data-tone="warn">
-            <span class="row__label">5 hours</span>
-            <span class="row__track"><i class="row__fill"></i><b class="row__cap"></b></span>
-            <span class="row__pct">78%</span>
-            <span class="row__reset">1h 12m</span>
-          </div>
-          <div class="row" data-fill="84" data-tone="warn">
-            <span class="row__label">Week</span>
-            <span class="row__track"><i class="row__fill"></i><b class="row__cap"></b></span>
-            <span class="row__pct">84%</span>
-            <span class="row__reset">2d 3h</span>
-          </div>
-          <div class="row" data-fill="92" data-tone="over">
-            <span class="row__label">Fable</span>
-            <span class="row__track"><i class="row__fill"></i><b class="row__cap"></b></span>
-            <span class="row__pct">92%</span>
-            <span class="row__reset">2d 3h</span>
-          </div>
-        </div>
-      </article>
-
-      <div class="panel__foot">
-        <span class="toggle" aria-hidden="true"><i></i></span>
-        <span>Automatic switching</span>
-      </div>
+<section class="section section--alt panel-sec" id="panel">
+  <div class="panel-sec__inner" id="panel-pin">
+    <div class="wrap wrap--text">
+      <p class="eyebrow" data-i18n="panel.eyebrow" data-reveal>The panel</p>
+      <h2 class="section__title" data-i18n="panel.title" data-split>Every account, every window.</h2>
+      <p class="section__lede" data-i18n="panel.lede" data-reveal>
+        Each account lists its 5-hour window, its week, and the separate Fable
+        weekly quota, with the time each one resets. Cross a threshold and the
+        active account moves on its own.
+      </p>
     </div>
 
-    <p class="stage__caption" id="caption">Blue below 75%, amber above it, red at 90%. The right-hand column is the time until that window resets.</p>
+    <div class="stage">
+      <div class="panel" id="app-panel" role="img"
+           aria-label="SwitchBar panel listing three Claude Code accounts. alex@example.com is active at 55 percent of its 5-hour window, sam@example.com at 12 percent, and team@example.com at 78 percent with a personal cap of 70 percent.">
+        <div class="panel__bar">
+          <span class="panel__name">SwitchBar</span>
+          <span class="panel__meta" data-i18n="panel.updated">2 min ago</span>
+        </div>
+
+        <article class="acct is-active" id="acct-alex">
+          <div class="acct__top">
+            <span class="dot dot--on" id="dot-alex"></span>
+            <span class="acct__mail">alex@example.com</span>
+            <span class="badge" id="badge-alex" data-i18n="panel.active">Active</span>
+          </div>
+          <div class="rows">
+            <div class="row" data-fill="55" id="row-alex">
+              <span class="row__label" data-i18n="panel.five_hours">5 hours</span>
+              <span class="row__track"><i class="row__fill"></i></span>
+              <span class="row__pct">55%</span>
+              <span class="row__reset">2h 41m</span>
+            </div>
+            <div class="row" data-fill="25">
+              <span class="row__label" data-i18n="panel.week">Week</span>
+              <span class="row__track"><i class="row__fill"></i></span>
+              <span class="row__pct">25%</span>
+              <span class="row__reset">4d 6h</span>
+            </div>
+            <div class="row" data-fill="21">
+              <span class="row__label">Fable</span>
+              <span class="row__track"><i class="row__fill"></i></span>
+              <span class="row__pct">21%</span>
+              <span class="row__reset">4d 6h</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="acct" id="acct-sam">
+          <div class="acct__top">
+            <span class="dot" id="dot-sam"></span>
+            <span class="acct__mail">sam@example.com</span>
+            <span class="badge is-off" id="badge-sam" data-i18n="panel.active">Active</span>
+          </div>
+          <div class="rows">
+            <div class="row" data-fill="12">
+              <span class="row__label" data-i18n="panel.five_hours">5 hours</span>
+              <span class="row__track"><i class="row__fill"></i></span>
+              <span class="row__pct">12%</span>
+              <span class="row__reset">4h 02m</span>
+            </div>
+            <div class="row" data-fill="61">
+              <span class="row__label" data-i18n="panel.week">Week</span>
+              <span class="row__track"><i class="row__fill"></i></span>
+              <span class="row__pct">61%</span>
+              <span class="row__reset">4d 6h</span>
+            </div>
+            <div class="row" data-fill="38">
+              <span class="row__label">Fable</span>
+              <span class="row__track"><i class="row__fill"></i></span>
+              <span class="row__pct">38%</span>
+              <span class="row__reset">4d 6h</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="acct">
+          <div class="acct__top">
+            <span class="dot"></span>
+            <span class="acct__mail">team@example.com</span>
+            <span class="badge badge--quiet" data-i18n="panel.cap">Cap 70%</span>
+          </div>
+          <div class="rows">
+            <div class="row" data-fill="78" data-tone="warn">
+              <span class="row__label" data-i18n="panel.five_hours">5 hours</span>
+              <span class="row__track"><i class="row__fill"></i><b class="row__cap"></b></span>
+              <span class="row__pct">78%</span>
+              <span class="row__reset">1h 12m</span>
+            </div>
+            <div class="row" data-fill="84" data-tone="warn">
+              <span class="row__label" data-i18n="panel.week">Week</span>
+              <span class="row__track"><i class="row__fill"></i><b class="row__cap"></b></span>
+              <span class="row__pct">84%</span>
+              <span class="row__reset">2d 3h</span>
+            </div>
+            <div class="row" data-fill="92" data-tone="over">
+              <span class="row__label">Fable</span>
+              <span class="row__track"><i class="row__fill"></i><b class="row__cap"></b></span>
+              <span class="row__pct">92%</span>
+              <span class="row__reset">2d 3h</span>
+            </div>
+          </div>
+        </article>
+
+        <div class="panel__foot">
+          <span class="toggle" aria-hidden="true"><i></i></span>
+          <span data-i18n="panel.auto">Automatic switching</span>
+        </div>
+      </div>
+
+      <p class="stage__caption" id="caption" data-i18n="panel.caption">Blue below 75%, amber above it, red at 90%. The right-hand column is the time until that window resets.</p>
+    </div>
   </div>
 </section>
 
 <!-- ── features ─────────────────────────────────────────────── -->
 <section class="section" id="features">
   <div class="wrap wrap--text">
-    <h2 class="section__title" data-reveal>Three things it does.</h2>
+    <h2 class="section__title" data-i18n="features.title" data-split>Three things it does.</h2>
   </div>
 
   <div class="wrap wrap--grid">
-    <div class="cards" data-reveal-group>
+    <div class="cards">
       <article class="card">
-        <h3>Automatic switching</h3>
-        <p>
+        <i class="card__rule" aria-hidden="true"></i>
+        <h3 data-i18n="f1.title">Automatic switching</h3>
+        <p data-i18n="f1.body">
           Set a threshold per window, per account. When one fills up, SwitchBar
           makes the next account active — no password, no browser, no new login.
           Open terminals keep working, and one click undoes it.
         </p>
       </article>
       <article class="card">
-        <h3>Instant visibility</h3>
-        <p>
+        <i class="card__rule" aria-hidden="true"></i>
+        <h3 data-i18n="f2.title">Instant visibility</h3>
+        <p data-i18n="f2.body">
           Every account and all three windows in one panel, each with its reset
           time. Anthropic incidents from status.claude.com appear inline, so an
           outage on their side is never mistaken for a problem on yours.
         </p>
       </article>
       <article class="card">
-        <h3>Private by design</h3>
-        <p>
+        <i class="card__rule" aria-hidden="true"></i>
+        <h3 data-i18n="f3.title">Private by design</h3>
+        <p data-i18n="f3.body">
           Tokens stay in the macOS Keychain and never leave the machine. No
           telemetry, no analytics, no third-party server — only usage reads
           against Anthropic's own endpoints.
@@ -236,30 +281,33 @@
 <!-- ── install ──────────────────────────────────────────────── -->
 <section class="section section--alt" id="install">
   <div class="wrap wrap--text">
-    <p class="eyebrow" data-reveal>Install</p>
-    <h2 class="section__title" data-reveal>One command.</h2>
+    <p class="eyebrow" data-i18n="install.eyebrow" data-reveal>Install</p>
+    <h2 class="section__title" data-i18n="install.title" data-split>One command.</h2>
 
     <div class="cmd cmd--lg" data-reveal>
       <code><span class="cmd__prompt">$</span>brew install --cask mlopezaragon/tap/switchbar</code>
-      <button class="cmd__copy" type="button" data-copy="brew install --cask mlopezaragon/tap/switchbar" aria-label="Copy the install command">Copy</button>
+      <button class="cmd__copy" type="button" data-copy="brew install --cask mlopezaragon/tap/switchbar" data-i18n="ui.copy">Copy</button>
     </div>
 
-    <dl class="specs" data-reveal-group>
+    <dl class="specs">
       <div class="spec">
-        <dt>Requirements</dt>
-        <dd>macOS 14 (Sonoma) or later, Apple Silicon or Intel. Claude Code with one or more Pro/Max accounts.</dd>
+        <dt data-i18n="spec.req.t">Requirements</dt>
+        <dd data-i18n="spec.req.d">macOS 14 (Sonoma) or later, Apple Silicon or Intel. Claude Code with one or more Pro/Max accounts.</dd>
       </div>
       <div class="spec">
-        <dt>Manual install</dt>
-        <dd>Download the DMG from <a class="link" href="https://github.com/mlopezaragon/SwitchBar/releases" target="_blank" rel="noopener">Releases</a>, verify its published SHA-256, then drag SwitchBar to Applications. The app is notarized by Apple and opens without a Gatekeeper prompt.</dd>
+        <dt data-i18n="spec.manual.t">Manual install</dt>
+        <dd>
+          <span data-i18n="spec.manual.d">Download the DMG, verify its published SHA-256, then drag SwitchBar to Applications. The app is notarized by Apple and opens without a Gatekeeper prompt.</span>
+          <a class="link" href="https://github.com/mlopezaragon/SwitchBar/releases" target="_blank" rel="noopener" data-i18n="ui.releases">Releases</a>
+        </dd>
       </div>
       <div class="spec">
-        <dt>First run</dt>
-        <dd>Add each account once through the official Claude Code login flow. Switching never asks again while the session stays valid.</dd>
+        <dt data-i18n="spec.first.t">First run</dt>
+        <dd data-i18n="spec.first.d">Add each account once through the official Claude Code login flow. Switching never asks again while the session stays valid.</dd>
       </div>
       <div class="spec">
-        <dt>Updates</dt>
-        <dd>SwitchBar checks a signed appcast and installs new versions in place.</dd>
+        <dt data-i18n="spec.upd.t">Updates</dt>
+        <dd data-i18n="spec.upd.d">SwitchBar checks a signed appcast and installs new versions in place.</dd>
       </div>
     </dl>
   </div>
@@ -276,17 +324,18 @@
       </a>
       <nav class="footer__links" aria-label="Project links">
         <a href="https://github.com/mlopezaragon/SwitchBar" target="_blank" rel="noopener">GitHub</a>
-        <a href="https://github.com/mlopezaragon/SwitchBar/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/mlopezaragon/SwitchBar/releases" target="_blank" rel="noopener" data-i18n="ui.releases">Releases</a>
         <a href="https://github.com/mlopezaragon/SwitchBar/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
       </nav>
     </div>
-    <p class="footer__legal">
+    <p class="footer__legal" data-i18n="footer.legal">
       Unofficial project. Not affiliated with, endorsed, or supported by Anthropic.
       Claude and Claude Code are trademarks of Anthropic, PBC.
     </p>
   </div>
 </footer>
 
+<script src="i18n.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js" integrity="sha384-g4NTh/Iv5PPU4xPyhEWqPcwtNXOvdaDI8LLnyYfyNZOjKJeYQyjzQ9X5275eBjpt" crossorigin="anonymous" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js" integrity="sha384-Z3REaz79l2IaAZqJsSABtTbhjgOUYyV3p90XNnAPCSHg3EMTz1fouunq9WZRtj3d" crossorigin="anonymous" defer></script>
 <script src="main.js" defer></script>

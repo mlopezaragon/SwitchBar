@@ -13,7 +13,9 @@ when a usage window fills up.
 > with, endorsed by, or supported by Anthropic. "Claude" and "Claude Code"
 > are trademarks of Anthropic, PBC.
 
-[Versión en español](README.es.md)
+[switchbar.vercel.app](https://switchbar.vercel.app) · [Versión en español](README.es.md)
+
+![SwitchBar panel showing four Claude Code accounts with their 5-hour, weekly and Fable usage](docs/panel.png)
 
 ## Features
 
@@ -48,9 +50,9 @@ Or manually: download `SwitchBar-<version>.dmg` from
 (`shasum -a 256 SwitchBar-<version>.dmg`) and drag SwitchBar to
 Applications.
 
-Beta builds are Developer ID signed but not yet notarized: the first time
-you open the app, right-click it and choose "Open". The stable release
-will be notarized and open without any prompt.
+The app is signed with a Developer ID and notarized by Apple, so it opens
+without any Gatekeeper prompt. New versions install themselves through a
+signed Sparkle appcast.
 
 Then click "Add account", sign in once with the official
 `claude auth login --claudeai` flow, and repeat per account. From then on,

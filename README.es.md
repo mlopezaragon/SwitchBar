@@ -8,7 +8,9 @@ política automática.
 > respaldado ni mantenido por Anthropic. «Claude» y «Claude Code» son
 > marcas de Anthropic, PBC.
 
-[English version](README.md)
+[switchbar.vercel.app](https://switchbar.vercel.app) · [English version](README.md)
+
+![Panel de SwitchBar con cuatro cuentas de Claude Code y su uso de 5 horas, semana y Fable](docs/panel.png)
 
 ## Funciones
 
@@ -43,9 +45,9 @@ O a mano: descarga `SwitchBar-<versión>.dmg` desde
 (`shasum -a 256 SwitchBar-<versión>.dmg`) y arrastra SwitchBar a
 Aplicaciones.
 
-Las betas van firmadas con Developer ID pero aún sin notarizar: la primera
-vez que abras la app, clic derecho sobre ella y «Abrir». La versión
-estable irá notarizada y se abrirá sin ningún aviso.
+La app va firmada con Developer ID y notarizada por Apple, así que se abre
+sin ningún aviso de Gatekeeper. Las versiones nuevas se instalan solas a
+través de un canal Sparkle firmado.
 
 Después pulsa «Añadir cuenta», haz el login oficial con
 `claude auth login --claudeai` y repite una sola vez por cuenta. A partir

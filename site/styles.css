@@ -1,36 +1,68 @@
 /* ============================================================
    SwitchBar — product site
    Structure and surfaces from Linear, spacing and type from Apple.
-   No decorative gradients, no glow, no glass, one shadow only.
+   No decorative gradients, no glow, no glass. The only shadow on
+   the page is the one under the panel.
    ============================================================ */
 
 @property --p { syntax: '<number>'; initial-value: 0; inherits: false; }
 
-:root{
-  /* canvas */
+/* ── theme: dark (default) ────────────────────────────────── */
+:root,
+[data-theme="dark"]{
   --bg:        #0a0a0b;
   --bg-alt:    #0e0e10;
-
-  /* surface ladder */
   --s1:        #131315;
   --s2:        #17171a;
-  --s3:        #1c1c1f;
   --hairline:  #26262b;
-
-  /* text */
+  --hairline-strong: #34343b;
   --t1:        #f7f8f8;
   --t2:        #b4b8bf;
   --t3:        #8a8f98;
+  --accent:    #1e7aff;
+  --accent-soft: rgba(30,122,255,.16);
+  --panel-shadow: 0 20px 60px rgba(0,0,0,.4);
+  --nav-bg:    #0a0a0b;
+}
 
-  /* the single interactive accent */
-  --blue:      #1e7aff;
+/* ── theme: light ─────────────────────────────────────────── */
+[data-theme="light"]{
+  --bg:        #ffffff;
+  --bg-alt:    #f5f5f7;
+  --s1:        #ffffff;
+  --s2:        #f5f5f7;
+  --hairline:  #e0e0e0;
+  --hairline-strong: #c9c9cc;
+  --t1:        #1d1d1f;
+  --t2:        #6e6e73;
+  --t3:        #86868b;
+  --accent:    #0066cc;
+  --accent-soft: rgba(0,102,204,.12);
+  --panel-shadow: 0 20px 60px rgba(0,0,0,.18);
+  --nav-bg:    #ffffff;
+}
 
-  /* semantic — inside the panel mock only */
-  --green:     #30d158;
-  --amber:     #ffa028;
-  --red:       #ff6061;
+/* The panel is a screenshot of a dark macOS app: it keeps its own
+   colours in both themes and never inherits the page palette. */
+:root{
+  --p-bg:      #131315;
+  --p-card:    #17171a;
+  --p-card-on: #1c1c1f;
+  --p-line:    #26262b;
+  --p-t1:      #f7f8f8;
+  --p-t2:      #b4b8bf;
+  --p-t3:      #8a8f98;
+  --p-track:   #2a2a30;
+  --p-dot:     #4a4a52;
+  --p-blue:    #1e7aff;
+  --p-green:   #30d158;
+  --p-amber:   #ffa028;
+  --p-red:     #ff6061;
 
-  --sans: "SF Pro Display", "SF Pro Text", system-ui, -apple-system, "Inter", sans-serif;
+  --sans: "SF Pro Display", "SF Pro Text", system-ui, -apple-system, "Inter",
+          "Hiragino Sans", "Yu Gothic UI", "Apple SD Gothic Neo", "Malgun Gothic",
+          "PingFang SC", "PingFang TC", "Microsoft YaHei", "Microsoft JhengHei",
+          sans-serif;
   --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
 
   --w-text: 720px;
@@ -56,16 +88,45 @@ body{
   text-rendering:optimizeLegibility;
 }
 
+/* CJK glyphs are drawn on a fixed em square: negative tracking makes
+   them collide, so every language-wide letter-spacing is neutralised. */
+html[lang="ja"] body, html[lang="ko"] body,
+html[lang^="zh"] body{ letter-spacing:normal; }
+html[lang="ja"] .hero__title, html[lang="ko"] .hero__title, html[lang^="zh"] .hero__title,
+html[lang="ja"] .section__title, html[lang="ko"] .section__title, html[lang^="zh"] .section__title{
+  letter-spacing:-0.01em; line-height:1.22;
+}
+html[lang="ja"] .hero__sub, html[lang="ko"] .hero__sub, html[lang^="zh"] .hero__sub,
+html[lang="ja"] .eyebrow, html[lang="ko"] .eyebrow, html[lang^="zh"] .eyebrow,
+html[lang="ja"] .nav__links a, html[lang="ko"] .nav__links a, html[lang^="zh"] .nav__links a{
+  letter-spacing:normal;
+}
+
+/* Colour transitions are enabled only after the first paint, so
+   switching themes animates but loading never does. */
+.theme-ready body,
+.theme-ready .nav__bg,
+.theme-ready .card,
+.theme-ready .cmd,
+.theme-ready .cmd__copy,
+.theme-ready .spec,
+.theme-ready .footer,
+.theme-ready .footer__legal,
+.theme-ready .lang select,
+.theme-ready .theme{
+  transition:background-color .3s ease, color .3s ease, border-color .3s ease;
+}
+
 img{ max-width:100%; height:auto; }
 a{ color:inherit; }
 
-::selection{ background:rgba(30,122,255,.3); }
+::selection{ background:var(--accent-soft); }
 
-:focus-visible{ outline:2px solid var(--blue); outline-offset:3px; border-radius:6px; }
+:focus-visible{ outline:2px solid var(--accent); outline-offset:3px; border-radius:6px; }
 
 .skip{
   position:absolute; left:-9999px; top:0; z-index:100;
-  background:var(--s2); color:var(--t1); padding:12px 16px; border-radius:0 0 8px 0;
+  background:var(--s1); color:var(--t1); padding:12px 16px; border-radius:0 0 8px 0;
   border:1px solid var(--hairline); font-size:15px;
 }
 .skip:focus{ left:0; }
@@ -79,8 +140,8 @@ a{ color:inherit; }
 .section--alt{ background:var(--bg-alt); }
 .hero{ padding-block:calc(var(--section) + 56px) var(--section); }
 
-/* Apple centres the opening statement of a section; the detail that follows
-   (cards, spec rows) stays flush left so it reads as a list, not a poster. */
+/* Apple centres the opening statement of a section; the detail that
+   follows (cards, spec rows) stays flush left so it reads as a list. */
 .hero .wrap--text,
 .section .wrap--text{ text-align:center; }
 .specs{ text-align:left; }
@@ -101,7 +162,7 @@ a{ color:inherit; }
   letter-spacing:-0.015em;
 }
 .hero__sub{
-  margin:0 0 36px;
+  margin:0 auto 36px;
   font-size:clamp(17px, 2.2vw, 21px);
   line-height:1.45;
   letter-spacing:-0.021em;
@@ -118,36 +179,82 @@ a{ color:inherit; }
   margin:28px 0 0;
   font-size:14px; color:var(--t3); letter-spacing:-0.01em;
 }
-.hero__icon{
-  display:block; width:112px; height:112px; margin:0 auto 32px;
-}
+.hero__icon{ display:block; width:112px; height:112px; margin:0 auto 32px; }
+
+/* Line masks for the split headlines. Only ever created by main.js. */
+.split-line{ display:block; overflow:hidden; }
+.split-line > span{ display:block; will-change:transform; }
 
 /* ── nav ──────────────────────────────────────────────────── */
-.nav{
-  position:fixed; inset:0 0 auto; z-index:50;
-  background:transparent;
-  border-bottom:1px solid transparent;
-  transition:background-color .25s ease, border-color .25s ease;
+.nav{ position:fixed; inset:0 0 auto; z-index:50; }
+.nav__bg{
+  position:absolute; inset:0;
+  background:var(--nav-bg);
+  border-bottom:1px solid var(--hairline);
+  opacity:0;
 }
-.nav.is-scrolled{ background:var(--bg); border-bottom-color:var(--hairline); }
 .nav__inner{
+  position:relative;
   max-width:calc(var(--w-grid) + var(--pad) * 2);
-  margin-inline:auto; padding:14px var(--pad);
-  display:flex; align-items:center; gap:32px;
+  margin-inline:auto; padding:12px var(--pad);
+  display:flex; align-items:center; gap:28px;
 }
 .nav__brand{
   display:inline-flex; align-items:center; gap:10px;
   font-size:15px; font-weight:600; letter-spacing:-0.015em; text-decoration:none;
+  white-space:nowrap;
 }
 .nav__links{ display:flex; gap:24px; margin-left:auto; }
 .nav__links a, .nav__gh{
   font-size:15px; font-weight:500; color:var(--t2); text-decoration:none;
-  letter-spacing:-0.015em; transition:color .18s ease;
+  letter-spacing:-0.015em; transition:color .18s ease; white-space:nowrap;
 }
 .nav__links a:hover, .nav__gh:hover{ color:var(--t1); }
-@media (max-width:640px){
+
+.nav__tools{ display:flex; align-items:center; gap:10px; margin-left:auto; }
+.nav__links + .nav__tools{ margin-left:0; }
+
+/* language select */
+.lang{ position:relative; display:inline-flex; align-items:center; }
+.lang select{
+  appearance:none; -webkit-appearance:none;
+  font-family:inherit; font-size:14px; font-weight:500; letter-spacing:-0.01em;
+  color:var(--t2); background:transparent;
+  border:1px solid var(--hairline); border-radius:8px;
+  padding:6px 26px 6px 10px;
+  cursor:pointer; max-width:150px; text-overflow:ellipsis;
+}
+.lang select:hover{ color:var(--t1); border-color:var(--hairline-strong); }
+.lang select option{ background:var(--bg); color:var(--t1); }
+.lang__chevron{
+  position:absolute; right:9px; width:11px; height:11px;
+  color:var(--t3); pointer-events:none;
+}
+
+/* theme button */
+.theme{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:32px; height:32px; flex:none;
+  color:var(--t2); background:transparent;
+  border:1px solid var(--hairline); border-radius:8px;
+  cursor:pointer;
+  transition:color .18s ease, border-color .18s ease, transform .12s ease;
+}
+.theme:hover{ color:var(--t1); border-color:var(--hairline-strong); }
+.theme:active{ transform:scale(.94); }
+.theme svg{ width:17px; height:17px; }
+[data-theme="dark"] .theme__moon{ display:none; }
+[data-theme="light"] .theme__sun{ display:none; }
+
+@media (max-width:820px){
   .nav__links{ display:none; }
-  .nav__gh{ margin-left:auto; }
+  .nav__tools{ margin-left:auto; }
+}
+/* On phones the nav keeps only what is unique to it: the brand, the
+   language and the theme. GitHub still lives in the footer. */
+@media (max-width:560px){
+  .nav__gh{ display:none; }
+  .lang select{ max-width:118px; }
 }
 
 /* ── command + copy ───────────────────────────────────────── */
@@ -163,8 +270,6 @@ a{ color:inherit; }
   font-family:var(--mono); font-size:14px; letter-spacing:0;
   color:var(--t1); white-space:nowrap; overflow-x:auto;
   scrollbar-width:none;
-  /* El hero centra su texto; un comando de terminal se lee a la izquierda. */
-  text-align:left;
 }
 .cmd code::-webkit-scrollbar{ display:none; }
 .cmd__prompt{ color:var(--t3); flex:none; }
@@ -173,118 +278,117 @@ a{ color:inherit; }
   font-family:inherit; font-size:14px; font-weight:500; letter-spacing:-0.015em;
   color:var(--t2); background:transparent;
   border:0; border-left:1px solid var(--hairline);
-  padding:0 16px;
+  padding:0 16px; white-space:nowrap;
   transition:color .18s ease, background-color .18s ease, transform .12s ease;
 }
 .cmd__copy:hover{ color:var(--t1); background:var(--s2); }
 .cmd__copy:active{ transform:scale(.97); }
-.cmd__copy.is-done{ color:var(--blue); }
+.cmd__copy.is-done{ color:var(--accent); }
 
-.cmd--lg{ margin:28px 0 0; }
+.cmd--lg{ margin:28px auto 0; max-width:600px; }
 .cmd--lg code{ padding:16px 18px; font-size:15px; }
 .cmd--lg .cmd__copy{ padding:0 20px; font-size:15px; }
 
 .hero__cta{ display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap; }
-/* La base debe dejar ver el comando entero: cortarlo esconde justo lo que
-   la página pide copiar. */
-.hero__cta .cmd{ flex:0 1 560px; max-width:100%; }
+/* wide enough for the whole command plus the longest "Copy" translation */
+.hero__cta .cmd{ flex:0 1 560px; }
 
 .link{
-  color:var(--blue); text-decoration:none;
+  color:var(--accent); text-decoration:none;
   font-size:15px; font-weight:500; letter-spacing:-0.015em;
   transition:opacity .18s ease, transform .12s ease;
   display:inline-block;
 }
-.link:hover{ opacity:.8; }
+.link:hover{ opacity:.75; }
 .link:active{ transform:scale(.97); }
 
 /* ============================================================
-   Panel — the product shot
+   Panel — the product shot, dark in both themes
    ============================================================ */
+.panel-sec__inner{ padding-block:var(--section); }
 .stage{ margin-top:56px; padding-inline:var(--pad); }
 
 .panel{
   width:100%; max-width:400px; margin-inline:auto;
-  background:var(--s1);
-  border:1px solid var(--hairline);
+  background:var(--p-bg);
+  border:1px solid var(--p-line);
   border-radius:16px;
   padding:10px;
   display:flex; flex-direction:column; gap:8px;
-  /* the only shadow on the page */
-  box-shadow:0 20px 60px rgba(0,0,0,.4);
+  box-shadow:var(--panel-shadow);   /* the only shadow on the page */
+  color:var(--p-t1);
   letter-spacing:-0.01em;
+  will-change:transform;
 }
-.panel__bar{ display:flex; align-items:center; padding:4px 6px 2px; }
+.panel__bar{ display:flex; align-items:center; gap:10px; padding:4px 6px 2px; }
 .panel__name{ font-size:13px; font-weight:600; }
-.panel__meta{ margin-left:auto; font-size:11px; color:var(--t3); font-family:var(--mono); letter-spacing:0; }
+.panel__meta{
+  margin-left:auto; font-size:11px; color:var(--p-t3);
+  font-family:var(--mono); letter-spacing:0; white-space:nowrap;
+}
 
 .acct{
-  background:var(--s2);
-  border:1px solid var(--hairline);
+  background:var(--p-card);
+  border:1px solid var(--p-line);
   border-radius:10px;
   padding:12px;
   display:flex; flex-direction:column; gap:9px;
-  transition:background-color .4s ease, border-color .4s ease;
 }
-.acct.is-active{ background:var(--s3); }
+.acct.is-active{ background:var(--p-card-on); }
 .acct__top{ display:flex; align-items:center; gap:8px; }
 .acct__mail{
   font-size:13px; font-weight:500;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-.dot{
-  width:6px; height:6px; border-radius:50%; flex:none;
-  background:#4a4a52; transition:background-color .35s ease;
-}
-.dot--on{ background:var(--green); }
+.dot{ width:6px; height:6px; border-radius:50%; flex:none; background:var(--p-dot); }
+.dot--on{ background:var(--p-green); }
 
 .badge{
-  margin-left:auto; flex:none;
+  margin-left:auto; flex:none; white-space:nowrap;
   font-size:11px; font-weight:500; letter-spacing:-0.005em;
   padding:2px 8px; border-radius:6px;
-  color:var(--green); background:rgba(48,209,88,.12);
+  color:var(--p-green); background:rgba(48,209,88,.12);
 }
-.badge--quiet{ color:var(--t3); background:transparent; border:1px solid var(--hairline); }
+.badge--quiet{ color:var(--p-t3); background:transparent; border:1px solid var(--p-line); }
 .badge.is-off{ opacity:0; }
 
-.rows{ display:flex; flex-direction:column; gap:7px; }
-.row{ display:flex; align-items:center; gap:10px; }
-.row__label{ width:48px; flex:none; font-size:11px; color:var(--t3); }
-.row__track{
-  flex:1; min-width:0; height:4px; border-radius:2px;
-  background:#2a2a30; position:relative;
+/* A grid so the four columns line up whatever the language does to
+   the label width — "5 Stunden" and "5 小時" both fit. */
+.rows{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto auto;
+  gap:7px 10px;
+  align-items:center;
 }
+.row{ display:contents; }
+.row__label{ font-size:11px; color:var(--p-t3); white-space:nowrap; }
+.row__track{ height:4px; border-radius:2px; background:var(--p-track); position:relative; }
 .row__fill{
   position:absolute; inset:0; border-radius:2px; display:block;
-  background:var(--blue);
+  background:var(--p-blue);
   clip-path:inset(0 calc((1 - var(--p)) * 100%) 0 0);
-  transition:background-color .4s ease;
 }
-[data-tone="warn"] .row__fill{ background:var(--amber); }
-[data-tone="over"] .row__fill{ background:var(--red); }
-.row__cap{
-  position:absolute; top:-2px; left:70%;
-  width:1px; height:8px; background:#5a5a63;
-}
+[data-tone="warn"] .row__fill{ background:var(--p-amber); }
+[data-tone="over"] .row__fill{ background:var(--p-red); }
+.row__cap{ position:absolute; top:-2px; left:70%; width:1px; height:8px; background:#5a5a63; }
 .row__pct{
-  width:34px; flex:none; text-align:right;
-  font-size:11px; font-family:var(--mono); letter-spacing:0;
-  font-variant-numeric:tabular-nums; color:var(--t2);
+  text-align:right; font-size:11px; font-family:var(--mono); letter-spacing:0;
+  font-variant-numeric:tabular-nums; color:var(--p-t2); min-width:34px;
 }
 .row__reset{
-  width:46px; flex:none; text-align:right; white-space:nowrap;
+  text-align:right; white-space:nowrap;
   font-size:11px; font-family:var(--mono); letter-spacing:0;
-  font-variant-numeric:tabular-nums; color:var(--t3);
+  font-variant-numeric:tabular-nums; color:var(--p-t3);
 }
 
 .panel__foot{
   display:flex; align-items:center; gap:9px;
   padding:10px 6px 4px; margin-top:2px;
-  border-top:1px solid var(--hairline);
-  font-size:11px; color:var(--t2);
+  border-top:1px solid var(--p-line);
+  font-size:11px; color:var(--p-t2);
 }
 .toggle{
-  width:22px; height:13px; border-radius:7px; background:var(--blue);
+  width:22px; height:13px; border-radius:7px; background:var(--p-blue);
   position:relative; flex:none;
 }
 .toggle i{ position:absolute; top:1.5px; right:1.5px; width:10px; height:10px; border-radius:50%; background:#fff; }
@@ -292,6 +396,7 @@ a{ color:inherit; }
 .stage__caption{
   max-width:36em; margin:28px auto 0; text-align:center;
   font-size:15px; color:var(--t3);
+  min-height:3em;   /* room for the longer sentence, so nothing jumps */
 }
 
 /* ── cards ────────────────────────────────────────────────── */
@@ -300,8 +405,13 @@ a{ color:inherit; }
   margin-top:40px;
 }
 .card{
+  position:relative;
   background:var(--s1); border:1px solid var(--hairline); border-radius:12px;
   padding:28px 24px;
+}
+.card__rule{
+  position:absolute; left:-1px; right:-1px; top:-1px; height:1px;
+  background:var(--accent); transform-origin:left center;
 }
 .card h3{
   margin:0 0 10px;
@@ -315,7 +425,7 @@ a{ color:inherit; }
 /* ── install specs ────────────────────────────────────────── */
 .specs{ margin:48px 0 0; display:flex; flex-direction:column; }
 .spec{
-  display:grid; grid-template-columns:180px minmax(0,1fr); gap:24px;
+  display:grid; grid-template-columns:200px minmax(0,1fr); gap:24px;
   padding:20px 0; border-top:1px solid var(--hairline);
 }
 .spec:last-child{ border-bottom:1px solid var(--hairline); }
@@ -331,7 +441,7 @@ a{ color:inherit; }
   display:flex; align-items:center; gap:24px; flex-wrap:wrap;
   padding-bottom:24px;
 }
-.footer__links{ display:flex; gap:24px; margin-left:auto; }
+.footer__links{ display:flex; gap:24px; margin-left:auto; flex-wrap:wrap; }
 .footer__links a{
   font-size:15px; color:var(--t2); text-decoration:none; letter-spacing:-0.015em;
   transition:color .18s ease;
@@ -345,10 +455,6 @@ a{ color:inherit; }
   .footer__links{ margin-left:0; }
 }
 
-/* ── reveal base state (main.js clears it once GSAP owns it) ─ */
-.js [data-reveal],
-.js [data-reveal-group] > *{ opacity:0; }
-
 /* ── móvil: el comando entero visible y objetos táctiles cómodos ── */
 @media (max-width:640px){
   /* Cortar el comando esconde justo lo que la página pide copiar: en
@@ -356,7 +462,7 @@ a{ color:inherit; }
   .cmd{ flex-direction:column; align-items:stretch; }
   .cmd code{
     white-space:pre-wrap; word-break:break-all; overflow-x:visible;
-    align-items:flex-start; font-size:13px;
+    align-items:flex-start; font-size:13px; text-align:left;
   }
   .cmd--lg code{ font-size:13px; }
   .cmd__copy{
@@ -367,12 +473,22 @@ a{ color:inherit; }
   .nav__gh, .footer__links a, .link{
     display:inline-flex; align-items:center; min-height:44px;
   }
-  .footer__links{ gap:20px; flex-wrap:wrap; }
+  .footer__links{ gap:20px; }
 }
+
+/* ── reveal base state (main.js clears it once GSAP owns it) ─ */
+.js [data-reveal],
+.js .cards .card,
+.js .specs .spec,
+.js .hero__icon{ opacity:0; }
+.js .card__rule{ transform:scaleX(0); }
 
 @media (prefers-reduced-motion:reduce){
   html{ scroll-behavior:auto; }
   .js [data-reveal],
-  .js [data-reveal-group] > *{ opacity:1; }
-  .cmd__copy, .link, .acct, .dot, .row__fill{ transition:none; }
+  .js .cards .card,
+  .js .specs .spec,
+  .js .hero__icon{ opacity:1; }
+  .js .card__rule{ transform:none; }
+  .cmd__copy, .link, .theme, .nav__links a{ transition:none; }
 }
