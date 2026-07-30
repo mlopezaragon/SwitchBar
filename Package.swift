@@ -4,7 +4,8 @@ import PackageDescription
 let package = Package(
     name: "SwitchBar",
     defaultLocalization: "es",
-    platforms: [.macOS(.v26)],
+    // macOS 14 (Sonoma) es el mínimo real: la interfaz usa @Observable.
+    platforms: [.macOS(.v14)],
     products: [.library(name: "SwitchBarCore", targets: ["SwitchBarCore"])],
     dependencies: [
         // Actualizaciones automáticas. Binario oficial firmado por el

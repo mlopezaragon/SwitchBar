@@ -40,7 +40,7 @@ cat > appcast.xml <<XML
       <pubDate>$DATE</pubDate>
       <sparkle:version>$BUILD</sparkle:version>
       <sparkle:shortVersionString>$SHORT</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <link>https://github.com/mlopezaragon/SwitchBar/releases/tag/v$VERSION</link>
       <enclosure url="$URL" $SIGNATURE type="application/octet-stream"/>
     </item>

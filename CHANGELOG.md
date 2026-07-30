@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.0-beta.5 — 2026-07-30
+
+- Minimum macOS lowered from 26 (Tahoe) to 14 (Sonoma). The app used no
+  Tahoe-only API; three more years of Macs can now run it.
+
 ## 1.0.0-beta.4 — 2026-07-30
 
 - Notarized by Apple: the app now opens without any Gatekeeper prompt.

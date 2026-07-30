@@ -3,7 +3,7 @@
 [![CI](https://github.com/mlopezaragon/SwitchBar/actions/workflows/ci.yml/badge.svg)](https://github.com/mlopezaragon/SwitchBar/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/mlopezaragon/SwitchBar?include_prereleases)](https://github.com/mlopezaragon/SwitchBar/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-![Platform](https://img.shields.io/badge/platform-macOS%2026-lightgrey)
+![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey)
 
 Native macOS menu bar app that shows live usage for several Claude Code
 accounts and switches the active account — with one click, or automatically
@@ -31,7 +31,7 @@ when a usage window fills up.
 
 ## Requirements
 
-- macOS 26 (Tahoe), Apple Silicon or Intel (universal binary).
+- macOS 14 (Sonoma) or later, Apple Silicon or Intel (universal binary).
 - [Claude Code](https://code.claude.com) with one or more Claude
   subscription accounts (Pro/Max).
 
