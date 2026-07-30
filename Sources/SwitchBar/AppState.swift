@@ -246,10 +246,12 @@ final class AppState {
                     accountCount: self.availableUsageAccountCount
                 )
                 // Mientras alguna cuenta siga sin datos (primer arranque o
-                // cuenta recién añadida), la vuelta se acelera con un paso
-                // corto pero suficiente para no parecer una ráfaga.
-                if self.hasAccountsAwaitingFirstSnapshot {
-                    spacing = min(spacing, 12)
+                // cuenta recién añadida), la vuelta se acelera al máximo que
+                // tolera el servidor. Simultáneas no: el endpoint detecta la
+                // ráfaga, acepta la primera y castiga al resto con una pausa
+                // de un minuto o más, que es el resultado contrario al buscado.
+                if self.hasAccountsAwaitingFreshSnapshot {
+                    spacing = min(spacing, 5)
                 }
                 try? await Task.sleep(for: .seconds(spacing))
             }
@@ -257,12 +259,17 @@ final class AppState {
     }
 
     /// Alguna cuenta utilizable (con sesión y sin pausa del servidor) sigue
-    /// sin instantánea de uso en memoria.
-    private var hasAccountsAwaitingFirstSnapshot: Bool {
+    /// sin datos o con datos demasiado viejos para decidir: ocurre en el
+    /// primer arranque, al añadir una cuenta y al volver de un apagado largo
+    /// con la caché restaurada. El umbral coincide con el que la política
+    /// automática considera «vigente».
+    private var hasAccountsAwaitingFreshSnapshot: Bool {
         let now = Date()
+        let maxAge = max(2 * pollIntervalSeconds, 600)
         return profilesList.contains { profile in
-            guard !profile.needsLogin,
-                  usageByAccount[profile.accountUuid] == nil else {
+            guard !profile.needsLogin else { return false }
+            if let snapshot = usageByAccount[profile.accountUuid],
+               now.timeIntervalSince(snapshot.fetchedAt) < maxAge {
                 return false
             }
             return rateLimitedUntilByAccount[profile.accountUuid]
