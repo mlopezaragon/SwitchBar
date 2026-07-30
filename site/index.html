@@ -27,6 +27,13 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<script>
+  /* Set before first paint so animated elements never flash in and out.
+     Removed again by main.js if GSAP is unavailable. */
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.documentElement.classList.add('js');
+  }
+</script>
 </head>
 <body>
 
@@ -41,7 +48,7 @@
     <span>SwitchBar</span>
   </a>
   <nav class="nav__links" aria-label="Sections">
-    <a href="#panel">The panel</a>
+    <a href="#problem">The problem</a>
     <a href="#auto">Auto-switch</a>
     <a href="#privacy">Privacy</a>
     <a href="#install">Install</a>
@@ -94,7 +101,7 @@
       <span class="menubar__item mark-sm"><i></i><i></i></span>
       <span class="menubar__pct">55 %</span>
       <span class="menubar__spacer"></span>
-      <span class="menubar__glyph">􀙇</span>
+      <span class="menubar__glyph">◐</span>
       <span class="menubar__clock">10:24</span>
     </div>
 
@@ -170,7 +177,7 @@
 </section>
 
 <!-- ─────────────────────────────  MANIFESTO  ───────────────────────────── -->
-<section class="manifesto" id="panel">
+<section class="manifesto" id="problem">
   <p class="section-tag" data-anim="fade">01 — The problem</p>
   <p class="statement" data-split="words">
     You find out you are out of usage the moment Claude Code stops answering.
@@ -258,8 +265,8 @@
           </div>
         </article>
 
-        <div class="toast" id="demo-toast" aria-hidden="true">Switched to sam@example.com · Undo</div>
       </div>
+      <p class="toast" id="demo-toast" aria-hidden="true">Switched to sam@example.com <span>· Undo</span></p>
     </div>
   </div>
 </section>

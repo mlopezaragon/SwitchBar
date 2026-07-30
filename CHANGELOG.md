@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0-beta.4 — 2026-07-30
+
+- Notarized by Apple: the app now opens without any Gatekeeper prompt.
+- Automatic updates via Sparkle 2: SwitchBar checks a signed appcast and
+  offers new versions in place; a "Check for updates" button and the
+  installed version appear in the settings panel.
+
 ## 1.0.0-beta.3 — 2026-07-30
 
 - All accounts appear instantly on launch: the last known usage snapshot

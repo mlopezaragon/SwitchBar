@@ -24,5 +24,14 @@ rm -f "$DMG"
 hdiutil create -volname "SwitchBar" -srcfolder "$STAGING" \
     -ov -format UDZO "$DMG" >/dev/null
 
+# El DMG también se firma: Gatekeeper evalúa la firma del contenedor y un
+# DMG sin firma aparece como «no usable signature» aunque la app interior
+# esté firmada y notarizada.
+SIGN_ID="$(security find-identity -p codesigning -v 2>/dev/null \
+    | awk '/Developer ID Application/ {print $2; exit}')"
+if [ -n "$SIGN_ID" ]; then
+    codesign --force --timestamp --sign "$SIGN_ID" "$DMG"
+fi
+
 echo "==> DMG: $DMG"
 shasum -a 256 "$DMG" | tee "$DMG.sha256"
