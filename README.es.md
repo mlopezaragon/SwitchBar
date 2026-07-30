@@ -32,16 +32,25 @@ política automática.
 
 ## Instalación
 
-1. Descarga `SwitchBar-<versión>.dmg` desde
-   [Releases](../../releases) y verifica su SHA-256 publicado:
-   `shasum -a 256 SwitchBar-<versión>.dmg`
-2. Arrastra SwitchBar a Aplicaciones y ábrela. Las betas van firmadas con
-   Developer ID pero aún sin notarizar: la primera vez, clic derecho sobre
-   la app y «Abrir».
-3. Pulsa «Añadir cuenta», haz el login oficial con
-   `claude auth login --claudeai` y repite una sola vez por cuenta. A partir
-   de ahí, los cambios no piden contraseña ni otro login mientras la sesión
-   siga vigente.
+Con [Homebrew](https://brew.sh):
+
+```sh
+brew install --cask mlopezaragon/tap/switchbar
+```
+
+O a mano: descarga `SwitchBar-<versión>.dmg` desde
+[Releases](../../releases), verifica su SHA-256 publicado
+(`shasum -a 256 SwitchBar-<versión>.dmg`) y arrastra SwitchBar a
+Aplicaciones.
+
+Las betas van firmadas con Developer ID pero aún sin notarizar: la primera
+vez que abras la app, clic derecho sobre ella y «Abrir». La versión
+estable irá notarizada y se abrirá sin ningún aviso.
+
+Después pulsa «Añadir cuenta», haz el login oficial con
+`claude auth login --claudeai` y repite una sola vez por cuenta. A partir
+de ahí, los cambios no piden contraseña ni otro login mientras la sesión
+siga vigente.
 
 ## Cómo funciona — léelo antes de depender de la app
 

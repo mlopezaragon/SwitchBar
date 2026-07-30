@@ -1,5 +1,10 @@
 # SwitchBar
 
+[![CI](https://github.com/mlopezaragon/SwitchBar/actions/workflows/ci.yml/badge.svg)](https://github.com/mlopezaragon/SwitchBar/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/mlopezaragon/SwitchBar?include_prereleases)](https://github.com/mlopezaragon/SwitchBar/releases)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+![Platform](https://img.shields.io/badge/platform-macOS%2026-lightgrey)
+
 Native macOS menu bar app that shows live usage for several Claude Code
 accounts and switches the active account — with one click, or automatically
 when a usage window fills up.
@@ -32,16 +37,25 @@ when a usage window fills up.
 
 ## Install
 
-1. Download `SwitchBar-<version>.dmg` from
-   [Releases](../../releases) and verify its published SHA-256:
-   `shasum -a 256 SwitchBar-<version>.dmg`
-2. Drag SwitchBar to Applications and open it.
-   Beta builds are Developer ID signed but not yet notarized: the first
-   time, right-click the app and choose "Open".
-3. Click "Add account", sign in once with the official
-   `claude auth login --claudeai` flow, and repeat per account. From then
-   on, switching never asks for a password or another login while the
-   session remains valid.
+With [Homebrew](https://brew.sh):
+
+```sh
+brew install --cask mlopezaragon/tap/switchbar
+```
+
+Or manually: download `SwitchBar-<version>.dmg` from
+[Releases](../../releases), verify its published SHA-256
+(`shasum -a 256 SwitchBar-<version>.dmg`) and drag SwitchBar to
+Applications.
+
+Beta builds are Developer ID signed but not yet notarized: the first time
+you open the app, right-click it and choose "Open". The stable release
+will be notarized and open without any prompt.
+
+Then click "Add account", sign in once with the official
+`claude auth login --claudeai` flow, and repeat per account. From then on,
+switching never asks for a password or another login while the session
+remains valid.
 
 ## How it works — read this before relying on it
 
