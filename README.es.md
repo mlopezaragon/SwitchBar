@@ -13,7 +13,7 @@ política automática.
 ## Funciones
 
 - Barras de uso por cuenta: ventana de 5 horas, semana general y el cupo
-  semanal independiente de Opus/Fable, con su hora de reinicio.
+  semanal independiente de Fable, con su hora de reinicio.
 - Cambio de cuenta activa con un clic, con deshacer.
 - Cambio automático con umbrales independientes y configurables.
 - Cuentas compartidas: define un tope personal (por ejemplo 70 %) para que
