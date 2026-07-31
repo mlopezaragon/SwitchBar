@@ -5,7 +5,7 @@ INSTALLED = /Applications/$(APP)
 
 VERSION = 1.0.0-beta.7
 
-.PHONY: build test app install run stop clean dmg notarize
+.PHONY: build test app install run stop clean dmg notarize stats
 
 ## Compila el binario en debug.
 build:
@@ -44,6 +44,10 @@ dmg: app
 ## Notariza el DMG y adjunta el ticket (requiere credenciales guardadas).
 notarize:
 	scripts/notarize.sh "SwitchBar-$(VERSION).dmg"
+
+## Muestra las descargas del DMG y el uso del tap de Homebrew.
+stats:
+	scripts/stats.sh
 
 ## Borra los artefactos de build.
 clean:
