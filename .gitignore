@@ -10,3 +10,11 @@ dist/
 .vercel
 .agents/
 .stats/
+
+# Material que no pertenece al repositorio de la app: el proyecto del
+# vídeo de presentación vive en local, y las skills de Remotion son
+# herramientas del entorno de trabajo, no del proyecto.
+promo/
+.claude/
+skills-lock.json
+SwitchBar-*.dmg.sha256
