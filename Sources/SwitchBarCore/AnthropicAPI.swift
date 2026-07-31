@@ -44,8 +44,20 @@ public final class AnthropicAPI: Sendable {
 
     private let session: URLSession
 
-    public init(session: URLSession = .shared) {
-        self.session = session
+    public init(session: URLSession? = nil) {
+        self.session = session ?? Self.defaultSession()
+    }
+
+    /// Sesión con plazos cortos. La sesión compartida espera hasta 60 s por
+    /// petición y siete días por recurso: una consulta atascada bloqueaba de
+    /// hecho el sondeo de las demás cuentas. Este endpoint responde en
+    /// milisegundos, así que más de veinte segundos ya es un fallo.
+    private static func defaultSession() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 20
+        configuration.timeoutIntervalForResource = 30
+        configuration.waitsForConnectivity = false
+        return URLSession(configuration: configuration)
     }
 
     public func fetchUsage(accessToken: String) async throws -> UsageSnapshot {

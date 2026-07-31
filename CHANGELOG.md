@@ -1,5 +1,44 @@
 # Changelog
 
+## 1.0.0-beta.8 — 2026-07-31
+
+Accounts that had not been active for a while could go half a day without
+their usage being checked, while the panel kept showing their last known
+numbers as if they were current. This release fixes the cause and makes the
+app honest about what it does and does not know.
+
+- Fixed: an inactive account whose session had expired was asking Anthropic
+  to renew it every ten minutes. The server answers "too many requests"
+  without saying how long to wait, so the app kept retrying and kept the
+  account rate-limited — dozens of renewals per hour, indefinitely. A
+  renewal is now attempted at most every thirty minutes, doubling up to an
+  hour after repeated refusals.
+- Fixed: the auto-switch notification claimed all accounts were near their
+  limits when the real reason was that their usage could not be checked.
+  Both situations now have their own message, and neither repeats more than
+  once every thirty minutes.
+- Before giving up, auto-switch now queries the accounts it has no fresh
+  data for, instead of silently ruling them out and staying put.
+- Accounts with stale data are dimmed in the panel and show when they were
+  last checked, so an old 0% is never mistaken for free capacity.
+- An account resting with no open session is no longer discarded as a
+  switch target: no 5-hour window means zero usage, not unknown usage.
+- Fixed: macOS could freeze the polling loop. As a menu bar app with no
+  windows, SwitchBar was a prime candidate for App Nap; it now declares its
+  activity while still allowing the Mac itself to sleep.
+- Usage requests now time out after twenty seconds. A stuck request used to
+  hold up every other account's turn for a full minute.
+- Idle accounts yield their turn while their data is still valid, so
+  requests go where they matter, and a turn lost to a simultaneous request
+  is retried on the next round instead of skipped entirely.
+- Unexpected HTTP codes are no longer reported as connection failures, and
+  every usage check is now traceable:
+  `log stream --predicate 'subsystem == "com.mlopara.ClaudeSwitch"'`.
+- Add an account without touching the terminal: the browser authorization
+  flow now runs inside the app.
+- Fixed: card outlines and the pinned position broke when switching
+  language.
+
 ## 1.0.0-beta.5 — 2026-07-30
 
 - Minimum macOS lowered from 26 (Tahoe) to 14 (Sonoma). The app used no

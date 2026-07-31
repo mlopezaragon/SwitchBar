@@ -64,6 +64,7 @@
 "usage.week" = "Semana";
 "usage.fable" = "Fable";
 "usage.updated" = "Uso atualizado %@";
+"usage.stale" = "Verificado %@";
 "usage.refresh_now" = "Atualizar agora";
 "usage.personal_cap" = "Limite pessoal: %d%%";
 "usage.refresh.server_error" = "A Anthropic não pode atualizar o uso agora. Os últimos dados serão mantidos e o SwitchBar tentará novamente automaticamente. (Código %d)";
@@ -83,6 +84,8 @@
 "auto_switch.fable.disabled_explanation" = "O Fable continua visível, mas não aciona trocas, não exclui contas nem afeta qual conta será escolhida.";
 "auto_switch.no_available.title" = "Nenhuma conta com capacidade";
 "auto_switch.no_available.body" = "Todas as contas estão próximas dos limites. %@";
+"auto_switch.unverified.title" = "Troca automática em espera";
+"auto_switch.unverified.body" = "Não foi possível verificar o uso das outras contas, então nenhuma pode ser escolhida com segurança. A tentativa será repetida automaticamente.";
 "auto_switch.changed.title" = "Trocado para %@";
 "auto_switch.changed.body" = "%1$@ A janela de 5 horas da nova conta está em %2$d%%. As sessões abertas permanecem na conta anterior.";
 "auto_switch.error" = "Falha na troca automática: %@";

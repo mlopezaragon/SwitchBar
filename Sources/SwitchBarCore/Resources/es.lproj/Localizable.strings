@@ -64,6 +64,7 @@
 "usage.week" = "Semana";
 "usage.fable" = "Fable";
 "usage.updated" = "Datos actualizados %@";
+"usage.stale" = "Comprobado %@";
 "usage.refresh_now" = "Actualizar ahora";
 "usage.personal_cap" = "Tope personal: %d %%";
 "usage.refresh.server_error" = "Anthropic no pudo actualizar el uso ahora. Se mantienen los últimos datos y se reintentará automáticamente. (Código %d)";
@@ -83,6 +84,8 @@
 "auto_switch.fable.disabled_explanation" = "Fable seguirá visible, pero no provocará cambios, no descartará cuentas ni influirá en cuál se elige.";
 "auto_switch.no_available.title" = "Sin cuentas con margen";
 "auto_switch.no_available.body" = "Todas las cuentas están cerca de sus límites. %@";
+"auto_switch.unverified.title" = "Cambio automático en espera";
+"auto_switch.unverified.body" = "No se ha podido comprobar el uso del resto de cuentas, así que ninguna puede elegirse con seguridad. Se reintentará automáticamente.";
 "auto_switch.changed.title" = "Cambiado a %@";
 "auto_switch.changed.body" = "%1$@ La nueva cuenta tiene la ventana de 5 h al %2$d %%. Las sesiones abiertas siguen con la cuenta anterior.";
 "auto_switch.error" = "El cambio automático falló: %@";

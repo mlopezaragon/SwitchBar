@@ -64,6 +64,7 @@
 "usage.week" = "주간";
 "usage.fable" = "Fable";
 "usage.updated" = "사용량 업데이트: %@";
+"usage.stale" = "마지막 확인: %@";
 "usage.refresh_now" = "지금 새로고침";
 "usage.personal_cap" = "개인 한도: %d%%";
 "usage.refresh.server_error" = "현재 Anthropic에서 사용량을 업데이트할 수 없습니다. 최근 데이터를 유지하고 SwitchBar가 자동으로 다시 시도합니다. (코드 %d)";
@@ -83,6 +84,8 @@
 "auto_switch.fable.disabled_explanation" = "Fable 사용량은 계속 표시되지만 전환을 실행하거나 계정을 제외하거나 선택 순위에 영향을 주지 않습니다.";
 "auto_switch.no_available.title" = "사용 가능한 계정 없음";
 "auto_switch.no_available.body" = "모든 계정이 한도에 가깝습니다. %@";
+"auto_switch.unverified.title" = "자동 전환 대기 중";
+"auto_switch.unverified.body" = "다른 계정의 사용량을 확인하지 못해 안전하게 선택할 수 있는 계정이 없습니다. 자동으로 다시 시도합니다.";
 "auto_switch.changed.title" = "%@(으)로 전환됨";
 "auto_switch.changed.body" = "%1$@ 새 계정의 5시간 사용량은 %2$d%%입니다. 열려 있는 세션은 이전 계정에 그대로 유지됩니다.";
 "auto_switch.error" = "자동 전환 실패: %@";

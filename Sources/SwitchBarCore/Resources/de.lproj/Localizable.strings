@@ -64,6 +64,7 @@
 "usage.week" = "Woche";
 "usage.fable" = "Fable";
 "usage.updated" = "Nutzung aktualisiert %@";
+"usage.stale" = "Zuletzt geprüft %@";
 "usage.refresh_now" = "Jetzt aktualisieren";
 "usage.personal_cap" = "Persönliches Limit: %d %%";
 "usage.refresh.server_error" = "Anthropic kann die Nutzung gerade nicht aktualisieren. Die letzten Daten bleiben erhalten und SwitchBar versucht es automatisch erneut. (Code %d)";
@@ -83,6 +84,8 @@
 "auto_switch.fable.disabled_explanation" = "Fable bleibt sichtbar, löst aber keinen Wechsel aus, schließt keine Accounts aus und beeinflusst die Auswahl nicht.";
 "auto_switch.no_available.title" = "Kein Account mit freier Kapazität";
 "auto_switch.no_available.body" = "Alle Accounts nähern sich ihren Limits. %@";
+"auto_switch.unverified.title" = "Automatischer Wechsel wartet";
+"auto_switch.unverified.body" = "Die Auslastung der übrigen Accounts konnte nicht geprüft werden, daher lässt sich keiner sicher auswählen. Es wird automatisch erneut versucht.";
 "auto_switch.changed.title" = "Zu %@ gewechselt";
 "auto_switch.changed.body" = "%1$@ Das 5-Stunden-Fenster des neuen Accounts liegt bei %2$d %%. Offene Sitzungen bleiben beim vorherigen Account.";
 "auto_switch.error" = "Automatischer Wechsel fehlgeschlagen: %@";

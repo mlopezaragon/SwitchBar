@@ -64,6 +64,7 @@
 "usage.week" = "週間";
 "usage.fable" = "Fable";
 "usage.updated" = "使用状況を更新：%@";
+"usage.stale" = "最終確認：%@";
 "usage.refresh_now" = "今すぐ更新";
 "usage.personal_cap" = "個人上限：%d%%";
 "usage.refresh.server_error" = "現在 Anthropic から使用状況を更新できません。最後のデータを保持し、SwitchBar が自動的に再試行します。（コード %d）";
@@ -83,6 +84,8 @@
 "auto_switch.fable.disabled_explanation" = "Fable の値は表示されますが、切り替えの発動、アカウントの除外、選択順位には影響しません。";
 "auto_switch.no_available.title" = "余裕のあるアカウントがありません";
 "auto_switch.no_available.body" = "すべてのアカウントが上限に近づいています。%@";
+"auto_switch.unverified.title" = "自動切り替えを保留中";
+"auto_switch.unverified.body" = "他のアカウントの使用状況を確認できなかったため、安全に選べるアカウントがありません。自動的に再試行します。";
 "auto_switch.changed.title" = "%@ に切り替えました";
 "auto_switch.changed.body" = "%1$@ 新しいアカウントの5時間枠は %2$d%% です。開いているセッションは以前のアカウントのままです。";
 "auto_switch.error" = "自動切り替えに失敗しました：%@";

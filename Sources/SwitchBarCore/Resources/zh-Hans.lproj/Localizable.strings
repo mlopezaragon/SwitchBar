@@ -64,6 +64,7 @@
 "usage.week" = "每周";
 "usage.fable" = "Fable";
 "usage.updated" = "用量更新于 %@";
+"usage.stale" = "上次检查于 %@";
 "usage.refresh_now" = "立即刷新";
 "usage.personal_cap" = "个人上限：%d%%";
 "usage.refresh.server_error" = "Anthropic 目前无法更新用量。将保留最近的数据，并由 SwitchBar 自动重试。（代码 %d）";
@@ -83,6 +84,8 @@
 "auto_switch.fable.disabled_explanation" = "Fable 用量仍会显示，但不会触发切换、排除账户或影响账户选择。";
 "auto_switch.no_available.title" = "没有额度充足的账户";
 "auto_switch.no_available.body" = "所有账户都已接近用量上限。%@";
+"auto_switch.unverified.title" = "自动切换已暂缓";
+"auto_switch.unverified.body" = "无法确认其他账户的用量，因此无法安全地选出账户。稍后会自动重试。";
 "auto_switch.changed.title" = "已切换到 %@";
 "auto_switch.changed.body" = "%1$@ 新账户的 5 小时用量为 %2$d%%。已打开的会话仍保留在原账户。";
 "auto_switch.error" = "自动切换失败：%@";

@@ -13,6 +13,19 @@ public struct AccountUsageState: Sendable {
     }
 }
 
+/// Motivo por el que una cuenta no puede recibir el cambio automático.
+///
+/// Distinguirlos importa: «no tiene margen» y «no se ha podido comprobar»
+/// son situaciones muy distintas y merecen avisos distintos.
+public enum CandidateRejection: Sendable, Equatable {
+    /// Su sesión caducó: hace falta volver a iniciar sesión.
+    case needsLogin
+    /// Sin datos de uso vigentes; no se puede afirmar nada sobre su margen.
+    case noUsageData
+    /// Algún cupo relevante está en su umbral o por encima.
+    case atLimit
+}
+
 /// Política pura (sin efectos) del cambio automático.
 ///
 /// Disparo: la ventana de 5 h o la semana general alcanzan su umbral. Fable
@@ -57,19 +70,33 @@ public struct AutoSwitchPolicy: Sendable {
         return false
     }
 
-    public func isCandidate(_ account: AccountUsageState) -> Bool {
-        guard !account.needsLogin, let usage = account.usage, let fiveHour = usage.fiveHour else { return false }
-        if fiveHour.utilization >= triggerThreshold { return false }
+    /// Por qué se descarta esta cuenta, o `nil` si sirve como destino.
+    ///
+    /// Una instantánea vigente sin ventana de 5 h describe una cuenta sin
+    /// sesión abierta (o cuya ventana ya se reinició): su consumo de 5 h es
+    /// cero, no un dato desconocido, así que no la descalifica.
+    public func rejection(for account: AccountUsageState) -> CandidateRejection? {
+        if account.needsLogin { return .needsLogin }
+        guard let usage = account.usage else { return .noUsageData }
+        if fiveHourUtilization(account) >= triggerThreshold { return .atLimit }
         if let sevenDay = usage.sevenDay,
            sevenDay.utilization >= weeklyThreshold {
-            return false
+            return .atLimit
         }
         if considersFable,
            let opus = usage.sevenDayOpus,
            opus.utilization >= fableThreshold {
-            return false
+            return .atLimit
         }
-        return true
+        return nil
+    }
+
+    public func isCandidate(_ account: AccountUsageState) -> Bool {
+        rejection(for: account) == nil
+    }
+
+    func fiveHourUtilization(_ account: AccountUsageState) -> Double {
+        account.usage?.fiveHour?.utilization ?? 0
     }
 
     func weeklyMargin(_ account: AccountUsageState) -> Double {
@@ -86,8 +113,8 @@ public struct AutoSwitchPolicy: Sendable {
         let candidates = others.filter { $0.accountUuid != active.accountUuid && isCandidate($0) }
         guard !candidates.isEmpty else { return nil }
         let best = candidates.min { a, b in
-            let fa = a.usage!.fiveHour!.utilization
-            let fb = b.usage!.fiveHour!.utilization
+            let fa = fiveHourUtilization(a)
+            let fb = fiveHourUtilization(b)
             if fa != fb { return fa < fb }
             return weeklyMargin(a) > weeklyMargin(b)
         }

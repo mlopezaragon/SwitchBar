@@ -6,6 +6,10 @@ struct AccountCardView: View {
     let profile: AccountProfile
     let usage: UsageSnapshot?
     let isActive: Bool
+    /// Los datos son demasiado viejos para fiarse de ellos. Se dice en la
+    /// tarjeta porque un porcentaje de hace horas parece actual y no lo es:
+    /// el cambio automático tampoco cuenta con esa cuenta mientras tanto.
+    var isUsageStale: Bool = false
     let onSwitch: () -> Void
     let onReconnect: () -> Void
 
@@ -59,6 +63,16 @@ struct AccountCardView: View {
                     UsageBar(label: L10n.tr("usage.five_hours"), window: usage?.fiveHour, cap: profile.sharedFiveHourCap)
                     UsageBar(label: L10n.tr("usage.week"), window: usage?.sevenDay, cap: profile.sharedWeeklyCap)
                     UsageBar(label: L10n.tr("usage.fable"), window: usage?.sevenDayOpus, cap: profile.sharedWeeklyCap)
+                }
+                .opacity(isUsageStale ? 0.55 : 1)
+
+                if isUsageStale, let fetchedAt = usage?.fetchedAt {
+                    Label(
+                        L10n.tr("usage.stale", ResetFormatter.since(fetchedAt)),
+                        systemImage: "clock.badge.exclamationmark"
+                    )
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
                 }
             }
             .padding(12)

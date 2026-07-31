@@ -64,6 +64,7 @@
 "usage.week" = "每週";
 "usage.fable" = "Fable";
 "usage.updated" = "用量更新於 %@";
+"usage.stale" = "上次檢查於 %@";
 "usage.refresh_now" = "立即重新整理";
 "usage.personal_cap" = "個人上限：%d%%";
 "usage.refresh.server_error" = "Anthropic 目前無法更新用量。將保留最近的資料，並由 SwitchBar 自動重試。（代碼 %d）";
@@ -83,6 +84,8 @@
 "auto_switch.fable.disabled_explanation" = "Fable 用量仍會顯示，但不會觸發切換、排除帳號或影響帳號選擇。";
 "auto_switch.no_available.title" = "沒有額度充足的帳號";
 "auto_switch.no_available.body" = "所有帳號都已接近用量上限。%@";
+"auto_switch.unverified.title" = "自動切換已暫緩";
+"auto_switch.unverified.body" = "無法確認其他帳號的用量，因此無法安全地選出帳號。稍後會自動重試。";
 "auto_switch.changed.title" = "已切換到 %@";
 "auto_switch.changed.body" = "%1$@ 新帳號的 5 小時用量為 %2$d%%。已開啟的工作階段仍保留在原帳號。";
 "auto_switch.error" = "自動切換失敗：%@";

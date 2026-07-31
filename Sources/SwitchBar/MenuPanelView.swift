@@ -30,6 +30,9 @@ struct MenuPanelView: View {
                     profile: profile,
                     usage: state.usageByAccount[profile.accountUuid],
                     isActive: profile.accountUuid == state.activeAccountUuid,
+                    isUsageStale: state.isUsageStale(
+                        for: profile.accountUuid
+                    ),
                     onSwitch: { state.switchTo(profile.accountUuid) },
                     onReconnect: {
                         DetailWindowController.shared.show()

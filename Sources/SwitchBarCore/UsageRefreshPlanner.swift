@@ -61,4 +61,11 @@ public struct UsageRefreshPlanner: Sendable {
     public mutating func recordRefresh(of accountUuid: String) {
         cursor = accountUuid
     }
+
+    /// Deshace el avance del turno cuando la consulta no llegó a hacerse por
+    /// una causa ajena a la cuenta elegida. Sin esto, quien coincide con otra
+    /// consulta pierde el turno entero y tarda una vuelta más en actualizarse.
+    public mutating func rewind(to previousCursor: String?) {
+        cursor = previousCursor
+    }
 }

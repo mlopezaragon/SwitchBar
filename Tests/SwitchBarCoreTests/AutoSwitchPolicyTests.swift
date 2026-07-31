@@ -187,6 +187,42 @@ private let politica = AutoSwitchPolicy()
     )
 }
 
+@Test func distingueElMotivoPorElQueSeDescartaUnaCuenta() {
+    #expect(
+        politica.rejection(for: estado("a", fiveHour: 10, needsLogin: true))
+            == .needsLogin
+    )
+    #expect(
+        politica.rejection(for: estado("b", fiveHour: nil, sinDatos: true))
+            == .noUsageData
+    )
+    #expect(politica.rejection(for: estado("c", fiveHour: 95)) == .atLimit)
+    #expect(
+        politica.rejection(for: estado("d", fiveHour: 10, sevenDay: 99))
+            == .atLimit
+    )
+    #expect(politica.rejection(for: estado("e", fiveHour: 10)) == nil)
+}
+
+@Test func unaCuentaEnReposoSinVentanaDeCincoHorasSigueSiendoCandidata() {
+    // Sin sesión abierta (o con la ventana ya reiniciada) el endpoint no
+    // devuelve tramo de 5 h: eso es consumo cero, no un dato desconocido.
+    let enReposo = estado("b", fiveHour: nil, sevenDay: 40)
+    #expect(politica.rejection(for: enReposo) == nil)
+    #expect(
+        politica.decision(active: estado("a", fiveHour: 95), all: [enReposo])
+            == "b"
+    )
+}
+
+@Test func laCuentaEnReposoGanaALaQueYaTieneConsumoDeCincoHoras() {
+    let decision = politica.decision(
+        active: estado("a", fiveHour: 95),
+        all: [estado("b", fiveHour: 20), estado("c", fiveHour: nil, sevenDay: 30)]
+    )
+    #expect(decision == "c")
+}
+
 @Test func fableNoInfluyeEnElMargenCuandoEstaDesactivado() {
     let sinFable = AutoSwitchPolicy(considersFable: false)
     let agotado = estado("a", fiveHour: 20, sevenDay: 40, opus: 100)
