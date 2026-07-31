@@ -18,3 +18,8 @@ promo/
 .claude/
 skills-lock.json
 SwitchBar-*.dmg.sha256
+
+# Memoria y notas de trabajo de Claude: son contexto de la sesión, no
+# documentación del proyecto, y no deben publicarse.
+CLAUDE.md
+docs/superpowers/
