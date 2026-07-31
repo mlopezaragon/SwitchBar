@@ -72,6 +72,13 @@
 "usage.refresh.session_waiting" = "使用状況を更新するには、%@ のセッションを Claude Code が更新する必要があります。それまでは最後のデータを表示します。";
 "usage.cooldown.active" = "使用中のアカウントは %d 分後に再度更新されます。最後のデータは引き続き確認できます。";
 
+"api.error.rate_limited" = "Anthropic がこのアカウントのリクエストを制限しています。しばらく待ってからやり直してください。";
+"api.error.invalid_grant" = "コードが無効になったか、セッションの有効期限が切れました。ログインページを開き直し、新しいコードを使ってください。";
+"api.error.http" = "Anthropic のサーバーがエラーを返しました（%d）。";
+"api.error.malformed_response" = "サーバーの応答を解釈できませんでした。";
+"usage.renewal_blocked" = "Anthropic が %@ のセッション更新を制限しています。再試行は制限を長引かせるだけなので、しばらく試行を止めます。今すぐ復旧するには、ターミナルでそのアカウントの「claude logout」と「claude login」を実行してください。";
+"usage.renewal_blocked.short" = "セッション未更新";
+
 "auto_switch.label" = "自動切り替え";
 "auto_switch.settings_label" = "アカウントの自動切り替え";
 "auto_switch.paused_manual_login" = "一時停止中：Claude Code に手動でサインインしたため、15分間はその選択を維持します。";

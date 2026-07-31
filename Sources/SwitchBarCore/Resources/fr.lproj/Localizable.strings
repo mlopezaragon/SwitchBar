@@ -72,6 +72,13 @@
 "usage.refresh.session_waiting" = "%@ nécessite que Claude Code renouvelle sa session avant d’actualiser l’utilisation. Les dernières données restent visibles.";
 "usage.cooldown.active" = "L’utilisation du compte actif sera de nouveau actualisée dans %d min. Les dernières données restent disponibles.";
 
+"api.error.rate_limited" = "Anthropic limite les requêtes de ce compte. Patientez un moment et réessayez.";
+"api.error.invalid_grant" = "Le code n'est plus valide ou la session a expiré. Rouvrez la page de connexion et utilisez un code fraîchement généré.";
+"api.error.http" = "Le serveur d'Anthropic a répondu par une erreur (%d).";
+"api.error.malformed_response" = "La réponse du serveur n'a pas pu être interprétée.";
+"usage.renewal_blocked" = "Anthropic limite le renouvellement de la session de %@. Insister ne fait que prolonger le blocage, les tentatives s'arrêtent donc un bon moment. Pour la récupérer tout de suite : ouvrez un terminal et lancez « claude logout » puis « claude login » avec ce compte.";
+"usage.renewal_blocked.short" = "Session non renouvelée";
+
 "auto_switch.label" = "Changement automatique";
 "auto_switch.settings_label" = "Changement automatique de compte";
 "auto_switch.paused_manual_login" = "En pause : vous vous êtes connecté manuellement à Claude Code ; votre choix sera respecté pendant 15 minutes.";

@@ -72,6 +72,13 @@
 "usage.refresh.session_waiting" = "需要 Claude Code 更新 %@ 的会话后才能刷新用量。在此期间会继续显示最近的数据。";
 "usage.cooldown.active" = "当前账户的用量将在 %d 分钟后再次更新。最近的数据仍可查看。";
 
+"api.error.rate_limited" = "Anthropic 正在限制该账户的请求。请稍候再试。";
+"api.error.invalid_grant" = "该代码已失效或会话已过期。请重新打开登录页面并使用新生成的代码。";
+"api.error.http" = "Anthropic 服务器返回了错误（%d）。";
+"api.error.malformed_response" = "无法解析服务器的响应。";
+"usage.renewal_blocked" = "Anthropic 正在限制 %@ 的会话续期。继续重试只会延长封锁，因此将暂停尝试较长时间。若要立即恢复：打开终端，用该账户执行 \"claude logout\" 和 \"claude login\"。";
+"usage.renewal_blocked.short" = "会话未续期";
+
 "auto_switch.label" = "自动切换";
 "auto_switch.settings_label" = "自动切换账户";
 "auto_switch.paused_manual_login" = "已暂停：你刚刚在 Claude Code 中手动登录，接下来的 15 分钟内将保留你的选择。";

@@ -11,6 +11,25 @@ public enum AnthropicAPIError: Error, Equatable {
     case malformedResponse
 }
 
+/// Sin esto, cualquier fallo del servidor llegaba a la interfaz convertido en
+/// un «no se pudo completar la operación» que no dice nada: el usuario no
+/// podía distinguir un límite de peticiones (esperar) de un código caducado
+/// (repetir el login).
+extension AnthropicAPIError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .rateLimited:
+            L10n.tr("api.error.rate_limited")
+        case .invalidGrant:
+            L10n.tr("api.error.invalid_grant")
+        case .httpError(let code):
+            L10n.tr("api.error.http", code)
+        case .malformedResponse:
+            L10n.tr("api.error.malformed_response")
+        }
+    }
+}
+
 /// Tokens devueltos por el endpoint OAuth al renovar una sesión.
 public struct RefreshedTokens: Sendable, Equatable {
     public var accessToken: String
@@ -146,14 +165,34 @@ public final class AnthropicAPI: Sendable {
                 expiresIn: (dict["expires_in"] as? NSNumber)?.doubleValue
             )
         case 400, 401, 403:
+            Diagnostics.usage.log(
+                "token \(http.statusCode, privacy: .public): \(Self.errorSummary(data), privacy: .public)"
+            )
             throw AnthropicAPIError.invalidGrant
         case 429:
+            // El motivo que da el servidor decide qué se puede hacer: una
+            // limitación de verdad se espera, pero un rechazo del propio
+            // refresh token no se arregla esperando. El cuerpo de un error
+            // no contiene credenciales.
+            Diagnostics.usage.log(
+                "renovación rechazada 429: \(Self.errorSummary(data), privacy: .public)"
+            )
             throw AnthropicAPIError.rateLimited(
                 retryAfter: Self.retryAfter(from: http)
             )
         default:
             throw AnthropicAPIError.httpError(http.statusCode)
         }
+    }
+
+    /// Resumen legible del error devuelto por el servidor, acotado para que
+    /// una respuesta larga no inunde el registro.
+    static func errorSummary(_ data: Data) -> String {
+        guard let text = String(data: data, encoding: .utf8),
+              !text.isEmpty else {
+            return "sin cuerpo"
+        }
+        return String(text.prefix(300))
     }
 
     /// Identidad de la cuenta recién autorizada.

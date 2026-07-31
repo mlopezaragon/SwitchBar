@@ -72,6 +72,13 @@
 "usage.refresh.session_waiting" = "%@ benötigt eine von Claude Code erneuerte Sitzung, bevor die Nutzung aktualisiert werden kann. Die letzten Daten bleiben sichtbar.";
 "usage.cooldown.active" = "Die Nutzung des aktiven Accounts wird in %d Min. erneut aktualisiert. Die letzten Daten bleiben verfügbar.";
 
+"api.error.rate_limited" = "Anthropic drosselt die Anfragen dieses Accounts. Warte einen Moment und versuche es erneut.";
+"api.error.invalid_grant" = "Der Code gilt nicht mehr oder die Sitzung ist abgelaufen. Öffne die Anmeldeseite erneut und nutze einen frisch erzeugten Code.";
+"api.error.http" = "Der Server von Anthropic hat mit einem Fehler geantwortet (%d).";
+"api.error.malformed_response" = "Die Antwort des Servers konnte nicht gelesen werden.";
+"usage.renewal_blocked" = "Anthropic drosselt die Sitzungserneuerung für %@. Weitere Versuche verlängern die Sperre nur, daher wird es eine ganze Weile nicht erneut probiert. Sofort beheben: Terminal öffnen und mit diesem Account „claude logout“ und „claude login“ ausführen.";
+"usage.renewal_blocked.short" = "Sitzung nicht erneuert";
+
 "auto_switch.label" = "Automatischer Wechsel";
 "auto_switch.settings_label" = "Automatischer Accountwechsel";
 "auto_switch.paused_manual_login" = "Pausiert: Du hast dich manuell bei Claude Code angemeldet. Deine Auswahl wird 15 Minuten lang beibehalten.";

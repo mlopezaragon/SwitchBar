@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.0.0-beta.9 — 2026-07-31
+
+Anthropic rate-limits its OAuth endpoints hard, without documenting the
+limits and without sending `Retry-After`, and retrying makes it worse:
+there are reports of accounts blocked for days after as few as six token
+renewals a day. This release stops SwitchBar from ever provoking that, and
+makes sure a renewal problem never costs you the usage numbers themselves.
+
+- Fixed: a rate-limited session renewal also blocked reading that account's
+  usage, for up to an hour. They are separate quotas and are now tracked
+  separately — as long as the access token works, the numbers keep coming.
+  Cooldowns saved by earlier versions are capped on load, so an install
+  upgrading from beta.8 recovers on its own.
+- Renewals are now almost never needed: while an account is the active one,
+  SwitchBar adopts the session Claude Code just renewed, straight from its
+  keychain and without spending a single request. Every account therefore
+  keeps a token that is hours fresher than before.
+- Circuit breaker: after three consecutive refusals, renewals stop being
+  attempted for half a day. Insisting does not unblock anything and does
+  prolong the punishment.
+- Accounts that are not in use are polled every fifteen minutes instead of
+  every three. Their usage only moves if someone else is using them.
+- API errors now say what actually happened — rate limit, expired code,
+  server error with its code — instead of a single "could not complete the
+  operation" for every failure.
+- An account whose session cannot be renewed says so in its card and
+  explains the way out that does work: `claude logout` and `claude login`
+  in a terminal. Reconnecting from within the app cannot help, because it
+  goes through the very endpoint that is blocked.
+
 ## 1.0.0-beta.8 — 2026-07-31
 
 Accounts that had not been active for a while could go half a day without

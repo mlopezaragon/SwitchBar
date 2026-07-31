@@ -10,6 +10,12 @@ struct AccountCardView: View {
     /// tarjeta porque un porcentaje de hace horas parece actual y no lo es:
     /// el cambio automático tampoco cuenta con esa cuenta mientras tanto.
     var isUsageStale: Bool = false
+    /// Anthropic está limitando la renovación de su sesión. Se distingue de
+    /// unos datos simplemente viejos porque el usuario puede resolverlo.
+    var isRenewalBlocked: Bool = false
+    /// Lleva tanto tiempo sin actualizarse que conviene ofrecer la salida
+    /// manual: volver a conectarla emite credenciales nuevas al instante.
+    var suggestsReconnect: Bool = false
     let onSwitch: () -> Void
     let onReconnect: () -> Void
 
@@ -66,7 +72,31 @@ struct AccountCardView: View {
                 }
                 .opacity(isUsageStale ? 0.55 : 1)
 
-                if isUsageStale, let fetchedAt = usage?.fetchedAt {
+                if suggestsReconnect {
+                    // La espera puede ser larga y no depende de la app, pero
+                    // reconectar la cuenta la arregla al instante: el botón
+                    // va aquí mismo, junto al dato que delata el problema.
+                    HStack(spacing: 8) {
+                        Label(
+                            isRenewalBlocked
+                                ? L10n.tr("usage.renewal_blocked.short")
+                                : L10n.tr(
+                                    "usage.stale",
+                                    ResetFormatter.since(usage?.fetchedAt)
+                                ),
+                            systemImage: "exclamationmark.arrow.circlepath"
+                        )
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                        Spacer(minLength: 4)
+                        Button(L10n.tr("account.login_again")) {
+                            onReconnect()
+                        }
+                        .buttonStyle(.borderless)
+                        .controlSize(.small)
+                        .font(.caption2.weight(.semibold))
+                    }
+                } else if isUsageStale, let fetchedAt = usage?.fetchedAt {
                     Label(
                         L10n.tr("usage.stale", ResetFormatter.since(fetchedAt)),
                         systemImage: "clock.badge.exclamationmark"

@@ -72,6 +72,13 @@
 "usage.refresh.session_waiting" = "需要 Claude Code 更新 %@ 的工作階段後才能重新整理用量。在此期間會繼續顯示最近的資料。";
 "usage.cooldown.active" = "目前帳號的用量將在 %d 分鐘後再次更新。最近的資料仍可查看。";
 
+"api.error.rate_limited" = "Anthropic 正在限制此帳號的請求。請稍候再試。";
+"api.error.invalid_grant" = "該代碼已失效或工作階段已過期。請重新開啟登入頁面並使用新產生的代碼。";
+"api.error.http" = "Anthropic 伺服器回傳了錯誤（%d）。";
+"api.error.malformed_response" = "無法解析伺服器的回應。";
+"usage.renewal_blocked" = "Anthropic 正在限制 %@ 的工作階段續期。繼續重試只會延長封鎖，因此將暫停嘗試較長時間。若要立即恢復：開啟終端機，用該帳號執行 \"claude logout\" 和 \"claude login\"。";
+"usage.renewal_blocked.short" = "工作階段未續期";
+
 "auto_switch.label" = "自動切換";
 "auto_switch.settings_label" = "自動切換帳號";
 "auto_switch.paused_manual_login" = "已暫停：你剛剛在 Claude Code 中手動登入，接下來 15 分鐘內將保留你的選擇。";

@@ -33,6 +33,12 @@ struct MenuPanelView: View {
                     isUsageStale: state.isUsageStale(
                         for: profile.accountUuid
                     ),
+                    isRenewalBlocked: state.isRenewalBlocked(
+                        for: profile.accountUuid
+                    ),
+                    suggestsReconnect: state.suggestsReconnect(
+                        for: profile.accountUuid
+                    ),
                     onSwitch: { state.switchTo(profile.accountUuid) },
                     onReconnect: {
                         DetailWindowController.shared.show()

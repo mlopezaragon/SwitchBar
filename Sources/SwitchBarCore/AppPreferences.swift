@@ -21,6 +21,9 @@ public final class AppPreferences: @unchecked Sendable {
         static let lastObservedAccountUuid = "lastObservedAccountUuid"
         static let usageRateLimitedUntilByAccount =
             "usageRateLimitedUntilByAccount"
+        static let renewalBlockedAccounts = "renewalBlockedAccounts"
+        static let renewalBlockedUntilByAccount =
+            "renewalBlockedUntilByAccount"
     }
 
     private let defaults: UserDefaults
@@ -96,21 +99,55 @@ public final class AppPreferences: @unchecked Sendable {
         }
     }
 
-    public var usageCooldownTimestamps: [String: TimeInterval] {
+    /// Cuentas cuya sesión no se ha podido renovar por un límite del servidor.
+    ///
+    /// Se guarda en disco porque la salida es una acción del usuario
+    /// (reconectar la cuenta) y el aviso tiene que seguir ahí después de
+    /// reiniciar la app; si no, el problema vuelve a parecer invisible.
+    public var renewalBlockedAccounts: Set<String> {
         get {
-            let raw = defaults.dictionary(
-                forKey: Key.usageRateLimitedUntilByAccount
-            ) ?? [:]
-            return raw.reduce(into: [:]) { result, entry in
-                guard let value = entry.value as? NSNumber else { return }
-                result[entry.key] = value.doubleValue
-            }
+            Set(
+                defaults.array(
+                    forKey: Key.renewalBlockedAccounts
+                ) as? [String] ?? []
+            )
         }
+        set {
+            defaults.set(
+                Array(newValue).sorted(),
+                forKey: Key.renewalBlockedAccounts
+            )
+        }
+    }
+
+    public var usageCooldownTimestamps: [String: TimeInterval] {
+        get { timestamps(forKey: Key.usageRateLimitedUntilByAccount) }
         set {
             defaults.set(
                 newValue,
                 forKey: Key.usageRateLimitedUntilByAccount
             )
+        }
+    }
+
+    /// Pausas del endpoint de renovación de sesiones. Se guardan aparte de las
+    /// del endpoint de uso porque solo una de las dos impide leer los datos:
+    /// mezclarlas dejaba la app sin uso que mostrar tras cada reinicio.
+    public var renewalCooldownTimestamps: [String: TimeInterval] {
+        get { timestamps(forKey: Key.renewalBlockedUntilByAccount) }
+        set {
+            defaults.set(
+                newValue,
+                forKey: Key.renewalBlockedUntilByAccount
+            )
+        }
+    }
+
+    private func timestamps(forKey key: String) -> [String: TimeInterval] {
+        let raw = defaults.dictionary(forKey: key) ?? [:]
+        return raw.reduce(into: [:]) { result, entry in
+            guard let value = entry.value as? NSNumber else { return }
+            result[entry.key] = value.doubleValue
         }
     }
 }

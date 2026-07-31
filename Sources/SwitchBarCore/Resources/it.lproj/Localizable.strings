@@ -72,6 +72,13 @@
 "usage.refresh.session_waiting" = "%@ richiede che Claude Code rinnovi la sessione prima di aggiornare l’utilizzo. Gli ultimi dati restano visibili.";
 "usage.cooldown.active" = "L’utilizzo dell’account attivo verrà aggiornato di nuovo tra %d min. Gli ultimi dati restano disponibili.";
 
+"api.error.rate_limited" = "Anthropic sta limitando le richieste di questo account. Aspetta un po' e riprova.";
+"api.error.invalid_grant" = "Il codice non è più valido o la sessione è scaduta. Riapri la pagina di accesso e usa un codice appena generato.";
+"api.error.http" = "Il server di Anthropic ha risposto con un errore (%d).";
+"api.error.malformed_response" = "Non è stato possibile interpretare la risposta del server.";
+"usage.renewal_blocked" = "Anthropic sta limitando il rinnovo della sessione di %@. Insistere prolunga soltanto il blocco, quindi i tentativi si fermano per un bel po'. Per recuperarla subito: apri il terminale ed esegui «claude logout» e «claude login» con quell'account.";
+"usage.renewal_blocked.short" = "Sessione non rinnovata";
+
 "auto_switch.label" = "Cambio automatico";
 "auto_switch.settings_label" = "Cambio automatico dell’account";
 "auto_switch.paused_manual_login" = "In pausa: hai effettuato manualmente l’accesso a Claude Code, quindi la tua scelta sarà rispettata per 15 minuti.";
