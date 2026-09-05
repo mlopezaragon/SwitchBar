@@ -151,7 +151,7 @@ func renovarSesionUsaElFlujoEstandarDeRefreshToken() async throws {
     #expect(TokenRefreshSuccessProtocol.observedRequest?.httpMethod == "POST")
     #expect(
         TokenRefreshSuccessProtocol.observedRequest?.url?.absoluteString
-            == "https://console.anthropic.com/v1/oauth/token"
+            == "https://platform.claude.com/v1/oauth/token"
     )
     let body = try JSONSerialization.jsonObject(
         with: TokenRefreshSuccessProtocol.observedBody ?? Data()

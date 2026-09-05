@@ -242,3 +242,60 @@ private func activarCuenta(_ e: Entorno, uuid: String, email: String, token: Str
         $0.accountUuid == "uB"
     }?.needsLogin == true)
 }
+
+@Test func adoptarUnTokenRenovadoActualizaElLlaveroDeClaudeCode() throws {
+    let e = try makeEntorno()
+    try activarCuenta(
+        e,
+        uuid: "uA",
+        email: "a@a.com",
+        token: "viejo",
+        extraLlavero: ", \"mcpOAuth\": {\"srv\": {\"accessToken\": \"m1\"}}"
+    )
+    try e.engine.captureActiveAsProfile()
+    let renovadas = try OAuthCredentials(
+        claudeAiOauthJSON: Data(
+            "{\"accessToken\": \"nuevo\", \"refreshToken\": \"ref-nuevo\"}".utf8
+        )
+    )
+
+    try e.engine.adoptRenewedActiveCredentials(renovadas, for: "uA")
+
+    #expect(try e.store.readActiveCredentials()?.accessToken == "nuevo")
+    #expect(
+        try e.store.readActiveCredentials()?.refreshToken == "ref-nuevo"
+    )
+    // Las demás claves del Llavero (mcpOAuth…) siguen intactas.
+    let bruto = try e.keychain.readString(
+        service: ClaudeCodeStore.credentialsService
+    )
+    #expect(bruto?.contains("mcpOAuth") == true)
+}
+
+@Test func adoptarUnTokenRenovadoNoPisaOtraCuentaActiva() throws {
+    let e = try makeEntorno()
+    // El usuario cambió a otra cuenta mientras se renovaba la anterior.
+    try activarCuenta(e, uuid: "uB", email: "b@b.com", token: "tB")
+    let renovadas = try OAuthCredentials(
+        claudeAiOauthJSON: Data(
+            "{\"accessToken\": \"nuevo\", \"refreshToken\": \"ref-nuevo\"}".utf8
+        )
+    )
+
+    #expect(throws: SwitchError.inconsistentActiveState) {
+        try e.engine.adoptRenewedActiveCredentials(renovadas, for: "uA")
+    }
+    #expect(try e.store.readActiveCredentials()?.accessToken == "tB")
+}
+
+@Test func cambiarALaMismaCuentaNoRestauraTokensAntiguos() throws {
+    let e = try makeEntorno()
+    try activarCuenta(e, uuid: "a", email: "a@example.com", token: "old")
+    try e.engine.captureActiveAsProfile()
+    try activarCuenta(e, uuid: "a", email: "a@example.com", token: "renewed")
+    e.keychain.resetCounters()
+    try e.engine.switchTo("a")
+    #expect(e.keychain.accesses(to: ClaudeCodeStore.credentialsService) == 1)
+    #expect(try e.store.readActiveCredentials()?.accessToken == "renewed")
+    #expect(try e.profiles.credentials(for: "a")?.accessToken == "renewed")
+}

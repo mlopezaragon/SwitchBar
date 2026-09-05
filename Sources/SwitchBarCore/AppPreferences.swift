@@ -24,6 +24,7 @@ public final class AppPreferences: @unchecked Sendable {
         static let renewalBlockedAccounts = "renewalBlockedAccounts"
         static let renewalBlockedUntilByAccount =
             "renewalBlockedUntilByAccount"
+        static let renewalBlockReset = "renewalBlockResetGeneration"
     }
 
     private let defaults: UserDefaults
@@ -141,6 +142,18 @@ public final class AppPreferences: @unchecked Sendable {
                 forKey: Key.renewalBlockedUntilByAccount
             )
         }
+    }
+
+    /// Generación de la limpieza de bloqueos ya aplicada en este equipo.
+    ///
+    /// Las versiones anteriores dejaban a una cuenta dando vueltas contra el
+    /// endpoint de renovación hasta acumular un castigo de medio día, y ese
+    /// castigo sobrevivía a la actualización. Subir la generación en el código
+    /// borra una única vez los bloqueos heredados para que la lógica corregida
+    /// no arranque penalizada por los errores de la anterior.
+    public var renewalBlockResetGeneration: Int {
+        get { defaults.integer(forKey: Key.renewalBlockReset) }
+        set { defaults.set(newValue, forKey: Key.renewalBlockReset) }
     }
 
     private func timestamps(forKey key: String) -> [String: TimeInterval] {

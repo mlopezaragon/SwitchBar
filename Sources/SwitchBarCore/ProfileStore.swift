@@ -237,7 +237,8 @@ public final class ProfileStore: @unchecked Sendable {
     @discardableResult
     public func saveProfile(
         identity: AccountIdentity,
-        credentials: OAuthCredentials
+        credentials: OAuthCredentials,
+        onlyIfFresher: Bool = false
     ) throws -> AccountProfile {
         lock.lock(); defer { lock.unlock() }
         var profile = AccountProfile(
@@ -248,9 +249,18 @@ public final class ProfileStore: @unchecked Sendable {
             )
         )
         var currentProfiles = try loadProfilesLocked()
+        let originalProfiles = currentProfiles
+        let previousVault = try loadVaultLocked()
         if let existing = currentProfiles.first(where: {
             $0.accountUuid == profile.accountUuid
         }) {
+            if onlyIfFresher,
+               let stored = previousVault[profile.accountUuid] as? [String: Any],
+               let storedExpiry = (stored["expiresAt"] as? NSNumber)?.intValue,
+               storedExpiry > (credentials.expiresAt ?? 0) {
+                return existing
+            }
+            profile.subscriptionType = credentials.subscriptionType ?? existing.subscriptionType
             profile.sharedFiveHourCap = existing.sharedFiveHourCap
             profile.sharedWeeklyCap = existing.sharedWeeklyCap
         }
@@ -261,9 +271,14 @@ public final class ProfileStore: @unchecked Sendable {
                 == .orderedAscending
         }
 
-        let previousVault = try loadVaultLocked()
         var newVault = previousVault
         newVault[profile.accountUuid] = try credentials.asDictionary()
+        // The identity watcher runs often. Unchanged syncs must not rewrite
+        // the entire vault and fsync metadata on every polling interval.
+        if currentProfiles == originalProfiles,
+           NSDictionary(dictionary: newVault).isEqual(to: previousVault) {
+            return profile
+        }
         try commitLocked(
             profiles: currentProfiles,
             vault: newVault,
@@ -284,17 +299,23 @@ public final class ProfileStore: @unchecked Sendable {
         return try OAuthCredentials(claudeAiOauthJSON: data)
     }
 
+    @discardableResult
     public func updateCredentials(
         _ credentials: OAuthCredentials,
-        for accountUuid: String
-    ) throws {
+        for accountUuid: String,
+        expectedAccessToken: String? = nil
+    ) throws -> Bool {
         lock.lock(); defer { lock.unlock() }
         var currentProfiles = try loadProfilesLocked()
         guard let index = currentProfiles.firstIndex(where: {
             $0.accountUuid == accountUuid
-        }) else { return }
+        }) else { return false }
 
         let previousVault = try loadVaultLocked()
+        if let expectedAccessToken,
+           (previousVault[accountUuid] as? [String: Any])?["accessToken"] as? String != expectedAccessToken {
+            return false
+        }
         var newVault = previousVault
         newVault[accountUuid] = try credentials.asDictionary()
         currentProfiles[index].refreshTokenFingerprint =
@@ -305,6 +326,7 @@ public final class ProfileStore: @unchecked Sendable {
             vault: newVault,
             previousVault: previousVault
         )
+        return true
     }
 
     public func setSharedCaps(

@@ -69,8 +69,8 @@
 "usage.personal_cap" = "Limite personale: %d%%";
 "usage.refresh.server_error" = "Anthropic non può aggiornare l’utilizzo in questo momento. Gli ultimi dati restano disponibili e SwitchBar riproverà automaticamente. (Codice %d)";
 "usage.refresh.connection_error" = "Impossibile aggiornare l’utilizzo in questo momento. Gli ultimi dati restano disponibili e SwitchBar riproverà automaticamente.";
-"usage.refresh.session_waiting" = "%@ richiede che Claude Code rinnovi la sessione prima di aggiornare l’utilizzo. Gli ultimi dati restano visibili.";
-"usage.cooldown.active" = "L’utilizzo dell’account attivo verrà aggiornato di nuovo tra %d min. Gli ultimi dati restano disponibili.";
+"usage.refresh.session_waiting" = "L’utilizzo di %@ si aggiornerà appena userai di nuovo Claude Code. L’account funziona normalmente: solo i dati mostrati sono precedenti.";
+"usage.cooldown.active" = "Anthropic ha sospeso le richieste di utilizzo. Nuovo tentativo tra %d min; le percentuali mostrate sono le ultime note.";
 
 "api.error.rate_limited" = "Anthropic sta limitando le richieste di questo account. Aspetta un po' e riprova.";
 "api.error.invalid_grant" = "Il codice non è più valido o la sessione è scaduta. Riapri la pagina di accesso e usa un codice appena generato.";
@@ -103,7 +103,7 @@
 "auto_switch.next_reset" = "Il primo azzeramento avverrà %@.";
 
 "settings.title" = "Impostazioni";
-"settings.refresh_frequency" = "Frequenza di aggiornamento";
+"settings.refresh_frequency" = "Aggiornamento degli altri account";
 "settings.minutes" = "%d min";
 "settings.launch_at_login" = "Apri al login";
 "settings.version" = "Versione %@";
@@ -202,3 +202,4 @@
 "add_account.error.bad_code" = "Questo codice non appartiene a questo tentativo. Riapri l'accesso e copia per intero il nuovo codice.";
 "add_account.error.code_rejected" = "Anthropic ha rifiutato il codice. Di solito è già stato usato o è passato troppo tempo: ripeti l'accesso.";
 "add_account.error.profile_unreadable" = "La sessione è stata creata, ma non è stato possibile leggere i dati dell'account. Usa il metodo del terminale.";
+"auto_switch.monitoring_stale" = "Il cambio automatico non dispone di dati recenti: il rilevamento dei limiti non è affidabile. Gli aggiornamenti verranno ritentati.";

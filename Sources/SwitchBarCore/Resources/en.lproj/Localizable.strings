@@ -69,8 +69,8 @@
 "usage.personal_cap" = "Personal cap: %d%%";
 "usage.refresh.server_error" = "Anthropic could not update usage right now. The latest data is kept and SwitchBar will retry automatically. (Code %d)";
 "usage.refresh.connection_error" = "Usage could not be updated right now. The latest data is kept and SwitchBar will retry automatically.";
-"usage.refresh.session_waiting" = "%@ needs Claude Code to renew its session before usage can be updated. The latest data remains visible.";
-"usage.cooldown.active" = "Usage for the active account will update again in %d min. The latest data remains available.";
+"usage.refresh.session_waiting" = "%@’s usage will catch up the next time you use Claude Code. The account works normally — only the figures shown are out of date.";
+"usage.cooldown.active" = "Anthropic has paused usage requests. Retrying in %d min; displayed percentages are the last known values.";
 
 "api.error.rate_limited" = "Anthropic is rate-limiting this account's requests. Wait a while and try again.";
 "api.error.invalid_grant" = "The code is no longer valid or the session expired. Open the sign-in page again and use a freshly generated code.";
@@ -103,7 +103,7 @@
 "auto_switch.next_reset" = "The first reset is %@.";
 
 "settings.title" = "Settings";
-"settings.refresh_frequency" = "Refresh frequency";
+"settings.refresh_frequency" = "Other accounts refresh interval";
 "settings.minutes" = "%d min";
 "settings.launch_at_login" = "Open at login";
 "settings.version" = "Version %@";
@@ -202,3 +202,4 @@
 "add_account.error.bad_code" = "That code doesn't belong to this attempt. Open the sign-in again and copy the whole new code.";
 "add_account.error.code_rejected" = "Anthropic rejected the code. That usually means it was already used or too much time passed: repeat the sign-in.";
 "add_account.error.profile_unreadable" = "The session was created, but the account details couldn't be read. Use the terminal method to add it.";
+"auto_switch.monitoring_stale" = "Auto-switch has no recent usage data: limit detection is unreliable. Updates will keep retrying.";

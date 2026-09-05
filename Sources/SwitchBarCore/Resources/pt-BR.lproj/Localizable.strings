@@ -69,8 +69,8 @@
 "usage.personal_cap" = "Limite pessoal: %d%%";
 "usage.refresh.server_error" = "A Anthropic não pode atualizar o uso agora. Os últimos dados serão mantidos e o SwitchBar tentará novamente automaticamente. (Código %d)";
 "usage.refresh.connection_error" = "Não foi possível atualizar o uso agora. Os últimos dados serão mantidos e o SwitchBar tentará novamente automaticamente.";
-"usage.refresh.session_waiting" = "%@ precisa que o Claude Code renove a sessão antes de atualizar o uso. Os últimos dados continuam visíveis.";
-"usage.cooldown.active" = "O uso da conta ativa será atualizado novamente em %d min. Os últimos dados continuam disponíveis.";
+"usage.refresh.session_waiting" = "O uso de %@ será atualizado assim que você voltar a usar o Claude Code. A conta funciona normalmente: apenas os dados exibidos são anteriores.";
+"usage.cooldown.active" = "A Anthropic pausou as consultas de uso. Nova tentativa em %d min; as porcentagens exibidas são as últimas conhecidas.";
 
 "api.error.rate_limited" = "A Anthropic está limitando as requisições desta conta. Espere um pouco e tente de novo.";
 "api.error.invalid_grant" = "O código não vale mais ou a sessão expirou. Abra a página de login novamente e use um código recém-gerado.";
@@ -103,7 +103,7 @@
 "auto_switch.next_reset" = "A primeira redefinição será %@.";
 
 "settings.title" = "Ajustes";
-"settings.refresh_frequency" = "Frequência de atualização";
+"settings.refresh_frequency" = "Atualização das outras contas";
 "settings.minutes" = "%d min";
 "settings.launch_at_login" = "Abrir ao iniciar sessão";
 "settings.version" = "Versão %@";
@@ -202,3 +202,4 @@
 "add_account.error.bad_code" = "Esse código não pertence a esta tentativa. Abra o login de novo e copie o novo código inteiro.";
 "add_account.error.code_rejected" = "A Anthropic rejeitou o código. Costuma acontecer se ele já foi usado ou passou muito tempo: repita o login.";
 "add_account.error.profile_unreadable" = "A sessão foi criada, mas não foi possível ler os dados da conta. Use o método do terminal.";
+"auto_switch.monitoring_stale" = "A troca automática não tem dados recentes: a detecção de limites não é confiável. As atualizações continuarão sendo tentadas.";

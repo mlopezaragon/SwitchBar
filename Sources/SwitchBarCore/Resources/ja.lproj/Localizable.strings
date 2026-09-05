@@ -69,8 +69,8 @@
 "usage.personal_cap" = "個人上限：%d%%";
 "usage.refresh.server_error" = "現在 Anthropic から使用状況を更新できません。最後のデータを保持し、SwitchBar が自動的に再試行します。（コード %d）";
 "usage.refresh.connection_error" = "現在、使用状況を更新できません。最後のデータを保持し、SwitchBar が自動的に再試行します。";
-"usage.refresh.session_waiting" = "使用状況を更新するには、%@ のセッションを Claude Code が更新する必要があります。それまでは最後のデータを表示します。";
-"usage.cooldown.active" = "使用中のアカウントは %d 分後に再度更新されます。最後のデータは引き続き確認できます。";
+"usage.refresh.session_waiting" = "%@ の使用状況は、次に Claude Code を使ったときに更新されます。アカウントは正常に使えます。表示中の数値だけが以前のものです。";
+"usage.cooldown.active" = "Anthropic が使用量の取得を一時停止しました。%d 分後に再試行します。表示値は最後に確認された値です。";
 
 "api.error.rate_limited" = "Anthropic がこのアカウントのリクエストを制限しています。しばらく待ってからやり直してください。";
 "api.error.invalid_grant" = "コードが無効になったか、セッションの有効期限が切れました。ログインページを開き直し、新しいコードを使ってください。";
@@ -103,7 +103,7 @@
 "auto_switch.next_reset" = "最初のリセットは %@ です。";
 
 "settings.title" = "設定";
-"settings.refresh_frequency" = "更新間隔";
+"settings.refresh_frequency" = "他のアカウントの更新間隔";
 "settings.minutes" = "%d分";
 "settings.launch_at_login" = "ログイン時に開く";
 "settings.version" = "バージョン %@";
@@ -202,3 +202,4 @@
 "add_account.error.bad_code" = "このコードは今回の試行のものではありません。サインインを開き直し、新しいコード全体をコピーしてください。";
 "add_account.error.code_rejected" = "Anthropic がコードを拒否しました。すでに使用済みか、時間が経ちすぎた場合に起こります。サインインをやり直してください。";
 "add_account.error.profile_unreadable" = "セッションは作成されましたが、アカウント情報を読み取れませんでした。ターミナルの方法で追加してください。";
+"auto_switch.monitoring_stale" = "自動切り替え用の最新の使用量データがないため、上限を確実に検出できません。更新を再試行します。";

@@ -216,3 +216,40 @@ private func credenciales(_ token: String) throws -> OAuthCredentials {
     }
     #expect(try Data(contentsOf: secretsURL) == original)
 }
+
+@Test func sincronizarSinCambiosNoReescribeElLlaveroNiLosMetadatos() throws {
+    let keychain = FakeKeychain()
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let store = ProfileStore(keychain: keychain, directoryURL: dir)
+    let identity = try identidad("same", "same@example.com")
+    let creds = try credenciales("same")
+    try store.saveProfile(identity: identity, credentials: creds)
+    let file = dir.appendingPathComponent("profiles.json")
+    let before = try FileManager.default.attributesOfItem(atPath: file.path)[.modificationDate] as? Date
+    keychain.resetCounters()
+    try store.saveProfile(identity: identity, credentials: creds, onlyIfFresher: true)
+    #expect(keychain.accesses(to: ProfileStore.vaultService) == 1) // read only
+    #expect(try FileManager.default.attributesOfItem(atPath: file.path)[.modificationDate] as? Date == before)
+}
+
+@Test func sincronizacionAntiguaNoPisaUnaReconexionMasReciente() throws {
+    let store = try makeProfileStore()
+    let identity = try identidad("a", "a@example.com")
+    let old = try credenciales("old")
+    let recent = try old.updating(accessToken: "new", refreshToken: "new-refresh", expiresAt: 9999)
+    try store.saveProfile(identity: identity, credentials: recent)
+    try store.saveProfile(identity: identity, credentials: old, onlyIfFresher: true)
+    #expect(try store.credentials(for: "a")?.accessToken == "new")
+    // Explicit user enrollment is allowed to replace a stored credential.
+    try store.saveProfile(identity: identity, credentials: old)
+    #expect(try store.credentials(for: "a")?.accessToken == "old")
+}
+
+@Test func renovacionEnVueloNoPisaUnLoginNuevo() throws {
+    let store = try makeProfileStore()
+    let identity = try identidad("a", "a@example.com")
+    try store.saveProfile(identity: identity, credentials: credenciales("new-login"))
+    #expect(try !store.updateCredentials(credenciales("old-renewal"), for: "a", expectedAccessToken: "old-login"))
+    #expect(try store.credentials(for: "a")?.accessToken == "new-login")
+    #expect(try store.updateCredentials(credenciales("valid-renewal"), for: "a", expectedAccessToken: "new-login"))
+}

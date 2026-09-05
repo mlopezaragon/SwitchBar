@@ -48,13 +48,26 @@ public struct RefreshedTokens: Sendable, Equatable {
 /// son la sesión activa de Claude Code, de modo que ninguna terminal abierta
 /// puede quedar invalidada por una rotación en segundo plano.
 public final class AnthropicAPI: Sendable {
-    static let userAgent = "claude-code/2.1.0"
+    /// Identidad propia de SwitchBar. Antes se enviaba la del CLI oficial
+    /// (`claude-code/…`); Anthropic responde 429 a ese identificador en el
+    /// endpoint de tokens, así que la suplantación había dejado de funcionar
+    /// además de no ser honesta. Con el identificador propio la petición se
+    /// atiende con normalidad.
+    static let userAgent = "SwitchBar/\(AnthropicAPI.appVersion) (macOS)"
+
+    /// Versión declarada en el bundle; `desconocida` en pruebas, donde no hay
+    /// Info.plist que consultar.
+    static let appVersion: String = Bundle.main.object(
+        forInfoDictionaryKey: "CFBundleShortVersionString"
+    ) as? String ?? "0"
     static let usageEndpoint = URL(
         string: "https://api.anthropic.com/api/oauth/usage"
     )!
     /// Mismo endpoint y client_id públicos que emplea el propio Claude Code.
+    /// El anterior (`console.anthropic.com`) dejó de existir: ahora responde
+    /// 404 y ni el canje del código ni la renovación llegaban a tramitarse.
     static let tokenEndpoint = URL(
-        string: "https://console.anthropic.com/v1/oauth/token"
+        string: "https://platform.claude.com/v1/oauth/token"
     )!
     static let oauthClientId = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
     static let profileEndpoint = URL(

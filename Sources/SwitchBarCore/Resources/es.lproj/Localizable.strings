@@ -69,8 +69,8 @@
 "usage.personal_cap" = "Tope personal: %d %%";
 "usage.refresh.server_error" = "Anthropic no pudo actualizar el uso ahora. Se mantienen los últimos datos y se reintentará automáticamente. (Código %d)";
 "usage.refresh.connection_error" = "No se pudo actualizar el uso ahora. Se mantienen los últimos datos y se reintentará automáticamente.";
-"usage.refresh.session_waiting" = "%@ necesita que Claude Code renueve su sesión para actualizar el uso. Mientras tanto se muestran los últimos datos.";
-"usage.cooldown.active" = "El uso de la cuenta activa se actualizará de nuevo en %d min. Los últimos datos siguen disponibles.";
+"usage.refresh.session_waiting" = "El consumo de %@ se pondrá al día en cuanto vuelvas a usar Claude Code. La cuenta funciona con normalidad: solo los datos que se muestran son de antes.";
+"usage.cooldown.active" = "Anthropic ha pausado la consulta de uso. Se reintentará dentro de %d min; los porcentajes mostrados son los últimos conocidos.";
 
 "api.error.rate_limited" = "Anthropic está limitando las peticiones de esta cuenta. Espera un rato y vuelve a intentarlo.";
 "api.error.invalid_grant" = "El código ya no vale o la sesión caducó. Vuelve a abrir el inicio de sesión y usa un código recién generado.";
@@ -103,7 +103,7 @@
 "auto_switch.next_reset" = "El primer reseteo llega %@.";
 
 "settings.title" = "Ajustes";
-"settings.refresh_frequency" = "Frecuencia de actualización";
+"settings.refresh_frequency" = "Actualización de otras cuentas";
 "settings.minutes" = "%d min";
 "settings.launch_at_login" = "Abrir al iniciar sesión";
 "settings.version" = "Versión %@";
@@ -202,3 +202,4 @@
 "add_account.error.bad_code" = "Ese código no es válido para este intento. Vuelve a abrir el inicio de sesión y copia el código nuevo completo.";
 "add_account.error.code_rejected" = "Anthropic rechazó el código. Suele pasar si ya se usó o si pasó demasiado tiempo: repite el inicio de sesión.";
 "add_account.error.profile_unreadable" = "La sesión se creó, pero no se pudieron leer los datos de la cuenta. Usa el método de la terminal para darla de alta.";
+"auto_switch.monitoring_stale" = "Cambio automático sin datos recientes: no se puede detectar el límite con fiabilidad. Se sigue intentando actualizar.";

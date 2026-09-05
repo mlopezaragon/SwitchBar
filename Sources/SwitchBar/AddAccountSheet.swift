@@ -49,6 +49,8 @@ struct AddAccountSheet: View {
         }
         .padding(22)
         .frame(width: 520)
+        .disabled(state.addAccountBusy)
+        .interactiveDismissDisabled(state.addAccountBusy)
     }
 
     /// Paso 1: abrir el navegador. Paso 2: pegar el código y guardar.

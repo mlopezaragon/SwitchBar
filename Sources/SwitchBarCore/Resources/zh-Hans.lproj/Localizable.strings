@@ -69,8 +69,8 @@
 "usage.personal_cap" = "个人上限：%d%%";
 "usage.refresh.server_error" = "Anthropic 目前无法更新用量。将保留最近的数据，并由 SwitchBar 自动重试。（代码 %d）";
 "usage.refresh.connection_error" = "目前无法更新用量。将保留最近的数据，并由 SwitchBar 自动重试。";
-"usage.refresh.session_waiting" = "需要 Claude Code 更新 %@ 的会话后才能刷新用量。在此期间会继续显示最近的数据。";
-"usage.cooldown.active" = "当前账户的用量将在 %d 分钟后再次更新。最近的数据仍可查看。";
+"usage.refresh.session_waiting" = "下次使用 Claude Code 时，%@ 的用量就会更新。账户可以正常使用，只是当前显示的数据是之前的。";
+"usage.cooldown.active" = "Anthropic 已暂停用量查询。将在 %d 分钟后重试；显示的百分比是最后已知值。";
 
 "api.error.rate_limited" = "Anthropic 正在限制该账户的请求。请稍候再试。";
 "api.error.invalid_grant" = "该代码已失效或会话已过期。请重新打开登录页面并使用新生成的代码。";
@@ -103,7 +103,7 @@
 "auto_switch.next_reset" = "最早重置时间为 %@。";
 
 "settings.title" = "设置";
-"settings.refresh_frequency" = "刷新频率";
+"settings.refresh_frequency" = "其他账户刷新间隔";
 "settings.minutes" = "%d 分钟";
 "settings.launch_at_login" = "登录时打开";
 "settings.version" = "版本 %@";
@@ -202,3 +202,4 @@
 "add_account.error.bad_code" = "该代码不属于本次尝试。请重新打开登录并完整复制新代码。";
 "add_account.error.code_rejected" = "Anthropic 拒绝了该代码。通常是已被使用或时间过久：请重新登录。";
 "add_account.error.profile_unreadable" = "会话已创建，但无法读取账户信息。请改用终端方式添加。";
+"auto_switch.monitoring_stale" = "自动切换缺少最新用量数据，无法可靠检测限额。将继续重试更新。";

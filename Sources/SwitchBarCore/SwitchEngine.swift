@@ -90,12 +90,39 @@ public final class SwitchEngine: @unchecked Sendable {
             $0.accountUuid == identity.accountUuid
         }
         guard known else { return }
-        try profiles.saveProfile(identity: identity, credentials: creds)
+        try profiles.saveProfile(identity: identity, credentials: creds, onlyIfFresher: true)
+    }
+
+    /// Deja en la sesión oficial de Claude Code un token que SwitchBar acaba
+    /// de renovar para la cuenta activa.
+    ///
+    /// Solo se usa cuando no hay ninguna sesión de Claude Code viva: es
+    /// exactamente lo que Claude Code habría hecho al arrancar, y sin ello el
+    /// refresh token que quedaría en su Llavero sería el viejo, ya rotado por
+    /// el servidor, y la siguiente terminal pediría iniciar sesión.
+    ///
+    /// Comprueba bajo el mismo cerrojo que la cuenta activa sigue siendo la
+    /// esperada: un cambio de cuenta simultáneo haría que se escribieran las
+    /// credenciales de una cuenta bajo la identidad de otra.
+    public func adoptRenewedActiveCredentials(
+        _ credentials: OAuthCredentials,
+        for accountUuid: String
+    ) throws {
+        operationLock.lock(); defer { operationLock.unlock() }
+        guard let identity = try store.readActiveIdentity(),
+              identity.accountUuid == accountUuid else {
+            throw SwitchError.inconsistentActiveState
+        }
+        try store.writeActiveCredentials(credentials)
     }
 
     @discardableResult
     public func switchTo(_ accountUuid: String) throws -> AccountIdentity {
         operationLock.lock(); defer { operationLock.unlock() }
+        if let current = try store.readActiveIdentity(), current.accountUuid == accountUuid {
+            try syncActiveIntoProfile()
+            return current
+        }
         let all = try profiles.loadProfiles()
         guard let target = all.first(where: { $0.accountUuid == accountUuid }) else {
             throw SwitchError.profileNotFound(accountUuid)
@@ -120,7 +147,7 @@ public final class SwitchEngine: @unchecked Sendable {
            let previousIdentity = try store.readActiveIdentity(),
            all.contains(where: { $0.accountUuid == previousIdentity.accountUuid }) {
             try checkPairConsistency(identity: previousIdentity, credentials: previousCreds)
-            try profiles.saveProfile(identity: previousIdentity, credentials: previousCreds)
+            try profiles.saveProfile(identity: previousIdentity, credentials: previousCreds, onlyIfFresher: true)
         }
 
         let identity = try target.identity()

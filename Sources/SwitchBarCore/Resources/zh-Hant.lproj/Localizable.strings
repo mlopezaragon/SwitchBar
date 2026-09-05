@@ -69,8 +69,8 @@
 "usage.personal_cap" = "個人上限：%d%%";
 "usage.refresh.server_error" = "Anthropic 目前無法更新用量。將保留最近的資料，並由 SwitchBar 自動重試。（代碼 %d）";
 "usage.refresh.connection_error" = "目前無法更新用量。將保留最近的資料，並由 SwitchBar 自動重試。";
-"usage.refresh.session_waiting" = "需要 Claude Code 更新 %@ 的工作階段後才能重新整理用量。在此期間會繼續顯示最近的資料。";
-"usage.cooldown.active" = "目前帳號的用量將在 %d 分鐘後再次更新。最近的資料仍可查看。";
+"usage.refresh.session_waiting" = "下次使用 Claude Code 時，%@ 的用量就會更新。帳號可以正常使用，只是目前顯示的資料是之前的。";
+"usage.cooldown.active" = "Anthropic 已暫停用量查詢。將在 %d 分鐘後重試；顯示的百分比是最後已知值。";
 
 "api.error.rate_limited" = "Anthropic 正在限制此帳號的請求。請稍候再試。";
 "api.error.invalid_grant" = "該代碼已失效或工作階段已過期。請重新開啟登入頁面並使用新產生的代碼。";
@@ -103,7 +103,7 @@
 "auto_switch.next_reset" = "最早重設時間為 %@。";
 
 "settings.title" = "設定";
-"settings.refresh_frequency" = "重新整理頻率";
+"settings.refresh_frequency" = "其他帳戶重新整理間隔";
 "settings.minutes" = "%d 分鐘";
 "settings.launch_at_login" = "登入時開啟";
 "settings.version" = "版本 %@";
@@ -202,3 +202,4 @@
 "add_account.error.bad_code" = "這個代碼不屬於本次嘗試。請重新開啟登入並完整複製新代碼。";
 "add_account.error.code_rejected" = "Anthropic 拒絕了該代碼。通常是已使用過或時間過久：請重新登入。";
 "add_account.error.profile_unreadable" = "工作階段已建立，但無法讀取帳戶資訊。請改用終端機方式新增。";
+"auto_switch.monitoring_stale" = "自動切換缺少最新用量資料，無法可靠偵測限額。將繼續重試更新。";

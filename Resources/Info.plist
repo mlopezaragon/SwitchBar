@@ -32,9 +32,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
+	<string>1.0.1</string>
 	<key>CFBundleVersion</key>
-	<string>14</string>
+	<string>15</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>LSUIElement</key>
@@ -43,6 +43,8 @@
 	<string>© 2026 Manuel Lopera</string>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>3600</integer>
 	<key>SUFeedURL</key>
 	<string>https://raw.githubusercontent.com/mlopezaragon/SwitchBar/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>

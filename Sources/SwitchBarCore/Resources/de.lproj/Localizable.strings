@@ -69,8 +69,8 @@
 "usage.personal_cap" = "Persönliches Limit: %d %%";
 "usage.refresh.server_error" = "Anthropic kann die Nutzung gerade nicht aktualisieren. Die letzten Daten bleiben erhalten und SwitchBar versucht es automatisch erneut. (Code %d)";
 "usage.refresh.connection_error" = "Die Nutzung kann gerade nicht aktualisiert werden. Die letzten Daten bleiben erhalten und SwitchBar versucht es automatisch erneut.";
-"usage.refresh.session_waiting" = "%@ benötigt eine von Claude Code erneuerte Sitzung, bevor die Nutzung aktualisiert werden kann. Die letzten Daten bleiben sichtbar.";
-"usage.cooldown.active" = "Die Nutzung des aktiven Accounts wird in %d Min. erneut aktualisiert. Die letzten Daten bleiben verfügbar.";
+"usage.refresh.session_waiting" = "Die Nutzung von %@ wird aktualisiert, sobald du Claude Code wieder verwendest. Das Konto funktioniert normal – nur die angezeigten Werte sind älter.";
+"usage.cooldown.active" = "Anthropic hat Nutzungsabfragen pausiert. Neuer Versuch in %d Min.; die Prozente zeigen den letzten bekannten Stand.";
 
 "api.error.rate_limited" = "Anthropic drosselt die Anfragen dieses Accounts. Warte einen Moment und versuche es erneut.";
 "api.error.invalid_grant" = "Der Code gilt nicht mehr oder die Sitzung ist abgelaufen. Öffne die Anmeldeseite erneut und nutze einen frisch erzeugten Code.";
@@ -103,7 +103,7 @@
 "auto_switch.next_reset" = "Die erste Zurücksetzung erfolgt %@.";
 
 "settings.title" = "Einstellungen";
-"settings.refresh_frequency" = "Aktualisierungsintervall";
+"settings.refresh_frequency" = "Aktualisierung anderer Konten";
 "settings.minutes" = "%d Min.";
 "settings.launch_at_login" = "Bei Anmeldung öffnen";
 "settings.version" = "Version %@";
@@ -202,3 +202,4 @@
 "add_account.error.bad_code" = "Dieser Code gehört nicht zu diesem Versuch. Öffne die Anmeldung erneut und kopiere den vollständigen neuen Code.";
 "add_account.error.code_rejected" = "Anthropic hat den Code abgelehnt. Meist wurde er bereits verwendet oder es verging zu viel Zeit: Anmeldung wiederholen.";
 "add_account.error.profile_unreadable" = "Die Sitzung wurde erstellt, aber die Kontodaten konnten nicht gelesen werden. Nutze die Terminal-Methode.";
+"auto_switch.monitoring_stale" = "Für den automatischen Wechsel fehlen aktuelle Nutzungsdaten. Limits können nicht zuverlässig erkannt werden. Aktualisierungen werden weiter versucht.";

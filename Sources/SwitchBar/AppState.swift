@@ -31,6 +31,7 @@ final class AppState {
     private(set) var canUndo = false
     private(set) var isRefreshing = false
     private(set) var lastRefreshAt: Date?
+    private var monitoringDate = Date()
     /// Explica una pausa del endpoint de uso sin mezclarla con errores locales.
     /// Persiste al abrir/cerrar el panel y se retira al recuperarse las cuentas.
     private(set) var usageRefreshNotice: String?
@@ -82,7 +83,15 @@ final class AppState {
     /// Cuentas cuya sesión el servidor no deja renovar. Sobrevive a los
     /// reinicios: mientras dure, la única salida rápida es reconectarlas.
     private var renewalBlockedAccounts: Set<String> = []
-    private var usageRefreshPlanner = UsageRefreshPlanner()
+    /// Se sube al corregir algo que dejaba bloqueos injustos guardados en
+    /// disco. Ver `AppPreferences.renewalBlockResetGeneration`.
+    private static let renewalBlockResetGeneration = 1
+    /// Averigua si hay alguna terminal de Claude Code viva antes de tocar el
+    /// token de la cuenta activa.
+    private let claudeCodeProbe = ClaudeCodeProcessProbe()
+    private var usagePollingSchedule = UsagePollingSchedule()
+    private var pendingInitialUsageAccounts: Set<String> = []
+    private var renewalRateLimitStreakByAccount: [String: Int] = [:]
     private var usageIssueByAccount: [String: UsageIssue] = [:]
     private var identityTracker = ActiveIdentityTracker()
     /// Permite detectar también un `/login` de la misma cuenta, donde el UUID
@@ -129,19 +138,27 @@ final class AppState {
         // activa expresamente.
         self.useFableForAutoSwitch = preferences.useFableForAutoSwitch
         self.pollIntervalSeconds = preferences.pollIntervalSeconds
-        // Las versiones anteriores guardaban en este mismo sitio las pausas
-        // de renovación, que duran horas. Cargadas tal cual, dejarían la app
-        // sin poder consultar el uso media jornada por un castigo que solo
-        // afectaba a renovar. Una pausa de consulta nunca pasa de una hora,
-        // así que se acota al cargarla y la herencia se corrige sola.
+        // Preserve server deadlines across restarts, even when Retry-After
+        // exceeds the fallback retry policy.
         self.rateLimitedUntilByAccount = Self.loadCooldowns(
-            preferences.usageCooldownTimestamps,
-            maximum: 3_600
+            preferences.usageCooldownTimestamps
         )
         self.renewalBlockedUntilByAccount = Self.loadCooldowns(
             preferences.renewalCooldownTimestamps
         )
         self.renewalBlockedAccounts = preferences.renewalBlockedAccounts
+        // Herencia de una versión que insistía contra el endpoint de
+        // renovación hasta dejar todas las cuentas castigadas medio día.
+        // Con el reparto de turnos ya corregido, arrastrar ese castigo solo
+        // alargaría un problema que ya no se puede reproducir.
+        if preferences.renewalBlockResetGeneration < Self.renewalBlockResetGeneration {
+            preferences.renewalBlockResetGeneration =
+                Self.renewalBlockResetGeneration
+            self.renewalBlockedUntilByAccount = [:]
+            self.renewalBlockedAccounts = []
+            preferences.renewalCooldownTimestamps = [:]
+            preferences.renewalBlockedAccounts = []
+        }
         // El estado local se carga fuera del hilo principal. El único Llavero
         // que se consulta al arrancar es el almacén privado de SwitchBar,
         // con interacción desactivada; nunca se toca la sesión activa de
@@ -292,39 +309,13 @@ final class AppState {
             while !Task.isCancelled {
                 guard let self else { return }
                 await self.refreshNextScheduledAccount()
-                var spacing = UsageRefreshPlanner.spacing(
-                    fullCycleInterval: self.pollIntervalSeconds,
-                    accountCount: self.availableUsageAccountCount
-                )
-                // Mientras alguna cuenta siga sin datos (primer arranque o
-                // cuenta recién añadida), la vuelta se acelera al máximo que
-                // tolera el servidor. Simultáneas no: el endpoint detecta la
-                // ráfaga, acepta la primera y castiga al resto con una pausa
-                // de un minuto o más, que es el resultado contrario al buscado.
-                if self.hasAccountsAwaitingFreshSnapshot {
-                    spacing = min(spacing, 5)
-                }
-                try? await Task.sleep(for: .seconds(spacing))
+                // This is a local scheduling tick, not a network request.
+                // Short sleeps also re-evaluate an expired cooldown promptly.
+                await self.runAutoSwitchIfNeeded()
+                self.monitoringDate = Date()
+                self.updateActiveUsageNotice()
+                try? await Task.sleep(for: .seconds(5))
             }
-        }
-    }
-
-    /// Alguna cuenta utilizable (con sesión y sin pausa del servidor) no tiene
-    /// ningún dato que enseñar: primer arranque o cuenta recién añadida.
-    ///
-    /// Con datos viejos la vuelta normal basta y sobra. Acelerar también en ese
-    /// caso era contraproducente: cada vez que expiraba una pausa del servidor
-    /// se reanudaba la ráfaga, el endpoint volvía a castigar y esas cuentas se
-    /// quedaban horas sin actualizar, justo lo contrario de lo buscado.
-    private var hasAccountsAwaitingFreshSnapshot: Bool {
-        let now = Date()
-        return profilesList.contains { profile in
-            guard !profile.needsLogin else { return false }
-            guard usageByAccount[profile.accountUuid] == nil else {
-                return false
-            }
-            return rateLimitedUntilByAccount[profile.accountUuid]
-                .map { $0 <= now } ?? true
         }
     }
 
@@ -486,6 +477,7 @@ final class AppState {
         }
         profilesList = snapshot.profiles
         activeAccountUuid = snapshot.activeAccountUuid
+        lastRefreshAt = activeAccountUuid.flatMap { usageByAccount[$0]?.fetchedAt }
         canUndo = snapshot.canUndo
         activeUnsaved = snapshot.activeUnsaved
     }
@@ -496,7 +488,7 @@ final class AppState {
         case updated
         case unchanged
         case waitingForSession
-        case rateLimited(until: Date, source: RateLimitSource)
+        case rateLimited(retryAfter: TimeInterval?, source: RateLimitSource)
         /// Su sesión hace falta renovarla, pero ese endpoint está aparcado.
         /// No se ha gastado ninguna petición.
         case renewalUnavailable
@@ -509,8 +501,8 @@ final class AppState {
             case .unchanged: "sin cambios"
             case .renewalUnavailable: "renovación aparcada"
             case .waitingForSession: "esperando a que Claude Code renueve"
-            case .rateLimited(let until, let source):
-                "pausa del servidor \(Int(until.timeIntervalSinceNow)) s (\(source == .renewal ? "renovación" : "uso"))"
+            case .rateLimited(_, let source):
+                "pausa del servidor (\(source == .renewal ? "renovación" : "uso"))"
             case .failed(.server(let code)): "HTTP \(code)"
             case .failed(.connection(let detail)): "fallo: \(detail)"
             }
@@ -586,7 +578,7 @@ final class AppState {
     /// aunque los datos sean muy recientes; los eventos automáticos la omiten
     /// para no encadenar peticiones que acaben en una pausa del servidor.
     func refreshAll(force: Bool = false) async {
-        await refreshAnthropicStatus()
+        Task { await refreshAnthropicStatus() }
         await reloadLocalState()
         guard let activeAccountUuid else {
             usageRefreshNotice = nil
@@ -595,15 +587,19 @@ final class AppState {
         await refreshUsageAccount(activeAccountUuid, force: force)
     }
 
-    private var availableUsageAccountCount: Int {
-        let now = Date()
-        return max(
-            1,
-            profilesList.filter { profile in
-                guard !profile.needsLogin else { return false }
-                return rateLimitedUntilByAccount[profile.accountUuid]
-                    .map { $0 <= now } ?? true
-            }.count
+    private var activeUsageInterval: TimeInterval {
+        let usage = activeAccountUuid.flatMap { uuid in
+            let profile = profilesList.first { $0.accountUuid == uuid }
+            return usageByAccount[uuid]?.scaledToPersonalCaps(
+                fiveHourCap: profile?.sharedFiveHourCap,
+                weeklyCap: profile?.sharedWeeklyCap
+            )
+        }
+        let nearLimit = (usage?.fiveHour?.utilization ?? 0) >= triggerThreshold - 15
+            || (usage?.sevenDay?.utilization ?? 0) >= weeklyTriggerThreshold - 10
+            || (useFableForAutoSwitch && (usage?.sevenDayOpus?.utilization ?? 0) >= fableTriggerThreshold - 10)
+        return UsagePollingSchedule.activeInterval(
+            configured: pollIntervalSeconds, nearLimit: nearLimit
         )
     }
 
@@ -611,6 +607,7 @@ final class AppState {
         await reloadLocalState()
         let now = Date()
         clearExpiredUsageCooldowns(now: now)
+        clearExpiredRenewalBlocks(now: now)
         let refreshable = profilesList.filter { !$0.needsLogin }
         let blocked: Set<String> = Set(
             refreshable.compactMap { profile in
@@ -618,15 +615,22 @@ final class AppState {
                    until > now {
                     return profile.accountUuid
                 }
-                // Una cuenta que nadie está usando apenas cambia: repreguntar
-                // por ella cada minuto gasta el cupo de peticiones que la
-                // cuenta activa sí necesita, y obliga a renovar su sesión
-                // mucho más a menudo de lo que hace falta. Con datos aún
-                // vigentes, cede el turno.
+                // Su token caducó y el endpoint de renovación está aparcado:
+                // esta cuenta no puede conseguir nada hasta que el aparcado
+                // expire. Sin esta salvedad su intento fallaba sin actualizar
+                // la fecha del dato, así que el filtro de frescura no la
+                // apartaba nunca y volvía a llevarse el turno cada vuelta,
+                // dejando sin él a las cuentas que sí podían actualizarse.
+                // Solo aplica a las inactivas: a la activa puede renovársela
+                // Claude Code en cualquier momento.
                 if profile.accountUuid != activeAccountUuid,
-                   let snapshot = usageByAccount[profile.accountUuid],
-                   now.timeIntervalSince(snapshot.fetchedAt)
-                       < inactiveRefreshInterval {
+                   case .renewalBlocked = usageIssueByAccount[
+                       profile.accountUuid
+                   ],
+                   let until = renewalBlockedUntilByAccount[
+                       profile.accountUuid
+                   ],
+                   until > now {
                     return profile.accountUuid
                 }
                 return nil
@@ -635,27 +639,20 @@ final class AppState {
         Diagnostics.usage.debug(
             "turno: \(refreshable.map { Diagnostics.tag($0.accountUuid) }.joined(separator: ","), privacy: .public) | en pausa: \(blocked.map(Diagnostics.tag).joined(separator: ","), privacy: .public)"
         )
-        let previousCursor = usageRefreshPlanner.cursor
-        guard let target = usageRefreshPlanner.nextAccount(
-            accountUuids: refreshable.map(\.accountUuid),
-            activeAccountUuid: activeAccountUuid,
-            blockedAccountUuids: blocked
+        guard let target = usagePollingSchedule.nextAccount(
+            accounts: refreshable.map(\.accountUuid),
+            active: activeAccountUuid,
+            snapshots: usageByAccount,
+            blocked: blocked,
+            activeInterval: activeUsageInterval,
+            inactiveInterval: inactiveRefreshInterval,
+            prioritized: pendingInitialUsageAccounts,
+            now: now
         ) else {
             updateActiveUsageNotice()
             return
         }
-        switch await performUsageRefresh(target) {
-        case .attempted:
-            await runAutoSwitchIfNeeded()
-        case .skipped:
-            break
-        case .busy:
-            // Su turno se lo comió otra consulta simultánea (el arranque, el
-            // panel o el vigilante de identidad). Devolver el marcador para
-            // que la próxima vuelta le toque otra vez: si no, una cuenta con
-            // mala suerte tardaba vueltas enteras en volver a intentarlo.
-            usageRefreshPlanner.rewind(to: previousCursor)
-        }
+        await refreshUsageAccount(target)
     }
 
     /// Resultado de un intento de consulta, desde el punto de vista de quien
@@ -702,12 +699,12 @@ final class AppState {
         isRefreshing = true
         defer { isRefreshing = false }
         await reloadLocalState()
-        // Aquí no se toca la entrada del Llavero de Claude Code: el uso se
-        // consulta con las credenciales propias de cada perfil. La sesión
-        // oficial solo se lee al cambiar o capturar una cuenta.
+        // Requests use the private profile. For the active account we may
+        // first copy credentials already refreshed by Claude Code.
 
         let now = Date()
         clearExpiredUsageCooldowns(now: now)
+        clearExpiredRenewalBlocks(now: now)
         guard let profile = profilesList.first(where: {
             $0.accountUuid == accountUuid && !$0.needsLogin
         }) else {
@@ -726,7 +723,6 @@ final class AppState {
             return .skipped
         }
 
-        usageRefreshPlanner.recordRefresh(of: accountUuid)
         // Tras un cambio de cuenta coinciden varios disparadores (vigilante de
         // identidad, apertura del panel y sondeo). Un dato muy reciente no se
         // vuelve a pedir: encadenar peticiones provoca la pausa del servidor.
@@ -739,8 +735,15 @@ final class AppState {
             updateActiveUsageNotice()
             return .skipped
         }
+        // Manual refresh and switch rescue share the same gate as the timer.
+        // Force bypasses freshness only, never server cooldowns or spacing.
+        guard !Task.isCancelled, usagePollingSchedule.canStart(now: Date()) else {
+            return .skipped
+        }
+        usagePollingSchedule.recordAttempt(accountUuid, now: Date())
         await adoptActiveCredentialsIfFresher(profile)
         let outcome = await refreshUsage(for: profile)
+        pendingInitialUsageAccounts.remove(accountUuid)
         Diagnostics.usage.log(
             "\(Diagnostics.tag(accountUuid), privacy: .public) -> \(outcome.logDescription, privacy: .public)"
         )
@@ -754,31 +757,19 @@ final class AppState {
                 lastRefreshAt = Date()
             }
             persistUsageCache()
-        case .rateLimited(let until, let source):
-            // Volver a insistir con la misma cadencia tras un 429 encadenado
-            // solo prolonga el castigo: cada repetición dobla el descanso, y
-            // así la cuenta acaba recuperándose. Consultar el uso es barato y
-            // se retoma en una hora; renovar la sesión es lo que dispara el
-            // límite de verdad, y admite esperar toda una jornada.
-            let streak = (usageRateLimitStreakByAccount[accountUuid] ?? 0) + 1
-            usageRateLimitStreakByAccount[accountUuid] = streak
-            let requested = max(60, until.timeIntervalSinceNow)
-            let ceiling: TimeInterval =
-                source == .renewal ? 21_600 : 3_600
-            var backoff = min(
-                ceiling,
-                requested * pow(2, Double(streak - 1))
-            )
-            // Cortafuegos. Anthropic no documenta estos límites ni manda
-            // `Retry-After`, y hay constancia de cuentas bloqueadas durante
-            // días con solo seis renovaciones diarias: insistir no destraba
-            // nada y sí prolonga el castigo. A la tercera negativa seguida se
-            // deja de preguntar durante medio día y la salida pasa a ser del
-            // usuario, que la app le explica en su tarjeta.
-            if source == .renewal, streak >= 3 {
-                backoff = max(backoff, 43_200)
+        case .rateLimited(let retryAfter, let source):
+            let renewal = source == .renewal
+            let streak = (renewal
+                ? renewalRateLimitStreakByAccount[accountUuid]
+                : usageRateLimitStreakByAccount[accountUuid]) ?? 0
+            if renewal {
+                renewalRateLimitStreakByAccount[accountUuid] = streak + 1
+            } else {
+                usageRateLimitStreakByAccount[accountUuid] = streak + 1
             }
-            let until = Date().addingTimeInterval(backoff)
+            let until = Date().addingTimeInterval(UsageRetryPolicy.delay(
+                retryAfter: retryAfter, streak: streak + 1, renewal: renewal
+            ))
             switch source {
             case .renewal:
                 // Solo se aparcan las renovaciones. Consultar el uso sigue
@@ -820,6 +811,27 @@ final class AppState {
         persistUsageCooldowns()
     }
 
+    /// Retira el aviso «Sesión sin renovar» cuando su pausa ya ha vencido.
+    ///
+    /// Antes solo lo borraba una lectura de uso correcta, y una cuenta con la
+    /// renovación aparcada nunca llegaba a tener una: el aviso se quedaba
+    /// puesto en su tarjeta durante horas después de que el motivo hubiera
+    /// desaparecido, invitando a reconectar una cuenta que ya no lo necesita.
+    private func clearExpiredRenewalBlocks(now: Date) {
+        let expired = renewalBlockedUntilByAccount.compactMap {
+            $0.value <= now ? $0.key : nil
+        }
+        guard !expired.isEmpty else { return }
+        for accountUuid in expired {
+            renewalBlockedUntilByAccount[accountUuid] = nil
+            markRenewalBlocked(accountUuid, false)
+            if case .renewalBlocked = usageIssueByAccount[accountUuid] {
+                usageIssueByAccount[accountUuid] = nil
+            }
+        }
+        persistUsageCooldowns()
+    }
+
     private func refreshUsage(
         for profile: AccountProfile
     ) async -> UsageRefreshOutcome {
@@ -834,10 +846,8 @@ final class AppState {
             }
             // La cuenta activa es propiedad de Claude Code: su token se
             // recoge del Llavero oficial cuando Claude Code lo renueva.
-            // Las cuentas inactivas no tienen ninguna terminal detrás, así
-            // que su sesión del almacén privado se renueva aquí mismo con el
-            // flujo OAuth estándar; sin esto quedarían sin datos («—») en
-            // cuanto caducara su access token.
+            // Inactive accounts may still belong to older terminals; renewal
+            // also checks for running clients before rotating their tokens.
             if creds.isAccessTokenExpired() {
                 switch await renewedCredentials(
                     for: profile,
@@ -877,14 +887,7 @@ final class AppState {
             Diagnostics.usage.log(
                 "\(Diagnostics.tag(profile.accountUuid), privacy: .public) 429 al consultar el uso (retry-after: \(retryAfter.map { String(Int($0)) } ?? "ninguno", privacy: .public))"
             )
-            // Respetar la espera indicada por Anthropic. Sin cabecera se usa
-            // un descanso prudente de 10 minutos; se acota para evitar tanto
-            // bucles agresivos como bloqueos absurdamente largos.
-            let delay = min(max(retryAfter ?? 600, 60), 3_600)
-            return .rateLimited(
-                until: Date().addingTimeInterval(delay),
-                source: .usage
-            )
+            return .rateLimited(retryAfter: retryAfter, source: .usage)
         } catch AnthropicAPIError.httpError(let code) {
             // Cualquier código inesperado, no solo los 5xx: un 403 tratado
             // como «fallo de conexión» dejaba a la cuenta reintentando en
@@ -922,23 +925,28 @@ final class AppState {
     /// - Cuenta activa: se recoge la sesión que Claude Code ya renovó en su
     ///   Llavero oficial. SwitchBar nunca rota el token de la sesión
     ///   activa, porque una terminal abierta quedaría invalidada.
-    /// - Cuenta inactiva: ninguna terminal la está usando (su entrada del
-    ///   Llavero oficial fue sustituida al cambiar), así que su sesión del
-    ///   almacén privado se renueva con el flujo OAuth estándar y el token
-    ///   rotado se guarda en ese mismo almacén.
+    /// - Cuenta inactiva: también puede seguir en uso en terminales anteriores.
+    ///   Solo se renueva cuando no hay procesos que puedan usar Claude Code.
     private func renewedCredentials(
         for profile: AccountProfile,
         previousAccessToken: String,
         current creds: OAuthCredentials
     ) async -> CredentialRenewal {
-        if profile.accountUuid == activeAccountUuid {
-            guard let synchronized = await synchronizeActiveCredentials(
+        let isActive = profile.accountUuid == activeAccountUuid
+        if isActive {
+            if let synchronized = await synchronizeActiveCredentials(
                 for: profile,
                 previousAccessToken: previousAccessToken
-            ) else {
+            ) {
+                return .success(synchronized)
+            }
+            return .failure(.waitingForSession)
+        }
+        if !isActive {
+            let probe = claudeCodeProbe
+            guard await offMain({ !probe.isClaudeCodeRunning() }) else {
                 return .failure(.waitingForSession)
             }
-            return .success(synchronized)
         }
         // El endpoint de renovación está castigado para esta cuenta: pedirle
         // otra solo alargaría el castigo. Se informa sin gastar la petición.
@@ -964,14 +972,17 @@ final class AppState {
             )
             let profiles = self.profiles
             let accountUuid = profile.accountUuid
-            try await offMain {
+            let saved = try await offMain {
                 Result {
                     try profiles.updateCredentials(
                         updated,
-                        for: accountUuid
+                        for: accountUuid,
+                        expectedAccessToken: creds.accessToken
                     )
                 }
             }.get()
+            guard saved else { return .failure(.unchanged) }
+            renewalRateLimitStreakByAccount[accountUuid] = nil
             return .success(updated)
         } catch AnthropicAPIError.invalidGrant {
             markNeedsLogin(profile.accountUuid, true)
@@ -980,18 +991,7 @@ final class AppState {
             Diagnostics.usage.log(
                 "\(Diagnostics.tag(profile.accountUuid), privacy: .public) 429 al renovar la sesión (retry-after: \(retryAfter.map { String(Int($0)) } ?? "ninguno", privacy: .public))"
             )
-            // Sin cabecera, dos horas. Un token de acceso dura media jornada,
-            // así que en marcha normal esto ocurre dos o tres veces al día:
-            // esperar de más no cuesta nada. Insistir, en cambio, alimenta el
-            // propio límite que se quiere esquivar y puede dejar a la cuenta
-            // castigada indefinidamente.
-            let delay = min(max(retryAfter ?? 7_200, 1_800), 21_600)
-            return .failure(
-                .rateLimited(
-                    until: Date().addingTimeInterval(delay),
-                    source: .renewal
-                )
-            )
+            return .failure(.rateLimited(retryAfter: retryAfter, source: .renewal))
         } catch AnthropicAPIError.httpError(let code) {
             return .failure(.failed(.server(code)))
         } catch {
@@ -1055,10 +1055,18 @@ final class AppState {
                 profile.emailAddress
             )
         case .waitingForSession:
-            usageRefreshNotice = L10n.tr(
-                "usage.refresh.session_waiting",
-                profile.emailAddress
-            )
+            // Que Claude Code todavía no haya renovado su sesión no es una
+            // avería: la cuenta se puede usar con normalidad y lo único que
+            // se retrasa es la lectura del consumo. Poner un aviso naranja
+            // encima de una cuenta marcada como «Activa» solo desconcierta,
+            // así que se reserva para cuando los datos ya son viejos de
+            // verdad y el usuario merece saber por qué no se mueven.
+            usageRefreshNotice = isUsageStale(for: activeAccountUuid)
+                ? L10n.tr(
+                    "usage.refresh.session_waiting",
+                    profile.emailAddress
+                )
+                : nil
         case .server(let code):
             usageRefreshNotice =
                 anthropicStatus?.relevantHealth.isDisrupted == true
@@ -1108,16 +1116,13 @@ final class AppState {
     }
 
     private func clearUsageCooldown(for accountUuid: String) {
-        let removedCooldown = rateLimitedUntilByAccount.removeValue(
-            forKey: accountUuid
-        ) != nil
+        rateLimitedUntilByAccount[accountUuid] = nil
         renewalBlockedUntilByAccount[accountUuid] = nil
         usageRateLimitStreakByAccount[accountUuid] = nil
         usageIssueByAccount[accountUuid] = nil
         markRenewalBlocked(accountUuid, false)
-        if removedCooldown {
-            persistUsageCooldowns()
-        }
+        renewalRateLimitStreakByAccount[accountUuid] = nil
+        persistUsageCooldowns()
         if accountUuid == activeAccountUuid {
             updateActiveUsageNotice()
         }
@@ -1150,43 +1155,52 @@ final class AppState {
     /// Antigüedad a partir de la cual una instantánea deja de servir para
     /// decidir. Es también la que marca los datos como viejos en el panel:
     /// mostrar un 0 % de hace horas como si fuera de ahora induce a error.
-    /// Holgado a propósito: por encima del ritmo con el que se refrescan las
-    /// cuentas en reposo, para que decidir un cambio no exija datos recién
-    /// pedidos. El consumo de una cuenta parada no se mueve solo.
+    /// La activa caduca antes (dos minutos); un destino se vuelve a comprobar
+    /// antes de cambiar porque también puede estar usándose en otra terminal.
     var usageFreshnessLimit: TimeInterval {
-        max(2 * pollIntervalSeconds, 1_800)
+        max(600, 2 * inactiveRefreshInterval)
     }
 
     /// Cada cuánto vale la pena volver a preguntar por una cuenta que no está
     /// en uso.
     ///
-    /// Su consumo solo se mueve si otra persona usa esa misma cuenta, así que
-    /// un cuarto de hora es de sobra. El endpoint de uso también limita, y con
-    /// dureza, así que las peticiones se reservan para la cuenta activa, que
-    /// es la única cuyo gasto avanza mientras trabajas.
-    private let inactiveRefreshInterval: TimeInterval = 900
+    /// Las cuentas compartidas y las terminales anteriores pueden consumir
+    /// aunque la cuenta ya no figure como activa en SwitchBar.
+    private var inactiveRefreshInterval: TimeInterval {
+        min(600, max(180, pollIntervalSeconds))
+    }
 
     /// Los datos de esta cuenta son demasiado viejos para fiarse de ellos.
     func isUsageStale(for accountUuid: String) -> Bool {
         guard let snapshot = usageByAccount[accountUuid] else { return false }
-        return Date().timeIntervalSince(snapshot.fetchedAt) >= usageFreshnessLimit
+        let now = max(monitoringDate, Date())
+        return now.timeIntervalSince(snapshot.fetchedAt)
+            >= (accountUuid == activeAccountUuid ? 120 : usageFreshnessLimit)
+    }
+
+    var autoSwitchMonitoringNotice: String? {
+        _ = monitoringDate
+        guard autoSwitchEnabled else { return nil }
+        if autoSwitchPausedByManualLogin {
+            return L10n.tr("auto_switch.paused_manual_login")
+        }
+        guard let activeAccountUuid, freshUsage(for: activeAccountUuid) != nil else {
+            return L10n.tr("auto_switch.monitoring_stale")
+        }
+        return nil
     }
 
     /// Instantánea válida para tomar decisiones: descarta datos más viejos de
     /// dos intervalos de sondeo y ventanas cuyo reseteo ya pasó (su porcentaje
     /// ya no refleja la realidad).
     private func freshUsage(for accountUuid: String) -> UsageSnapshot? {
-        guard var snapshot = usageByAccount[accountUuid] else { return nil }
+        guard let snapshot = usageByAccount[accountUuid] else { return nil }
         guard !isUsageStale(for: accountUuid) else { return nil }
-        let now = Date()
-        func vigente(_ w: UsageWindow?) -> UsageWindow? {
-            guard let w else { return nil }
-            if let reset = w.resetsAt, reset <= now { return nil }
-            return w
-        }
-        snapshot.fiveHour = vigente(snapshot.fiveHour)
-        snapshot.sevenDay = vigente(snapshot.sevenDay)
-        snapshot.sevenDayOpus = vigente(snapshot.sevenDayOpus)
+        // An expired window is unknown until refreshed, not evidence of 0%.
+        let windows = [snapshot.fiveHour, snapshot.sevenDay, snapshot.sevenDayOpus]
+        guard !windows.contains(where: { window in
+            window?.resetsAt.map { $0 <= Date() } ?? false
+        }) else { return nil }
         return snapshot
     }
 
@@ -1205,9 +1219,26 @@ final class AppState {
         }
     }
 
+    private func autoSwitchCandidate(
+        policy: AutoSwitchPolicy, active: AccountUsageState, states: [AccountUsageState]
+    ) -> String? {
+        let now = Date()
+        let recentlyVerified = states.filter {
+            $0.usage.map { now.timeIntervalSince($0.fetchedAt) < 60 } ?? false
+        }
+        if let verified = policy.bestCandidate(active: active, others: recentlyVerified) {
+            return verified
+        }
+        // Do not let the cheapest cached account hold up a usable alternative
+        // while its usage endpoint is in cooldown.
+        return policy.bestCandidate(active: active, others: states.filter {
+            rateLimitedUntilByAccount[$0.accountUuid].map { $0 <= now } ?? true
+        })
+    }
+
     private func runAutoSwitchIfNeeded() async {
         guard autoSwitchEnabled, let active = activeAccountUuid else { return }
-        guard !isSwitchingAccount, !isEvaluatingAutoSwitch else { return }
+        guard !isSwitchingAccount, !isEvaluatingAutoSwitch, !addAccountVisible, !addAccountBusy else { return }
         // Un login manual reciente manda: no se le cambia la cuenta al usuario
         // justo después de que la haya elegido a mano en la terminal.
         guard !autoSwitchPausedByManualLogin else { return }
@@ -1226,7 +1257,7 @@ final class AppState {
             lastNoCandidateNotice = nil
             return
         }
-        var target = policy.bestCandidate(active: activeState, others: states)
+        var target = autoSwitchCandidate(policy: policy, active: activeState, states: states)
         // Antes de darse por vencido: las cuentas descartadas solo por no
         // tener datos vigentes se consultan ahora mismo. Sin esto, una racha
         // de pausas del servidor las deja fuera durante horas y el aviso
@@ -1239,7 +1270,8 @@ final class AppState {
             if await refreshUnverifiedAccounts(unverified) {
                 // Esas consultas llevan su tiempo: si entre medias el usuario
                 // ha cambiado de cuenta a mano, la decisión ya no es válida.
-                guard activeAccountUuid == active, !isSwitchingAccount else {
+                guard activeAccountUuid == active, !isSwitchingAccount,
+                      autoSwitchEnabled, !autoSwitchPausedByManualLogin else {
                     return
                 }
                 states = autoSwitchStates()
@@ -1251,7 +1283,7 @@ final class AppState {
                     lastNoCandidateNotice = nil
                     return
                 }
-                target = policy.bestCandidate(active: activeState, others: states)
+                target = autoSwitchCandidate(policy: policy, active: activeState, states: states)
             }
         }
         let triggerDescription = autoSwitchTriggerDescription(activeState)
@@ -1259,6 +1291,20 @@ final class AppState {
             notifyNoCandidate(policy: policy, states: states, active: active)
             return
         }
+        // A standby account may have kept consuming in an older terminal.
+        // Verify the destination before writing credentials, using the same
+        // admission gate; a blocked request leaves the decision pending.
+        if usageByAccount[target].map({ Date().timeIntervalSince($0.fetchedAt) >= 60 }) ?? true {
+            guard await performUsageRefresh(target) == .attempted,
+                  usageByAccount[target].map({ Date().timeIntervalSince($0.fetchedAt) < 60 }) == true
+            else { return }
+        }
+        guard autoSwitchEnabled, !autoSwitchPausedByManualLogin,
+              activeAccountUuid == active, !isSwitchingAccount,
+              let verifiedActive = autoSwitchStates().first(where: { $0.accountUuid == active }),
+              let verifiedTarget = autoSwitchStates().first(where: { $0.accountUuid == target }),
+              policy.shouldSwitch(active: verifiedActive), policy.isCandidate(verifiedTarget)
+        else { return }
         lastNoCandidateNotice = nil
         let engine = self.engine
         isSwitchingAccount = true
@@ -1301,12 +1347,11 @@ final class AppState {
         _ accountUuids: [String]
     ) async -> Bool {
         var attempted = false
-        for (index, accountUuid) in accountUuids.enumerated() {
-            if index > 0 {
-                try? await Task.sleep(for: .seconds(2))
-            }
+        for accountUuid in accountUuids {
+            guard !Task.isCancelled else { break }
             if await performUsageRefresh(accountUuid) == .attempted {
                 attempted = true
+                break
             }
         }
         return attempted
@@ -1535,10 +1580,12 @@ final class AppState {
     /// Petición de login en curso iniciada desde la app. Guarda el
     /// verificador PKCE, que solo vive en memoria durante el alta.
     private(set) var loginFlow: OAuthLoginFlow?
+    private var enrollmentSession: OAuthEnrollmentSession?
     /// Código que el usuario pega desde el navegador.
     var pastedLoginCode = ""
 
     func beginAddAccount() {
+        guard !addAccountBusy else { return }
         reconnectingProfile = nil
         addAccountError = nil
         resetLoginFlow()
@@ -1546,6 +1593,7 @@ final class AppState {
     }
 
     func beginReconnect(_ profile: AccountProfile) {
+        guard !addAccountBusy else { return }
         reconnectingProfile = profile
         addAccountError = nil
         resetLoginFlow()
@@ -1554,6 +1602,7 @@ final class AppState {
 
     private func resetLoginFlow() {
         loginFlow = nil
+        enrollmentSession = nil
         pastedLoginCode = ""
     }
 
@@ -1564,8 +1613,10 @@ final class AppState {
     /// Cada pulsación crea una petición nueva: reutilizar el verificador de
     /// un intento anterior haría que el canje fuese rechazado.
     func startInAppLogin() {
+        guard !addAccountBusy else { return }
         let flow = OAuthLoginFlow()
         loginFlow = flow
+        enrollmentSession = OAuthEnrollmentSession(api: api, flow: flow)
         pastedLoginCode = ""
         addAccountError = nil
         NSWorkspace.shared.open(flow.authorizationURL)
@@ -1575,7 +1626,8 @@ final class AppState {
     /// guarda como perfil. No toca la sesión de Claude Code: la cuenta se
     /// añade al almacén privado y el usuario decide cuándo cambiar a ella.
     func completeInAppLogin() async {
-        guard let flow = loginFlow else { return }
+        guard !addAccountBusy, !isSwitchingAccount,
+              let flow = loginFlow, let enrollmentSession else { return }
         guard let code = flow.normalizedCode(from: pastedLoginCode) else {
             addAccountError = L10n.tr("add_account.error.bad_code")
             return
@@ -1584,18 +1636,11 @@ final class AppState {
         addAccountError = nil
         defer { addAccountBusy = false }
 
-        let api = self.api
         let profiles = self.profiles
         let target = reconnectingProfile
         do {
-            let tokens = try await api.exchangeAuthorizationCode(
-                code,
-                verifier: flow.verifier,
-                state: flow.state
-            )
-            let identity = try await api.fetchProfile(
-                accessToken: tokens.accessToken
-            )
+            let enrolled = try await enrollmentSession.complete(code: code)
+            let identity = enrolled.identity
             if let target, identity.accountUuid != target.accountUuid {
                 addAccountError = L10n.tr(
                     "state.unexpected_reconnect_account",
@@ -1604,8 +1649,8 @@ final class AppState {
                 )
                 return
             }
-            let credentials = try Self.credentials(from: tokens)
-            try await offMain {
+            let credentials = enrolled.credentials
+            _ = try await offMain {
                 Result {
                     try profiles.saveProfile(
                         identity: identity,
@@ -1619,8 +1664,7 @@ final class AppState {
             infoMessage = target == nil
                 ? L10n.tr("state.account_added", identity.emailAddress)
                 : L10n.tr("state.account_reconnected", identity.emailAddress)
-            await reloadLocalState()
-            await refreshAll(force: true)
+            await accountDidConnect(identity.accountUuid)
         } catch AnthropicAPIError.invalidGrant {
             addAccountError = L10n.tr("add_account.error.code_rejected")
         } catch AnthropicAPIError.malformedResponse {
@@ -1633,26 +1677,20 @@ final class AppState {
         }
     }
 
-    /// Construye el bloque `claudeAiOauth` con la forma que espera Claude
-    /// Code, para que la sesión sea intercambiable con la suya.
-    private static func credentials(
-        from tokens: RefreshedTokens
-    ) throws -> OAuthCredentials {
-        var dict: [String: Any] = [
-            "accessToken": tokens.accessToken,
-            "refreshToken": tokens.refreshToken ?? "",
-            "scopes": OAuthLoginFlow.scopes
-        ]
-        if let expiresIn = tokens.expiresIn {
-            dict["expiresAt"] = Int(
-                Date().addingTimeInterval(expiresIn).timeIntervalSince1970 * 1000
-            )
-        }
-        let data = try JSONSerialization.data(
-            withJSONObject: dict,
-            options: [.sortedKeys]
-        )
-        return try OAuthCredentials(claudeAiOauthJSON: data)
+    /// Clear session failures after a successful login, while retaining any
+    /// usage Retry-After deadline. The newly linked account gets the next
+    /// available standby slot, even when its cached usage looked recent.
+    private func accountDidConnect(_ accountUuid: String) async {
+        let usageDeadline = rateLimitedUntilByAccount[accountUuid]
+        clearUsageCooldown(for: accountUuid)
+        rateLimitedUntilByAccount[accountUuid] = usageDeadline
+        persistUsageCooldowns()
+        usageByAccount[accountUuid] = nil
+        usagePollingSchedule.forgetAttempt(for: accountUuid)
+        pendingInitialUsageAccounts.insert(accountUuid)
+        persistUsageCache()
+        await reloadLocalState()
+        await refreshUsageAccount(accountUuid, force: true)
     }
 
     /// Copia el comando oficial y abre Terminal. No usa AppleScript ni
@@ -1673,6 +1711,7 @@ final class AppState {
     /// Tras completar el login en la terminal, captura exactamente el par
     /// identidad/credenciales que Claude Code dejó activo.
     func completeAddAccount() async {
+        guard !addAccountBusy, !isSwitchingAccount else { return }
         addAccountBusy = true
         addAccountError = nil
         defer { addAccountBusy = false }
@@ -1687,13 +1726,13 @@ final class AppState {
         }
         switch result {
         case .success(let saved):
+            resetLoginFlow()
             reconnectingProfile = nil
             addAccountVisible = false
             infoMessage = target == nil
                 ? L10n.tr("state.account_added", saved.emailAddress)
                 : L10n.tr("state.account_reconnected", saved.emailAddress)
-            await reloadLocalState()
-            Task { await refreshAll() }
+            await accountDidConnect(saved.accountUuid)
         case .failure(SwitchError.unexpectedActiveAccount(_, _)):
             // Casi siempre ocurre porque el navegador ya tenía abierta la
             // sesión de otra cuenta y el login oficial la autorizó sin
@@ -1722,6 +1761,8 @@ final class AppState {
     }
 
     func cancelAddAccount() {
+        guard !addAccountBusy else { return }
+        resetLoginFlow()
         reconnectingProfile = nil
         addAccountVisible = false
         addAccountError = nil

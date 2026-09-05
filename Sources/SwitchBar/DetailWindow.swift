@@ -19,6 +19,13 @@ struct DetailView: View {
                     openOfficialPage: state.openAnthropicStatusPage
                 )
 
+                if let notice = state.autoSwitchMonitoringNotice {
+                    Label(notice, systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
                 if let notice = state.usageRefreshNotice {
                     Label(notice, systemImage: "clock.arrow.circlepath")
                         .font(.caption)

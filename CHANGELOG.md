@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.0.1 — 2026-09-05
+
+- Account enrollment now shares concurrent submissions and retains a successful
+  authorization exchange in memory when loading the account profile fails.
+  Retrying no longer reuses a consumed authorization code.
+- Newly linked or reconnected accounts receive a prioritized usage refresh;
+  server-requested usage cooldowns remain respected.
+- Unchanged account synchronization avoids rewriting the credential vault.
+  Older credentials and in-flight renewals cannot overwrite a newer login.
+- Selecting the already-active account no longer restores a stale saved token.
+- Active usage checks target 30–60 seconds, with shared request spacing, fair
+  standby scheduling, separate usage/renewal backoff and faithful Retry-After.
+- Auto-switch displays missing-data and manual-login pauses and verifies a
+  destination before changing accounts. Open Claude sessions keep their
+  original account; SwitchBar does not restart or migrate running agents.
+- Background polling never renews active Claude Code credentials and defers
+  inactive-token renewal while a running client may still use it.
+- Update checks default to once an hour, preserving existing user preferences.
+- Validated with 111 automated tests, including concurrent enrollment, retry
+  recovery, synchronization races, request pacing and account switching.
+
 ## 1.0.0-beta.9 — 2026-07-31
 
 Anthropic rate-limits its OAuth endpoints hard, without documenting the

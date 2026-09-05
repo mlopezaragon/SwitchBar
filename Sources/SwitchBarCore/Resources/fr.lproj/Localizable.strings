@@ -69,8 +69,8 @@
 "usage.personal_cap" = "Plafond personnel : %d %%";
 "usage.refresh.server_error" = "Anthropic ne peut pas actualiser l’utilisation pour le moment. Les dernières données sont conservées et SwitchBar réessaiera automatiquement. (Code %d)";
 "usage.refresh.connection_error" = "Impossible d’actualiser l’utilisation pour le moment. Les dernières données sont conservées et SwitchBar réessaiera automatiquement.";
-"usage.refresh.session_waiting" = "%@ nécessite que Claude Code renouvelle sa session avant d’actualiser l’utilisation. Les dernières données restent visibles.";
-"usage.cooldown.active" = "L’utilisation du compte actif sera de nouveau actualisée dans %d min. Les dernières données restent disponibles.";
+"usage.refresh.session_waiting" = "L’utilisation de %@ sera mise à jour dès que tu utiliseras de nouveau Claude Code. Le compte fonctionne normalement : seules les données affichées datent d’avant.";
+"usage.cooldown.active" = "Anthropic a suspendu les consultations. Nouvelle tentative dans %d min ; les pourcentages affichés sont les derniers connus.";
 
 "api.error.rate_limited" = "Anthropic limite les requêtes de ce compte. Patientez un moment et réessayez.";
 "api.error.invalid_grant" = "Le code n'est plus valide ou la session a expiré. Rouvrez la page de connexion et utilisez un code fraîchement généré.";
@@ -103,7 +103,7 @@
 "auto_switch.next_reset" = "La première réinitialisation aura lieu %@.";
 
 "settings.title" = "Réglages";
-"settings.refresh_frequency" = "Fréquence d’actualisation";
+"settings.refresh_frequency" = "Actualisation des autres comptes";
 "settings.minutes" = "%d min";
 "settings.launch_at_login" = "Ouvrir à la connexion";
 "settings.version" = "Version %@";
@@ -202,3 +202,4 @@
 "add_account.error.bad_code" = "Ce code ne correspond pas à cette tentative. Rouvrez la connexion et copiez le nouveau code en entier.";
 "add_account.error.code_rejected" = "Anthropic a rejeté le code. En général il a déjà été utilisé ou trop de temps s'est écoulé : recommencez la connexion.";
 "add_account.error.profile_unreadable" = "La session a été créée, mais les données du compte n'ont pas pu être lues. Utilisez la méthode du terminal.";
+"auto_switch.monitoring_stale" = "Le changement automatique manque de données récentes : la détection des limites est incertaine. Les mises à jour seront réessayées.";
