@@ -68,17 +68,19 @@ public struct UsageSnapshot: Sendable, Equatable {
     public var sevenDayOpus: UsageWindow?
     public var fetchedAt: Date
     /// El servidor informa de límites semanales para esta cuenta, pero no
-    /// del general: su plan no lo tiene (ocurre en Team). No equivale a que
-    /// falte el dato, así que la interfaz lo dice en lugar de mostrar «—».
-    public var noWeeklyLimit: Bool
+    /// del general. Ocurre en Team, cuyo plan sí tiene límite semanal según
+    /// Anthropic: no es que no exista, es que su consumo no se puede ver. La
+    /// interfaz lo dice en lugar de mostrar «—», y el cambio automático no
+    /// puede reaccionar a ese límite.
+    public var weeklyLimitUnreported: Bool
 
     public init(fiveHour: UsageWindow?, sevenDay: UsageWindow?, sevenDayOpus: UsageWindow?, fetchedAt: Date,
-                noWeeklyLimit: Bool = false) {
+                weeklyLimitUnreported: Bool = false) {
         self.fiveHour = fiveHour
         self.sevenDay = sevenDay
         self.sevenDayOpus = sevenDayOpus
         self.fetchedAt = fetchedAt
-        self.noWeeklyLimit = noWeeklyLimit
+        self.weeklyLimitUnreported = weeklyLimitUnreported
     }
 
     /// Reescala las ventanas a un tope personal (cuentas compartidas): con un
@@ -95,7 +97,7 @@ public struct UsageSnapshot: Sendable, Equatable {
             sevenDay: scale(sevenDay, cap: weeklyCap),
             sevenDayOpus: scale(sevenDayOpus, cap: weeklyCap),
             fetchedAt: fetchedAt,
-            noWeeklyLimit: noWeeklyLimit
+            weeklyLimitUnreported: weeklyLimitUnreported
         )
     }
 
@@ -134,8 +136,8 @@ public struct UsageSnapshot: Sendable, Equatable {
             sevenDayOpus: byKind["weekly_scoped"] ?? UsageWindow.from(dict["seven_day_opus"]),
             fetchedAt: fetchedAt,
             // Con otro límite semanal en la lista (el de Fable), la ausencia
-            // del general no es una ventana aún sin abrir: el plan no lo tiene.
-            noWeeklyLimit: sevenDay == nil && reportsWeeklyLimits
+            // del general no es una ventana aún sin abrir: no se informa.
+            weeklyLimitUnreported: sevenDay == nil && reportsWeeklyLimits
         )
     }
 }

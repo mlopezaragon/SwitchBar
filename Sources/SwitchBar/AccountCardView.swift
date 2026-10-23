@@ -71,7 +71,7 @@ struct AccountCardView: View {
                 VStack(spacing: 5) {
                     UsageBar(label: L10n.tr("usage.five_hours"), window: usage?.fiveHour, cap: profile.sharedFiveHourCap)
                     UsageBar(label: L10n.tr("usage.week"), window: usage?.sevenDay, cap: profile.sharedWeeklyCap,
-                             noLimit: usage?.noWeeklyLimit == true)
+                             unreported: usage?.weeklyLimitUnreported == true)
                     UsageBar(label: L10n.tr("usage.fable"), window: usage?.sevenDayOpus, cap: profile.sharedWeeklyCap)
                 }
                 .opacity(isUsageStale ? 0.55 : 1)

@@ -85,20 +85,20 @@ private let respuestaTeam = """
 }
 """.data(using: .utf8)!
 
-@Test func unPlanSinSemanalGeneralSeDistingueDeUnDatoQueFalta() throws {
+@Test func unSemanalNoInformadoSeDistingueDeUnDatoQueFalta() throws {
     let team = try UsageSnapshot.parse(respuestaTeam, fetchedAt: Date())
     #expect(team.fiveHour?.utilization == 29)
     #expect(team.sevenDay == nil)
-    #expect(team.noWeeklyLimit)
+    #expect(team.weeklyLimitUnreported)
     #expect(team.sevenDayOpus?.utilization == 0)
-    #expect(team.scaledToPersonalCaps(fiveHourCap: 50, weeklyCap: 50).noWeeklyLimit)
+    #expect(team.scaledToPersonalCaps(fiveHourCap: 50, weeklyCap: 50).weeklyLimitUnreported)
 
     // Con el semanal general presente, o sin la lista `limits`, un hueco en
     // la semana es solo un dato que falta.
-    #expect(try !UsageSnapshot.parse(respuestaConLimits, fetchedAt: Date()).noWeeklyLimit)
+    #expect(try !UsageSnapshot.parse(respuestaConLimits, fetchedAt: Date()).weeklyLimitUnreported)
     #expect(try !UsageSnapshot.parse(
         Data(#"{"five_hour": null, "seven_day": null}"#.utf8), fetchedAt: Date()
-    ).noWeeklyLimit)
+    ).weeklyLimitUnreported)
 }
 
 @Test func rechazaJSONInvalido() {

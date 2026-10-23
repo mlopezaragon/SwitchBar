@@ -61,7 +61,7 @@ public final class UsageSnapshotCache: @unchecked Sendable {
                 sevenDay: window("sevenDay"),
                 sevenDayOpus: window("sevenDayOpus"),
                 fetchedAt: Date(timeIntervalSince1970: fetchedAt),
-                noWeeklyLimit: raw["noWeeklyLimit"] as? Bool ?? false
+                weeklyLimitUnreported: raw["weeklyLimitUnreported"] as? Bool ?? false
             )
         }
         return result
@@ -85,7 +85,7 @@ public final class UsageSnapshotCache: @unchecked Sendable {
             raw["fiveHour"] = encode(snapshot.fiveHour)
             raw["sevenDay"] = encode(snapshot.sevenDay)
             raw["sevenDayOpus"] = encode(snapshot.sevenDayOpus)
-            if snapshot.noWeeklyLimit { raw["noWeeklyLimit"] = true }
+            if snapshot.weeklyLimitUnreported { raw["weeklyLimitUnreported"] = true }
             dict[account] = raw
         }
         let data = try JSONSerialization.data(

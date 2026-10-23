@@ -65,8 +65,8 @@
 
 "usage.five_hours" = "5 horas";
 "usage.week" = "Semana";
-"usage.no_limit" = "Sem limite";
-"usage.no_limit.help" = "A Anthropic não informa um limite semanal geral para esta conta.";
+"usage.unreported" = "Sem dado";
+"usage.unreported.help" = "O plano tem limite semanal, mas a Anthropic não informa o uso dele para esta conta.";
 "usage.fable" = "Fable";
 "usage.updated" = "Uso atualizado %@";
 "usage.stale" = "Verificado %@";

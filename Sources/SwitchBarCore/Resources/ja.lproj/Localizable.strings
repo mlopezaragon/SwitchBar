@@ -65,8 +65,8 @@
 
 "usage.five_hours" = "5時間";
 "usage.week" = "週間";
-"usage.no_limit" = "上限なし";
-"usage.no_limit.help" = "Anthropic はこのアカウントの全体的な週間上限を示していません。";
+"usage.unreported" = "データなし";
+"usage.unreported.help" = "このプランには週間上限がありますが、Anthropic はこのアカウントの使用量を報告していません。";
 "usage.fable" = "Fable";
 "usage.updated" = "使用状況を更新：%@";
 "usage.stale" = "最終確認：%@";

@@ -65,8 +65,8 @@
 
 "usage.five_hours" = "5 heures";
 "usage.week" = "Semaine";
-"usage.no_limit" = "Sans limite";
-"usage.no_limit.help" = "Anthropic n’indique aucune limite hebdomadaire générale pour ce compte.";
+"usage.unreported" = "Non communiqué";
+"usage.unreported.help" = "Le forfait a une limite hebdomadaire, mais Anthropic n’en communique pas l’utilisation pour ce compte.";
 "usage.fable" = "Fable";
 "usage.updated" = "Utilisation actualisée %@";
 "usage.stale" = "Vérifié %@";

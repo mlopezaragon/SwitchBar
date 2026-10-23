@@ -65,8 +65,8 @@
 
 "usage.five_hours" = "5 hours";
 "usage.week" = "Week";
-"usage.no_limit" = "No limit";
-"usage.no_limit.help" = "Anthropic reports no general weekly limit for this account.";
+"usage.unreported" = "Not reported";
+"usage.unreported.help" = "The plan has a weekly limit, but Anthropic doesn’t report its usage for this account.";
 "usage.fable" = "Fable";
 "usage.updated" = "Usage updated %@";
 "usage.stale" = "Last checked %@";

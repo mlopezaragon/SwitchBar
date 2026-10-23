@@ -7,8 +7,9 @@ struct UsageBar: View {
     let window: UsageWindow?
     /// Tope personal (0–100) en cuentas compartidas; dibuja una marca en la barra.
     var cap: Double? = nil
-    /// El plan no tiene esta ventana: se dice en vez de pintar una barra vacía.
-    var noLimit: Bool = false
+    /// Anthropic no informa del consumo de esta ventana aunque el plan la
+    /// tenga: se dice en vez de pintar una barra vacía.
+    var unreported: Bool = false
 
     private var fraction: Double {
         guard let u = window?.utilization else { return 0 }
@@ -36,12 +37,12 @@ struct UsageBar: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 52, alignment: .leading)
 
-            if window == nil && noLimit {
-                Text(L10n.tr("usage.no_limit"))
+            if window == nil && unreported {
+                Text(L10n.tr("usage.unreported"))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .help(L10n.tr("usage.no_limit.help"))
+                    .help(L10n.tr("usage.unreported.help"))
             } else {
                 bar
 

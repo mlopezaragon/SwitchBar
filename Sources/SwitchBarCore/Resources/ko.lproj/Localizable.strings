@@ -65,8 +65,8 @@
 
 "usage.five_hours" = "5시간";
 "usage.week" = "주간";
-"usage.no_limit" = "한도 없음";
-"usage.no_limit.help" = "Anthropic은 이 계정의 전체 주간 한도를 알려 주지 않습니다.";
+"usage.unreported" = "정보 없음";
+"usage.unreported.help" = "이 요금제에는 주간 한도가 있지만 Anthropic이 이 계정의 사용량을 알려 주지 않습니다.";
 "usage.fable" = "Fable";
 "usage.updated" = "사용량 업데이트: %@";
 "usage.stale" = "마지막 확인: %@";

@@ -37,7 +37,7 @@ func laCacheSobreviveAUnReinicio() throws {
 }
 
 @Test
-func laCacheRecuerdaQueElPlanNoTieneSemanalGeneral() throws {
+func laCacheRecuerdaQueElSemanalNoSeInforma() throws {
     let directory = temporaryDirectory()
     defer { try? FileManager.default.removeItem(at: directory) }
     let cache = UsageSnapshotCache(directoryURL: directory)
@@ -46,7 +46,7 @@ func laCacheRecuerdaQueElPlanNoTieneSemanalGeneral() throws {
     try cache.save([
         "team": UsageSnapshot(
             fiveHour: nil, sevenDay: nil, sevenDayOpus: nil,
-            fetchedAt: now, noWeeklyLimit: true
+            fetchedAt: now, weeklyLimitUnreported: true
         ),
         "otra": UsageSnapshot(
             fiveHour: nil, sevenDay: nil, sevenDayOpus: nil, fetchedAt: now
@@ -54,8 +54,8 @@ func laCacheRecuerdaQueElPlanNoTieneSemanalGeneral() throws {
     ])
 
     let restored = UsageSnapshotCache(directoryURL: directory).load()
-    #expect(restored["team"]?.noWeeklyLimit == true)
-    #expect(restored["otra"]?.noWeeklyLimit == false)
+    #expect(restored["team"]?.weeklyLimitUnreported == true)
+    #expect(restored["otra"]?.weeklyLimitUnreported == false)
 }
 
 @Test
