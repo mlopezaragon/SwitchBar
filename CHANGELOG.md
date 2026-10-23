@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.0.3 — 2026-10-23
+
+- Fixed: Team accounts showed "No limit" for the week. Team seats do have
+  a weekly limit; Anthropic's usage endpoint just doesn't report it for
+  them. The row now reads "Not reported", and its tooltip explains it.
+- Usage checks no longer trip Anthropic's rate limit. The endpoint limits
+  each account to a small burst refilling at about one request every two
+  minutes, and the active account was polled every minute. It is now
+  polled every 150 s (60 s only near a threshold with auto-switch on), an
+  estimated per-account quota keeps bursts within the server's, and
+  standby accounts at 100 % wait for their reset instead of polling.
+- "Sign in again" appears only when Anthropic refuses to renew a session.
+  Stale data from a usage pause no longer asks for a login it can't fix.
+- Fixed: the same email in two organizations (a personal Max and a Team)
+  could only be added once; the second login replaced the first. Profiles
+  are now kept per account and organization, and existing ones migrate on
+  launch. Reconnecting requests the profile's organization, and logging in
+  again to an account that is already there says so and explains how to
+  pick the other organization on claude.ai.
+- Validated with 128 automated tests.
+
 ## 1.0.2 — 2026-10-23
 
 - Fixed: inactive accounts stopped renewing their session whenever Claude
