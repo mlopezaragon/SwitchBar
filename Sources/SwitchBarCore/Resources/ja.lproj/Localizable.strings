@@ -13,6 +13,9 @@
 "account.active.detail" = "使用中のアカウント：%@";
 "account.empty.title" = "保存済みのアカウントはありません";
 "account.empty.explanation" = "各アカウントで Claude Code にサインインし、ここに表示されたら「保存」をクリックしてください。";
+"account.plan.personal" = "個人アカウント";
+"account.plan.organization" = "組織のアカウント";
+"account.plan.organization_named" = "組織「%@」のアカウント";
 
 "add_account.title.add" = "Claude Code アカウントを連携";
 "add_account.title.reconnect" = "もう一度サインイン";

@@ -13,6 +13,9 @@
 "account.active.detail" = "활성 계정: %@";
 "account.empty.title" = "저장된 계정 없음";
 "account.empty.explanation" = "각 계정으로 Claude Code에 로그인한 뒤 여기에 표시되면 “저장”을 클릭하세요.";
+"account.plan.personal" = "개인 계정";
+"account.plan.organization" = "조직 계정";
+"account.plan.organization_named" = "조직 “%@”의 계정";
 
 "add_account.title.add" = "Claude Code 계정 연결";
 "add_account.title.reconnect" = "다시 로그인";

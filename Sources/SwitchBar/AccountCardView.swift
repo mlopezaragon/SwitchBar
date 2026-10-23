@@ -43,6 +43,9 @@ struct AccountCardView: View {
                         .font(.system(size: 13, weight: .medium))
                         .lineLimit(1)
                         .truncationMode(.middle)
+                    if let plan = profile.plan {
+                        PlanBadge(plan: plan, organizationName: profile.organizationName)
+                    }
                     Spacer()
                     if isActive {
                         Text(L10n.tr("account.active"))

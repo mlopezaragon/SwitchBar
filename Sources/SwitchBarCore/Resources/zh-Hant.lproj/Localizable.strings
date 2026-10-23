@@ -13,6 +13,9 @@
 "account.active.detail" = "目前帳號：%@";
 "account.empty.title" = "沒有已儲存的帳號";
 "account.empty.explanation" = "請依序使用每個帳號登入 Claude Code，並在帳號顯示於此處時按一下「儲存」。";
+"account.plan.personal" = "個人帳號";
+"account.plan.organization" = "組織帳號";
+"account.plan.organization_named" = "組織「%@」的帳號";
 
 "add_account.title.add" = "連結 Claude Code 帳號";
 "add_account.title.reconnect" = "重新登入";

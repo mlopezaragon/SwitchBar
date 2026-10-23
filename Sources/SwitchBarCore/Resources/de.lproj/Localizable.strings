@@ -13,6 +13,9 @@
 "account.active.detail" = "Aktiver Account: %@";
 "account.empty.title" = "Keine gesicherten Accounts";
 "account.empty.explanation" = "Melde dich mit jedem Account bei Claude Code an und klicke auf „Sichern“, sobald er hier erscheint.";
+"account.plan.personal" = "Persönlicher Account";
+"account.plan.organization" = "Organisations-Account";
+"account.plan.organization_named" = "Account der Organisation „%@“";
 
 "add_account.title.add" = "Claude Code-Account verknüpfen";
 "add_account.title.reconnect" = "Erneut anmelden";

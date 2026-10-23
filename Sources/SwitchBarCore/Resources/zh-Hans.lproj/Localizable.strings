@@ -13,6 +13,9 @@
 "account.active.detail" = "当前账户：%@";
 "account.empty.title" = "没有已保存的账户";
 "account.empty.explanation" = "请依次使用每个账户登录 Claude Code，并在账户显示于此处时点按“保存”。";
+"account.plan.personal" = "个人账户";
+"account.plan.organization" = "组织账户";
+"account.plan.organization_named" = "组织“%@”的账户";
 
 "add_account.title.add" = "关联 Claude Code 账户";
 "add_account.title.reconnect" = "重新登录";

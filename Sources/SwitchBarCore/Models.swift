@@ -225,6 +225,33 @@ public struct AccountIdentity: Sendable, Equatable {
     }
 }
 
+// MARK: - Plan de la cuenta
+
+/// Plan de Claude al que pertenece una cuenta.
+public enum AccountPlan: String, Sendable, Equatable, CaseIterable {
+    case pro, max, team, enterprise
+
+    /// Team y Enterprise son cuentas de una organización; Pro y Max, personales.
+    public var isOrganization: Bool {
+        self == .team || self == .enterprise
+    }
+
+    /// Nombre comercial del plan, que Anthropic no traduce.
+    public var displayName: String {
+        rawValue.capitalized
+    }
+
+    /// Acepta tanto `organizationType` (`claude_team`) como `subscriptionType`
+    /// (`team`). Un valor desconocido no se asimila a ningún plan.
+    init?(rawType: String?) {
+        guard var type = rawType?.lowercased() else { return nil }
+        if type.hasPrefix("claude_") {
+            type = String(type.dropFirst("claude_".count))
+        }
+        self.init(rawValue: type)
+    }
+}
+
 // MARK: - Perfil guardado
 
 public struct AccountProfile: Codable, Identifiable, Sendable, Equatable {
@@ -245,6 +272,26 @@ public struct AccountProfile: Codable, Identifiable, Sendable, Equatable {
     public var sharedWeeklyCap: Double?
 
     public var id: String { accountUuid }
+
+    /// Plan de la cuenta. La fuente es `organizationType` del bloque de
+    /// identidad: en las cuentas Team el Llavero deja `subscriptionType`
+    /// vacío, así que ese campo solo sirve de respaldo.
+    public var plan: AccountPlan? {
+        AccountPlan(rawType: identityField("organizationType"))
+            ?? AccountPlan(rawType: subscriptionType)
+    }
+
+    /// Nombre de la organización. En las cuentas personales es uno genérico
+    /// («…'s Organization») que no aporta nada al usuario.
+    public var organizationName: String? {
+        identityField("organizationName")
+    }
+
+    private func identityField(_ key: String) -> String? {
+        let dict = try? JSONSerialization.jsonObject(with: identityJSON) as? [String: Any]
+        guard let value = dict?[key] as? String, !value.isEmpty else { return nil }
+        return value
+    }
 
     public init(identity: AccountIdentity, subscriptionType: String?, needsLogin: Bool = false,
                 refreshTokenFingerprint: String? = nil) {

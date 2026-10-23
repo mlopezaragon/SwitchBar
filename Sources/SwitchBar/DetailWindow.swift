@@ -106,13 +106,8 @@ struct DetailView: View {
                     .font(.system(size: 15, weight: .medium))
                     .lineLimit(1)
                     .truncationMode(.middle)
-                if let plan = profile.subscriptionType {
-                    Text(plan.capitalized)
-                        .font(.caption2.weight(.semibold))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Capsule().fill(.quaternary))
-                        .foregroundStyle(.secondary)
+                if let plan = profile.plan {
+                    PlanBadge(plan: plan, organizationName: profile.organizationName)
                 }
 
                 Spacer(minLength: 12)

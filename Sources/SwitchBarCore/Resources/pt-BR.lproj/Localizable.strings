@@ -13,6 +13,9 @@
 "account.active.detail" = "Conta ativa: %@";
 "account.empty.title" = "Nenhuma conta salva";
 "account.empty.explanation" = "Inicie sessão no Claude Code com cada conta e clique em “Salvar” quando ela aparecer aqui.";
+"account.plan.personal" = "Conta pessoal";
+"account.plan.organization" = "Conta de organização";
+"account.plan.organization_named" = "Conta da organização “%@”";
 
 "add_account.title.add" = "Vincular uma conta do Claude Code";
 "add_account.title.reconnect" = "Iniciar sessão novamente";

@@ -13,6 +13,9 @@
 "account.active.detail" = "Account attivo: %@";
 "account.empty.title" = "Nessun account salvato";
 "account.empty.explanation" = "Accedi a Claude Code con ogni account e fai clic su “Salva” quando appare qui.";
+"account.plan.personal" = "Account personale";
+"account.plan.organization" = "Account di un’organizzazione";
+"account.plan.organization_named" = "Account dell’organizzazione “%@”";
 
 "add_account.title.add" = "Collega un account Claude Code";
 "add_account.title.reconnect" = "Accedi di nuovo";
