@@ -1668,8 +1668,31 @@ final class AppState {
         guard !addAccountBusy else { return }
         reconnectingProfile = nil
         addAccountError = nil
+        addAccountOrganizationUuid = nil
         resetLoginFlow()
         addAccountVisible = true
+    }
+
+    /// Organización que se pide autorizar al añadir una cuenta; `nil` deja
+    /// la predeterminada. Con el mismo correo en una Max personal y en una
+    /// Team, el navegador autoriza siempre la predeterminada aunque se cambie
+    /// de organización en claude.ai: solo pidiéndola explícitamente se
+    /// consigue la otra.
+    var addAccountOrganizationUuid: String?
+
+    /// Organizaciones de equipo que ya aparecen en otras cuentas guardadas.
+    /// Son las únicas cuyo identificador conoce la app para pedirlas.
+    var knownTeamOrganizations: [OrganizationChoice] {
+        var seen = Set<String>()
+        return profilesList.compactMap { profile in
+            guard profile.plan?.isOrganization == true,
+                  let organization = profile.organizationUuid,
+                  seen.insert(organization).inserted else { return nil }
+            return OrganizationChoice(
+                id: organization,
+                name: profile.planLabel ?? organization
+            )
+        }
     }
 
     func beginReconnect(_ profile: AccountProfile) {
@@ -1696,6 +1719,7 @@ final class AppState {
         guard !addAccountBusy else { return }
         let flow = OAuthLoginFlow(
             organizationUuid: reconnectingProfile?.organizationUuid
+                ?? addAccountOrganizationUuid
         )
         loginFlow = flow
         enrollmentSession = OAuthEnrollmentSession(api: api, flow: flow)
@@ -1725,13 +1749,28 @@ final class AppState {
             let enrolled = try await enrollmentSession.complete(code: code)
             let identity = enrolled.identity
             let credentials = enrolled.credentials
+            let authorized = AccountProfile(
+                identity: identity,
+                subscriptionType: credentials.subscriptionType
+            )
             if let target, identity.id != target.id {
                 addAccountError = unexpectedReconnectMessage(
-                    actual: AccountProfile(
-                        identity: identity,
-                        subscriptionType: credentials.subscriptionType
-                    ),
+                    actual: authorized,
                     target: target
+                )
+                return
+            }
+            // Se pidió una organización y Anthropic autorizó otra: guardarla
+            // pisaría la sesión de esa otra organización sin que el usuario
+            // lo quisiera.
+            if target == nil,
+               let requested = flow.organizationUuid,
+               identity.organizationUuid != requested {
+                addAccountError = L10n.tr(
+                    "add_account.error.other_organization",
+                    displayName(for: authorized, withPlan: true),
+                    knownTeamOrganizations.first { $0.id == requested }?.name
+                        ?? requested
                 )
                 return
             }
@@ -1976,4 +2015,10 @@ final class AppState {
               let u = usageByAccount[uuid]?.fiveHour?.utilization else { return nil }
         return min(max(u / 100, 0), 1)
     }
+}
+
+/// Organización que se puede pedir al añadir una cuenta.
+struct OrganizationChoice: Identifiable, Hashable {
+    let id: String
+    let name: String
 }

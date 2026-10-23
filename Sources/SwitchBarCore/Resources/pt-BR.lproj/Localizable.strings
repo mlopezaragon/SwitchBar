@@ -157,8 +157,8 @@
 "state.account_added" = "Conta %@ adicionada.";
 "state.account_reconnected" = "Conta %@ reconectada.";
 "state.unexpected_reconnect_account" = "O login deixou %1$@ ativa, não %2$@. O navegador costuma autorizar a conta já conectada: saia do claude.ai (ou use uma janela anônima), refaça o login escolhendo %2$@ e clique em “Concluí” novamente.";
-"state.unexpected_reconnect_organization" = "Foi autorizada a organização %1$@ em vez de %2$@. O navegador autoriza a que estiver selecionada no claude.ai: troque-a pelo menu das suas iniciais e inicie sessão de novo.";
-"state.account_already_added" = "%@ já estava adicionada: as credenciais foram renovadas. Para adicionar outra organização com este e-mail, selecione-a antes no claude.ai, pelo menu das suas iniciais, e inicie sessão de novo.";
+"state.unexpected_reconnect_organization" = "Foi autorizada a organização %1$@ em vez de %2$@. Tente de novo e, se acontecer outra vez, verifique no claude.ai se a conta continua nessa organização.";
+"state.account_already_added" = "%@ já estava adicionada: as credenciais foram renovadas. Para adicionar outra organização com este e-mail, escolha-a em “Organização” antes de iniciar sessão.";
 "state.account_changed_while_saving" = "O Claude Code trocou de conta durante o salvamento. Verifique a conta ativa e tente novamente.";
 "state.enrollment_failed" = "Não foi possível adicionar a conta: %@";
 "state.shared_caps_failed" = "Não foi possível salvar os limites: %@";
@@ -200,7 +200,10 @@
 "add_account.open_sign_in" = "Entrar pelo navegador";
 "add_account.reopen_sign_in" = "Abrir o login novamente";
 "add_account.private_window_hint" = "A página oficial da Anthropic será aberta. Se o navegador já estiver conectado a outra conta, será ela a autorizada: use uma janela anônima ou saia do claude.ai antes.";
-"add_account.organization_hint" = "Seu e-mail está em mais de uma organização, como uma Max pessoal e uma Team? É autorizada a que estiver selecionada no claude.ai: troque-a antes pelo menu das suas iniciais.";
+"add_account.organization_hint" = "Com várias organizações no mesmo e-mail, o navegador autoriza a padrão. Escolha outra para solicitá-la.";
+"add_account.organization" = "Organização";
+"add_account.organization.default" = "A padrão";
+"add_account.error.other_organization" = "Foi autorizada %1$@ em vez de %2$@, então nada foi salvo. Verifique se a conta pertence a essa organização e tente de novo.";
 "add_account.paste_code_label" = "Cole aqui o código que o navegador mostra:";
 "add_account.paste_code_placeholder" = "Código de autorização";
 "add_account.save" = "Salvar conta";

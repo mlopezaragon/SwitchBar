@@ -157,8 +157,8 @@
 "state.account_added" = "Cuenta %@ añadida.";
 "state.account_reconnected" = "Cuenta %@ conectada de nuevo.";
 "state.unexpected_reconnect_account" = "El login dejó activa la sesión de %1$@, no la de %2$@. El navegador suele autorizar la cuenta que ya tiene abierta: cierra sesión en claude.ai (o usa una ventana privada), repite el login eligiendo %2$@ y vuelve a pulsar «Ya terminé».";
-"state.unexpected_reconnect_organization" = "Se autorizó la organización %1$@ en lugar de %2$@. El navegador autoriza la que tengas elegida en claude.ai: cámbiala desde el menú de tus iniciales y repite el inicio de sesión.";
-"state.account_already_added" = "%@ ya estaba añadida: se han renovado sus credenciales. Para añadir otra organización con este correo, elígela antes en claude.ai, desde el menú de tus iniciales, y repite el inicio de sesión.";
+"state.unexpected_reconnect_organization" = "Se autorizó la organización %1$@ en lugar de %2$@. Vuelve a intentarlo y, si se repite, comprueba en claude.ai que la cuenta sigue en esa organización.";
+"state.account_already_added" = "%@ ya estaba añadida: se han renovado sus credenciales. Para añadir otra organización con este correo, elígela en «Organización» antes de iniciar sesión.";
 "state.account_changed_while_saving" = "Claude Code cambió de cuenta durante el guardado. Comprueba la cuenta activa y vuelve a intentarlo.";
 "state.enrollment_failed" = "No se pudo completar el alta: %@";
 "state.shared_caps_failed" = "No se pudieron guardar los topes: %@";
@@ -200,7 +200,10 @@
 "add_account.open_sign_in" = "Iniciar sesión en el navegador";
 "add_account.reopen_sign_in" = "Volver a abrir el inicio de sesión";
 "add_account.private_window_hint" = "Se abrirá la página oficial de Anthropic. Si el navegador ya tiene otra cuenta abierta, autorizará esa: usa una ventana privada o cierra sesión antes en claude.ai.";
-"add_account.organization_hint" = "¿Tu correo está en varias organizaciones, como una Max personal y una Team? Se autoriza la que tengas elegida en claude.ai: cámbiala antes desde el menú de tus iniciales.";
+"add_account.organization_hint" = "Con varias organizaciones en el mismo correo, el navegador autoriza la predeterminada. Elige otra para pedir esa.";
+"add_account.organization" = "Organización";
+"add_account.organization.default" = "La predeterminada";
+"add_account.error.other_organization" = "Se autorizó %1$@ en lugar de %2$@, así que no se ha guardado nada. Comprueba que esa cuenta pertenece a la organización y vuelve a intentarlo.";
 "add_account.paste_code_label" = "Pega aquí el código que te muestra el navegador:";
 "add_account.paste_code_placeholder" = "Código de autorización";
 "add_account.save" = "Guardar cuenta";

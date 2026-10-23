@@ -12,6 +12,8 @@ public actor OAuthEnrollmentSession {
     private let api: AnthropicAPI
     private let flow: OAuthLoginFlow
     private var credentials: OAuthCredentials?
+    /// Organización que declara el canje del código.
+    private var tokenOrganizationUuid: String?
     private var result: EnrolledAccount?
     private var inFlight: Task<EnrolledAccount, Error>?
 
@@ -35,12 +37,23 @@ public actor OAuthEnrollmentSession {
                 code, verifier: flow.verifier, state: flow.state
             )
             credentials = try Self.credentials(from: tokens)
+            tokenOrganizationUuid = tokens.organizationUuid
         }
         guard let credentials else { throw AnthropicAPIError.malformedResponse }
         let identity = try await api.fetchProfile(accessToken: credentials.accessToken)
+        // Rastro para diagnosticar altas de cuentas con varias
+        // organizaciones: qué organización se pidió, cuál declara el token y
+        // cuál devuelve el perfil. Solo prefijos de identificadores.
+        Diagnostics.usage.log(
+            "alta: pedida \(Self.tag(self.flow.organizationUuid), privacy: .public), token \(Self.tag(self.tokenOrganizationUuid), privacy: .public), perfil \(Self.tag(identity.organizationUuid), privacy: .public)"
+        )
         let account = EnrolledAccount(identity: identity, credentials: credentials)
         result = account
         return account
+    }
+
+    private static func tag(_ organizationUuid: String?) -> String {
+        organizationUuid.map { String($0.prefix(8)) } ?? "—"
     }
 
     static func credentials(from tokens: RefreshedTokens, now: Date = Date()) throws -> OAuthCredentials {

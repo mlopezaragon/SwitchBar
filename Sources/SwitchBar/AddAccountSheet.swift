@@ -53,10 +53,40 @@ struct AddAccountSheet: View {
         .interactiveDismissDisabled(state.addAccountBusy)
     }
 
+    /// Con el mismo correo en varias organizaciones, el navegador autoriza
+    /// la predeterminada. El selector pide otra de las ya conocidas; si se
+    /// cambia después de abrir el navegador, «Volver a abrir» la aplica.
+    private var organizationPicker: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Picker(
+                L10n.tr("add_account.organization"),
+                selection: $state.addAccountOrganizationUuid
+            ) {
+                Text(L10n.tr("add_account.organization.default"))
+                    .tag(String?.none)
+                ForEach(state.knownTeamOrganizations) { organization in
+                    Text(organization.name).tag(String?.some(organization.id))
+                }
+            }
+            .pickerStyle(.menu)
+            .fixedSize()
+
+            Text(L10n.tr("add_account.organization_hint"))
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     /// Paso 1: abrir el navegador. Paso 2: pegar el código y guardar.
     @ViewBuilder
     private var directPath: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if state.reconnectingProfile == nil,
+               !state.knownTeamOrganizations.isEmpty {
+                organizationPicker
+            }
+
             Button {
                 state.startInAppLogin()
             } label: {
@@ -71,11 +101,6 @@ struct AddAccountSheet: View {
             .keyboardShortcut(state.loginFlow == nil ? .defaultAction : nil)
 
             Text(L10n.tr("add_account.private_window_hint"))
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text(L10n.tr("add_account.organization_hint"))
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
