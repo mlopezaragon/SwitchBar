@@ -108,10 +108,10 @@
 "auto_switch.trigger.weekly" = "O uso semanal geral atingiu %d%%.";
 "auto_switch.trigger.five_hour" = "A janela de 5 horas atingiu %d%%.";
 "auto_switch.next_reset" = "A primeira redefinição será %@.";
-"auto_switch.choice_explanation" = "Na troca, a conta cuja semana é redefinida primeiro é escolhida antes, porque a cota não usada até a redefinição é perdida. Uma conta que atingiu um limite configurado ou seu limite pessoal nunca é escolhida.";
-"auto_switch.expiring_quota" = "Usar antes a cota semanal que expira";
-"auto_switch.expiring_quota.explanation" = "Se faltarem menos de 24 horas para a semana de outra conta ser redefinida e ela ainda tiver pelo menos 10 pontos de margem, o SwitchBar troca para ela sem esperar um limite. Uma conta escolhida manualmente é mantida até atingir um limite.";
-"auto_switch.expiring.body" = "A semana dela está em %1$d%% e será redefinida %2$@: essa cota é usada antes de ser perdida. As sessões abertas permanecem na conta anterior.";
+"auto_switch.choice_explanation" = "Na troca, a conta cuja semana é redefinida primeiro é escolhida antes, mesmo que por minutos, porque a cota não usada até a redefinição é perdida. Contas Team, que não informam a semana geral, usam a redefinição do Fable. Uma conta que atingiu um limite configurado ou seu limite pessoal nunca é escolhida.";
+"auto_switch.expiring_quota" = "Modo autônomo: usar primeiro a cota que expira antes";
+"auto_switch.expiring_quota.explanation" = "O SwitchBar mantém ativa a conta cuja semana é redefinida primeiro e troca para ela sem esperar um limite assim que ela tiver pelo menos 15 pontos de margem, para que nenhuma cota seja perdida nas redefinições. Uma conta escolhida manualmente é mantida até atingir um limite. Uma conta que você deixar manualmente vai para o fim da fila até a redefinição semanal: talvez você saiba algo que o app não vê, como o limite semanal do Team.";
+"auto_switch.expiring.body" = "A semana dela será redefinida %@, antes da conta anterior: a cota dela é usada primeiro para não ser perdida. As sessões abertas permanecem na conta anterior.";
 
 "settings.title" = "Ajustes";
 "settings.refresh_frequency" = "Atualização das outras contas";

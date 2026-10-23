@@ -270,20 +270,26 @@ private let agotada = cuenta("a", fiveHour: 95, sevenDay: 40, semanaEn: 120)
         all: [
             cuenta("b", fiveHour: 40, sevenDay: 50, semanaEn: 24),
             cuenta("c", fiveHour: 0, sevenDay: 10, semanaEn: 120)
-        ],
-        now: ahora
+        ]
     )
     #expect(decision == "b")
 }
 
-@Test func reiniciosCercanosSeDesempatanPorElUsoDeCincoHoras() {
+@Test func unaHoraDeDiferenciaEnElReinicioYaDecide() {
+    // El caso del usuario: una Team al 0 % que se reinicia en 3 h frente a
+    // otra cuenta que se reinicia en 4 h. Gana la de 3 h.
+    let team = cuenta("b", fiveHour: 0, sevenDay: nil, opus: 0, fableEn: 3, semanaNoInformada: true)
+    let otra = cuenta("c", fiveHour: 0, sevenDay: 20, semanaEn: 4)
+    #expect(politica.decision(active: agotada, all: [otra, team]) == "b")
+}
+
+@Test func elMismoReinicioSeDesempataPorElUsoDeCincoHoras() {
     let decision = politica.decision(
         active: agotada,
         all: [
             cuenta("b", fiveHour: 40, sevenDay: 50, semanaEn: 24),
-            cuenta("c", fiveHour: 10, sevenDay: 50, semanaEn: 26)
-        ],
-        now: ahora
+            cuenta("c", fiveHour: 10, sevenDay: 50, semanaEn: 24)
+        ]
     )
     #expect(decision == "c")
 }
@@ -295,8 +301,7 @@ private let agotada = cuenta("a", fiveHour: 95, sevenDay: 40, semanaEn: 120)
         all: [
             cuenta("b", fiveHour: 0, sevenDay: 0),
             cuenta("c", fiveHour: 30, sevenDay: 60, semanaEn: 100)
-        ],
-        now: ahora
+        ]
     )
     #expect(decision == "c")
 }
@@ -306,8 +311,8 @@ private let agotada = cuenta("a", fiveHour: 95, sevenDay: 40, semanaEn: 120)
     // cambiar enseguida.
     let apretada = cuenta("b", fiveHour: 10, sevenDay: 92, semanaEn: 12)
     let holgada = cuenta("c", fiveHour: 20, sevenDay: 30, semanaEn: 140)
-    #expect(politica.decision(active: agotada, all: [apretada, holgada], now: ahora) == "c")
-    #expect(politica.decision(active: agotada, all: [apretada], now: ahora) == "b")
+    #expect(politica.decision(active: agotada, all: [apretada, holgada]) == "c")
+    #expect(politica.decision(active: agotada, all: [apretada]) == "b")
 }
 
 @Test func laCuentaQueYaAlcanzoSuLimiteNuncaSeElige() {
@@ -318,8 +323,7 @@ private let agotada = cuenta("a", fiveHour: 95, sevenDay: 40, semanaEn: 120)
         all: [
             cuenta("b", fiveHour: 0, sevenDay: 96, semanaEn: 1),
             cuenta("c", fiveHour: 50, sevenDay: 20, semanaEn: 150)
-        ],
-        now: ahora
+        ]
     )
     #expect(decision == "c")
 }
@@ -335,8 +339,7 @@ private let agotada = cuenta("a", fiveHour: 95, sevenDay: 40, semanaEn: 120)
     #expect(politica.rejection(for: escalada) == .atLimit)
     let decision = politica.decision(
         active: agotada,
-        all: [escalada, cuenta("c", fiveHour: 0, sevenDay: 20, semanaEn: 150)],
-        now: ahora
+        all: [escalada, cuenta("c", fiveHour: 0, sevenDay: 20, semanaEn: 150)]
     )
     #expect(decision == "c")
 }
@@ -344,17 +347,17 @@ private let agotada = cuenta("a", fiveHour: 95, sevenDay: 40, semanaEn: 120)
 @Test func enTeamElReinicioDeFableEstimaElDeLaSemana() {
     let team = cuenta("b", fiveHour: 30, sevenDay: nil, opus: 0, fableEn: 20, semanaNoInformada: true)
     let max = cuenta("c", fiveHour: 0, sevenDay: 20, semanaEn: 100)
-    #expect(politica.decision(active: agotada, all: [team, max], now: ahora) == "b")
+    #expect(politica.decision(active: agotada, all: [team, max]) == "b")
 }
 
-// MARK: - Adelantarse al cupo que caduca
+// MARK: - Gestión autónoma
 
-private let anticipa = AutoSwitchPolicy(anticipatesExpiringQuota: true)
+private let autonoma = AutoSwitchPolicy(anticipatesExpiringQuota: true)
 private let activaHolgada = cuenta("a", fiveHour: 30, sevenDay: 40, semanaEn: 100)
 
-@Test func seAdelantaAUnCupoSemanalQueVaAPerderse() {
+@Test func cambiaSinEsperarALaCuentaQueCaducaAntes() {
     let caduca = cuenta("b", fiveHour: 0, sevenDay: 60, semanaEn: 10)
-    #expect(anticipa.expiringQuotaTarget(active: activaHolgada, all: [activaHolgada, caduca], now: ahora) == "b")
+    #expect(autonoma.expiringQuotaTarget(active: activaHolgada, all: [activaHolgada, caduca], now: ahora) == "b")
 }
 
 @Test func sinActivarNoSeAdelanta() {
@@ -362,43 +365,67 @@ private let activaHolgada = cuenta("a", fiveHour: 30, sevenDay: 40, semanaEn: 10
     #expect(politica.expiringQuotaTarget(active: activaHolgada, all: [caduca], now: ahora) == nil)
 }
 
-@Test func noSeAdelantaPorPocoMargenNiPorUnReinicioLejano() {
-    let pocoMargen = cuenta("b", fiveHour: 0, sevenDay: 88, semanaEn: 10)
-    let lejana = cuenta("c", fiveHour: 0, sevenDay: 10, semanaEn: 30)
-    #expect(anticipa.expiringQuotaTarget(active: activaHolgada, all: [pocoMargen, lejana], now: ahora) == nil)
+@Test func enModoAutonomoTresHorasGananACuatro() {
+    // Activa: se reinicia en 4 h. Una Team al 0 % se reinicia en 3 h.
+    let activa = cuenta("a", fiveHour: 20, sevenDay: 50, semanaEn: 4)
+    let team = cuenta("b", fiveHour: 0, sevenDay: nil, opus: 0, fableEn: 3, semanaNoInformada: true)
+    #expect(autonoma.expiringQuotaTarget(active: activa, all: [activa, team], now: ahora) == "b")
+    // Y desde la Team no se vuelve a la de 4 h mientras la Team aguante.
+    #expect(autonoma.expiringQuotaTarget(active: team, all: [activa, team], now: ahora) == nil)
 }
 
-@Test func noSeAdelantaSiLaActivaCaducaAntesOCasiALaVez() {
+@Test func noSeAdelantaPorUnReinicioCasiSimultaneo() {
     let caduca = cuenta("b", fiveHour: 0, sevenDay: 30, semanaEn: 10)
     let activaAntes = cuenta("a", fiveHour: 30, sevenDay: 40, semanaEn: 8)
-    let activaCasiIgual = cuenta("a", fiveHour: 30, sevenDay: 40, semanaEn: 14)
-    #expect(anticipa.expiringQuotaTarget(active: activaAntes, all: [caduca], now: ahora) == nil)
-    #expect(anticipa.expiringQuotaTarget(active: activaCasiIgual, all: [caduca], now: ahora) == nil)
+    let activaCasiIgual = cuenta("a", fiveHour: 30, sevenDay: 40, semanaEn: 10.25)
+    #expect(autonoma.expiringQuotaTarget(active: activaAntes, all: [caduca], now: ahora) == nil)
+    #expect(autonoma.expiringQuotaTarget(active: activaCasiIgual, all: [caduca], now: ahora) == nil)
 }
 
-@Test func noSeAdelantaAUnaCuentaSinMargenDeCincoHorasOEnSuLimite() {
-    let sinCincoHoras = cuenta("b", fiveHour: 88, sevenDay: 30, semanaEn: 10)
+@Test func noSeAdelantaAUnaCuentaConPocoMargen() {
+    // Con 10 puntos de margen se gastaría enseguida: no compensa moverse.
+    let pocoMargenSemanal = cuenta("b", fiveHour: 0, sevenDay: 85, semanaEn: 10)
+    let pocoMargenCincoHoras = cuenta("c", fiveHour: 80, sevenDay: 30, semanaEn: 10)
+    #expect(
+        autonoma.expiringQuotaTarget(
+            active: activaHolgada, all: [pocoMargenSemanal, pocoMargenCincoHoras], now: ahora
+        ) == nil
+    )
+}
+
+@Test func noSeAdelantaAUnaCuentaEnSuLimite() {
     let conFable = AutoSwitchPolicy(considersFable: true, anticipatesExpiringQuota: true)
     let fableAgotado = cuenta("c", fiveHour: 0, sevenDay: 30, semanaEn: 10, opus: 97, fableEn: 10)
-    #expect(anticipa.expiringQuotaTarget(active: activaHolgada, all: [sinCincoHoras], now: ahora) == nil)
-    #expect(conFable.expiringQuotaTarget(active: activaHolgada, all: [fableAgotado], now: ahora) == nil)
+    let semanaAgotada = cuenta("d", fiveHour: 0, sevenDay: 96, semanaEn: 2)
+    #expect(conFable.expiringQuotaTarget(active: activaHolgada, all: [fableAgotado, semanaAgotada], now: ahora) == nil)
 }
 
-@Test func noSeAdelantaAUnaSemanaQueNoSeInforma() {
-    // Team: no se sabe cuánto le queda, así que no se puede afirmar que
-    // vaya a perderse nada.
-    let team = cuenta("b", fiveHour: 0, sevenDay: nil, opus: 0, fableEn: 10, semanaNoInformada: true)
-    #expect(anticipa.expiringQuotaTarget(active: activaHolgada, all: [team], now: ahora) == nil)
+@Test func unaActivaSinSemanaEmpezadaCedeAnteCualquierCupoQueCaduque() {
+    let activa = cuenta("a", fiveHour: 10, sevenDay: 0)
+    let caduca = cuenta("b", fiveHour: 0, sevenDay: 50, semanaEn: 150)
+    #expect(autonoma.expiringQuotaTarget(active: activa, all: [caduca], now: ahora) == "b")
 }
 
 @Test func conLaActivaEnUnLimiteMandaElCambioOrdinario() {
     let caduca = cuenta("b", fiveHour: 0, sevenDay: 30, semanaEn: 10)
-    #expect(anticipa.expiringQuotaTarget(active: agotada, all: [caduca], now: ahora) == nil)
-    #expect(anticipa.decision(active: agotada, all: [caduca], now: ahora) == "b")
+    #expect(autonoma.expiringQuotaTarget(active: agotada, all: [caduca], now: ahora) == nil)
+    #expect(autonoma.decision(active: agotada, all: [caduca]) == "b")
 }
 
 @Test func entreVariasQueCaducanSeEligeLaPrimera() {
     let antes = cuenta("b", fiveHour: 20, sevenDay: 50, semanaEn: 4)
     let despues = cuenta("c", fiveHour: 0, sevenDay: 20, semanaEn: 20)
-    #expect(anticipa.expiringQuotaTarget(active: activaHolgada, all: [despues, antes], now: ahora) == "b")
+    #expect(autonoma.expiringQuotaTarget(active: activaHolgada, all: [despues, antes], now: ahora) == "b")
+}
+
+@Test func unaCuentaQueElUsuarioAbandonoQuedaParaElFinal() {
+    var abandonada = cuenta("b", fiveHour: 0, sevenDay: nil, opus: 0, fableEn: 3, semanaNoInformada: true)
+    abandonada.leftByUser = true
+    let otra = cuenta("c", fiveHour: 0, sevenDay: 20, semanaEn: 100)
+    // El modo autónomo no vuelve a ella por su cuenta...
+    #expect(autonoma.expiringQuotaTarget(active: activaHolgada, all: [abandonada, otra], now: ahora) == nil)
+    // ...al cambiar por un límite va detrás de las demás...
+    #expect(politica.decision(active: agotada, all: [abandonada, otra]) == "c")
+    // ...y solo se usa si no queda otra.
+    #expect(politica.decision(active: agotada, all: [abandonada]) == "b")
 }

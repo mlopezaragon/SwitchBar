@@ -5,11 +5,17 @@ public struct AccountUsageState: Sendable {
     public var id: String
     public var usage: UsageSnapshot?
     public var needsLogin: Bool
+    /// El usuario salió a mano de esta cuenta y aún no ha llegado su reinicio
+    /// semanal. Puede saber algo que la app no ve, como el límite semanal de
+    /// Team, que Anthropic no informa: la cuenta queda para el final y el
+    /// modo autónomo no vuelve a ella por su cuenta.
+    public var leftByUser: Bool
 
-    public init(id: String, usage: UsageSnapshot?, needsLogin: Bool) {
+    public init(id: String, usage: UsageSnapshot?, needsLogin: Bool, leftByUser: Bool = false) {
         self.id = id
         self.usage = usage
         self.needsLogin = needsLogin
+        self.leftByUser = leftByUser
     }
 }
 
@@ -34,11 +40,12 @@ public enum CandidateRejection: Sendable, Equatable {
 /// relevantes por debajo de sus respectivos umbrales. Una cuenta en su umbral
 /// nunca es destino, por mucho cupo que le vaya a caducar.
 /// Elección, por este orden:
+/// 0. Las que el usuario no ha abandonado a mano (`leftByUser`) van antes.
 /// 1. Las que tienen margen útil (`minimumUsefulRoom`) en todas sus ventanas
 ///    van antes que las que obligarían a cambiar otra vez a los pocos minutos.
-/// 2. La que antes reinicia su semana. Lo que no se gasta antes del reinicio
-///    se pierde; las que reinician más tarde conservan su cupo para después.
-///    Reinicios separados por menos de `deadlineTolerance` cuentan como uno.
+/// 2. La que antes reinicia su semana, aunque sea por minutos. Lo que no se
+///    gasta antes del reinicio se pierde; las que reinician más tarde
+///    conservan su cupo para después.
 /// 3. Menor uso de 5 h.
 /// 4. Mayor margen ponderado de los cupos semanales que estén habilitados.
 public struct AutoSwitchPolicy: Sendable {
@@ -46,21 +53,20 @@ public struct AutoSwitchPolicy: Sendable {
     public var weeklyThreshold: Double
     public var fableThreshold: Double
     public var considersFable: Bool
-    /// Cambiar sin esperar a un límite cuando otra cuenta está a punto de
-    /// perder su cupo semanal. Ver `expiringQuotaTarget`.
+    /// Gestión autónoma: cambiar sin esperar a un límite a la cuenta cuyo
+    /// cupo semanal caduca antes. Ver `expiringQuotaTarget`.
     public var anticipatesExpiringQuota: Bool
 
     /// Puntos hasta el umbral por debajo de los cuales una cuenta solo sirve
     /// de último recurso: se gastarían en minutos y habría que volver a cambiar.
     public static let minimumUsefulRoom: Double = 5
-    /// Dos reinicios semanales así de próximos valen lo mismo: entre ellos
-    /// decide el margen, que ahorra cambios.
-    public static let deadlineTolerance: TimeInterval = 6 * 3_600
-    /// Cuánto antes del reinicio semanal se considera que un cupo sin gastar
-    /// corre peligro de perderse.
-    public static let expiringHorizon: TimeInterval = 24 * 3_600
-    /// Margen semanal mínimo que justifica adelantarse a un límite.
-    public static let expiringMinimumRoom: Double = 10
+    /// Cuánto antes debe caducar el cupo de otra cuenta para cambiar a ella
+    /// sin esperar a un límite. Por debajo, el cambio no aprovecha nada.
+    public static let anticipationMargin: TimeInterval = 30 * 60
+    /// Margen mínimo, en todas sus ventanas informadas, de la cuenta a la que
+    /// se adelanta el cambio. Con menos se gastaría enseguida y habría que
+    /// volver a cambiar, solo para regresar en su siguiente ventana de 5 h.
+    public static let anticipationMinimumRoom: Double = 15
 
     public init(
         triggerThreshold: Double = 90,
@@ -155,46 +161,45 @@ public struct AutoSwitchPolicy: Sendable {
         usage.sevenDay?.resetsAt ?? usage.sevenDayOpus?.resetsAt
     }
 
-    /// Clave de orden de una candidata: menor es mejor.
+    /// Clave de orden de una candidata: menor es mejor. Una semana sin fecha
+    /// de reinicio va la última: su cupo no caduca.
     private func rank(
-        _ account: AccountUsageState,
-        now: Date
-    ) -> (Int, Int, Double, Double) {
+        _ account: AccountUsageState
+    ) -> (Int, Int, Double, Double, Double) {
+        let left = account.leftByUser ? 1 : 0
         let cramped = usefulRoom(account) < Self.minimumUsefulRoom ? 1 : 0
-        let deadline = account.usage.flatMap(weeklyDeadline).map {
-            Int(max(0, $0.timeIntervalSince(now)) / Self.deadlineTolerance)
-        } ?? Int.max
-        return (cramped, deadline, fiveHourUtilization(account), -weeklyMargin(account))
+        let deadline = account.usage.flatMap(weeklyDeadline)?.timeIntervalSince1970 ?? .infinity
+        return (left, cramped, deadline, fiveHourUtilization(account), -weeklyMargin(account))
     }
 
     /// La mejor cuenta a la que cambiar, o nil si ninguna candidata sirve.
     public func bestCandidate(
         active: AccountUsageState,
-        others: [AccountUsageState],
-        now: Date = Date()
+        others: [AccountUsageState]
     ) -> String? {
         let candidates = others.filter { $0.id != active.id && isCandidate($0) }
-        return candidates.min { rank($0, now: now) < rank($1, now: now) }?.id
+        return candidates.min { rank($0) < rank($1) }?.id
     }
 
     /// Decisión completa: a qué cuenta cambiar dada la situación actual, o nil.
     public func decision(
         active: AccountUsageState,
-        all: [AccountUsageState],
-        now: Date = Date()
+        all: [AccountUsageState]
     ) -> String? {
         guard shouldSwitch(active: active) else { return nil }
-        return bestCandidate(active: active, others: all, now: now)
+        return bestCandidate(active: active, others: all)
     }
 
     /// Cuenta a la que conviene cambiar aunque la activa no esté en ningún
     /// límite, o nil.
     ///
-    /// Una cuenta cuya semana se reinicia dentro de `expiringHorizon` y a la
-    /// que aún le quedan `expiringMinimumRoom` puntos va a perder ese cupo si
-    /// nadie lo usa. Si la activa se reinicia claramente más tarde, gastar
-    /// antes el que caduca no cuesta nada: la activa conserva el suyo. Solo
-    /// cuenta la semana general informada: sin ella no se sabe cuánto queda.
+    /// Mantiene activa la cuenta cuyo cupo semanal caduca antes: si otra con
+    /// margen holgado (`anticipationMinimumRoom`) se reinicia al menos
+    /// `anticipationMargin` antes que la activa, gastar primero el suyo no
+    /// cuesta nada y la activa conserva el propio para después. Los umbrales
+    /// se respetan igual que en cualquier cambio. En Team, cuya semana general
+    /// no se informa, cuentan las ventanas que sí se informan y el reinicio
+    /// de Fable.
     public func expiringQuotaTarget(
         active: AccountUsageState,
         all: [AccountUsageState],
@@ -204,19 +209,17 @@ public struct AutoSwitchPolicy: Sendable {
               let activeUsage = active.usage,
               !shouldSwitch(active: active) else { return nil }
         let activeDeadline = weeklyDeadline(activeUsage)
-        let expiring = all.filter { account in
+        let expiringFirst = all.filter { account in
             guard account.id != active.id,
+                  !account.leftByUser,
                   isCandidate(account),
-                  usefulRoom(account) >= Self.minimumUsefulRoom,
-                  let weekly = account.usage?.sevenDay,
-                  let deadline = weekly.resetsAt,
-                  deadline > now,
-                  deadline.timeIntervalSince(now) <= Self.expiringHorizon,
-                  weeklyThreshold - weekly.utilization >= Self.expiringMinimumRoom
+                  usefulRoom(account) >= Self.anticipationMinimumRoom,
+                  let deadline = account.usage.flatMap(weeklyDeadline),
+                  deadline > now
             else { return false }
             guard let activeDeadline else { return true }
-            return deadline.addingTimeInterval(Self.deadlineTolerance) < activeDeadline
+            return deadline.addingTimeInterval(Self.anticipationMargin) <= activeDeadline
         }
-        return bestCandidate(active: active, others: expiring, now: now)
+        return bestCandidate(active: active, others: expiringFirst)
     }
 }

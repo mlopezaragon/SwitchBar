@@ -18,18 +18,19 @@ política automática.
   semanal independiente de Fable, con su hora de reinicio.
 - Cambio de cuenta activa con un clic, con deshacer.
 - Cambio automático con umbrales independientes y configurables. Elige la
-  cuenta cuya semana se reinicia antes, porque el cupo que no se usa antes
-  del reinicio se pierde, y nunca una cuenta que esté en un umbral o en su
-  tope personal. Opcionalmente se adelanta a una cuenta cuya semana se
-  reinicia en menos de 24 horas y aún tiene margen. El panel marca la
-  siguiente cuenta.
+  cuenta cuya semana se reinicia antes, aunque sea por minutos, porque el
+  cupo que no se usa antes del reinicio se pierde, y nunca una cuenta que
+  esté en un umbral o en su tope personal. En modo autónomo (activado por
+  omisión) mantiene activa esa cuenta por sí sola, sin esperar a un límite.
+  El panel marca la siguiente cuenta.
 - Cuentas compartidas: define un tope personal (por ejemplo 70 %) para que
   la app trate la cuenta como agotada antes y deje margen a la otra persona.
 - Estado público de Anthropic (status.claude.com) durante incidencias, para
   no confundir una caída del servidor con un problema local.
 - Tras un `/login` manual, el cambio automático se pausa 15 minutos: tu
   elección explícita manda. Una cuenta elegida a mano solo se abandona al
-  llegar a un límite.
+  llegar a un límite, y la que dejes a mano queda para el final hasta su
+  reinicio semanal.
 - Localizada en 10 idiomas. Sin telemetría de ningún tipo.
 
 ## Requisitos

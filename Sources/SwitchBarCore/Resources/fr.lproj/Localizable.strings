@@ -108,10 +108,10 @@
 "auto_switch.trigger.weekly" = "L’utilisation hebdomadaire générale a atteint %d %%.";
 "auto_switch.trigger.five_hour" = "La fenêtre de 5 heures a atteint %d %%.";
 "auto_switch.next_reset" = "La première réinitialisation aura lieu %@.";
-"auto_switch.choice_explanation" = "Lors d’un changement, le compte dont la semaine se réinitialise en premier est choisi en priorité, car le quota non utilisé avant la réinitialisation est perdu. Un compte ayant atteint un seuil ou son plafond personnel n’est jamais choisi.";
-"auto_switch.expiring_quota" = "Utiliser d’abord le quota hebdomadaire qui expire";
-"auto_switch.expiring_quota.explanation" = "Si la semaine d’un autre compte se réinitialise dans moins de 24 heures et qu’il lui reste au moins 10 points de marge, SwitchBar passe à ce compte sans attendre une limite. Un compte choisi à la main est conservé jusqu’à ce qu’il atteigne une limite.";
-"auto_switch.expiring.body" = "Sa semaine est à %1$d %% et se réinitialise %2$@ : ce quota est utilisé avant d’être perdu. Les sessions ouvertes restent associées au compte précédent.";
+"auto_switch.choice_explanation" = "Lors d’un changement, le compte dont la semaine se réinitialise en premier est choisi en priorité, même à quelques minutes près, car le quota non utilisé avant la réinitialisation est perdu. Les comptes Team, qui n’indiquent pas leur semaine générale, utilisent la réinitialisation de Fable. Un compte ayant atteint un seuil ou son plafond personnel n’est jamais choisi.";
+"auto_switch.expiring_quota" = "Mode autonome : utiliser d’abord le quota qui expire en premier";
+"auto_switch.expiring_quota.explanation" = "SwitchBar garde actif le compte dont la semaine se réinitialise en premier et y passe sans attendre une limite dès qu’il lui reste au moins 15 points de marge, afin qu’aucun quota ne soit perdu lors d’une réinitialisation. Un compte choisi à la main est conservé jusqu’à ce qu’il atteigne une limite. Un compte que vous quittez à la main passe en dernier jusqu’à sa réinitialisation hebdomadaire : vous savez peut-être ce que l’app ne voit pas, comme la limite hebdomadaire de Team.";
+"auto_switch.expiring.body" = "Sa semaine se réinitialise %@, avant celle du compte précédent : son quota est utilisé en premier pour ne pas être perdu. Les sessions ouvertes restent associées au compte précédent.";
 
 "settings.title" = "Réglages";
 "settings.refresh_frequency" = "Actualisation des autres comptes";

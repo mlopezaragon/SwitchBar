@@ -19,6 +19,7 @@ public final class AppPreferences: @unchecked Sendable {
         static let useFableForAutoSwitch = "useFableForAutoSwitch"
         static let anticipateExpiringQuota = "anticipateExpiringQuota"
         static let manuallyChosenProfileID = "manuallyChosenProfileID"
+        static let leftByUserUntil = "leftByUserUntilByProfile"
         static let pollIntervalSeconds = "pollIntervalSeconds"
         static let lastObservedAccountUuid = "lastObservedAccountUuid"
         static let usageRateLimitedUntilByAccount =
@@ -108,6 +109,13 @@ public final class AppPreferences: @unchecked Sendable {
                 defaults.removeObject(forKey: Key.manuallyChosenProfileID)
             }
         }
+    }
+
+    /// Cuentas de las que el usuario salió a mano, con la fecha hasta la que
+    /// el cambio automático las deja para el final (su reinicio semanal).
+    public var leftByUserTimestamps: [String: TimeInterval] {
+        get { timestamps(forKey: Key.leftByUserUntil) }
+        set { defaults.set(newValue, forKey: Key.leftByUserUntil) }
     }
 
     public var pollIntervalSeconds: Double {

@@ -49,4 +49,11 @@ func adelantarseAlCupoQueCaducaEstaActivadoYSeRecuerdaLaEleccionManual() throws 
     #expect(reopened.manuallyChosenProfileID == "cuenta-a/org-1")
     reopened.manuallyChosenProfileID = nil
     #expect(reopened.manuallyChosenProfileID == nil)
+
+    #expect(reopened.leftByUserTimestamps.isEmpty)
+    reopened.leftByUserTimestamps = ["cuenta-b": 1_800_000_000]
+    let again = AppPreferences(
+        defaults: try #require(UserDefaults(suiteName: suiteName))
+    )
+    #expect(again.leftByUserTimestamps == ["cuenta-b": 1_800_000_000])
 }

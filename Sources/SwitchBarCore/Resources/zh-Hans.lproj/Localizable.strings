@@ -108,10 +108,10 @@
 "auto_switch.trigger.weekly" = "每周总用量已达到 %d%%。";
 "auto_switch.trigger.five_hour" = "5 小时窗口已达到 %d%%。";
 "auto_switch.next_reset" = "最早重置时间为 %@。";
-"auto_switch.choice_explanation" = "切换时优先选择每周额度最先重置的账户，因为重置前未用完的额度会作废。已达到阈值或个人上限的账户绝不会被选中。";
-"auto_switch.expiring_quota" = "优先使用即将过期的每周额度";
-"auto_switch.expiring_quota.explanation" = "如果另一个账户的每周额度将在 24 小时内重置，且仍有至少 10 个百分点的余量，SwitchBar 会直接切换过去，不必等到达到上限。手动选择的账户会一直保留，直到达到上限。";
-"auto_switch.expiring.body" = "其每周用量为 %1$d%%，将于%2$@重置：在作废前先用掉这部分额度。已打开的会话仍保留在原账户。";
+"auto_switch.choice_explanation" = "切换时优先选择每周额度最先重置的账户，哪怕只早几分钟，因为重置前未用完的额度会作废。不报告每周总用量的 Team 账户使用 Fable 的重置时间。已达到阈值或个人上限的账户绝不会被选中。";
+"auto_switch.expiring_quota" = "自主模式：优先使用最先过期的额度";
+"auto_switch.expiring_quota.explanation" = "SwitchBar 会让每周额度最先重置的账户保持为当前账户：只要它还有至少 15 个百分点的余量，就会直接切换过去，不必等到达到上限，以免额度在重置时作废。手动选择的账户会一直保留，直到达到上限。 手动离开的账户会排到最后，直到其每周重置：你可能知道应用看不到的情况，例如 Team 的每周上限。";
+"auto_switch.expiring.body" = "其每周额度将于%@重置，早于原账户：先用掉这部分额度以免作废。已打开的会话仍保留在原账户。";
 
 "settings.title" = "设置";
 "settings.refresh_frequency" = "其他账户刷新间隔";

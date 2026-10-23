@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.2.0 — 2026-10-23
+
+- Weekly resets are compared exactly. 1.1.0 treated resets less than 6
+  hours apart as a tie, so an account resetting in 3 hours could lose to
+  one resetting in 4. Now the earlier one always wins; the 5-hour usage
+  only breaks exact ties.
+- Autonomous mode replaces "Use expiring weekly quota early" (same setting,
+  still on by default). SwitchBar keeps the account whose week resets first
+  active: it moves to another account without waiting for a limit whenever
+  that account resets at least 30 minutes earlier and has at least 15 points
+  of room on every reported window. The 24-hour horizon and the 10-point
+  weekly minimum are gone.
+- Team accounts take part in autonomous mode, using their Fable reset as
+  the weekly one. Their general week is still not reported, so only the
+  reported windows are checked.
+- An account the user leaves by hand (click, undo or `/login`) goes to the
+  back of the line until its weekly reset, at most 7 days, and autonomous
+  mode does not move back to it on its own. The user may know something
+  the app cannot see, such as a Team seat at its weekly limit.
+- Validated with 147 automated tests.
+
 ## 1.1.0 — 2026-10-23
 
 - Automatic switching picks the destination by when its weekly quota

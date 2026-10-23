@@ -108,10 +108,10 @@
 "auto_switch.trigger.weekly" = "每週一般用量已達到 %d%%。";
 "auto_switch.trigger.five_hour" = "5 小時時段已達到 %d%%。";
 "auto_switch.next_reset" = "最早重設時間為 %@。";
-"auto_switch.choice_explanation" = "切換時優先選擇每週額度最先重設的帳號，因為重設前未用完的額度會失效。已達到門檻或個人上限的帳號絕不會被選中。";
-"auto_switch.expiring_quota" = "優先使用即將到期的每週額度";
-"auto_switch.expiring_quota.explanation" = "如果另一個帳號的每週額度將在 24 小時內重設，且仍有至少 10 個百分點的餘量，SwitchBar 會直接切換過去，不必等到達到上限。手動選擇的帳號會一直保留，直到達到上限。";
-"auto_switch.expiring.body" = "其每週用量為 %1$d%%，將於%2$@重設：在失效前先用掉這部分額度。已開啟的工作階段仍保留在原帳號。";
+"auto_switch.choice_explanation" = "切換時優先選擇每週額度最先重設的帳號，即使只早幾分鐘，因為重設前未用完的額度會失效。不回報每週一般用量的 Team 帳號使用 Fable 的重設時間。已達到門檻或個人上限的帳號絕不會被選中。";
+"auto_switch.expiring_quota" = "自主模式：優先使用最先到期的額度";
+"auto_switch.expiring_quota.explanation" = "SwitchBar 會讓每週額度最先重設的帳號保持為目前帳號：只要它還有至少 15 個百分點的餘量，就會直接切換過去，不必等到達到上限，以免額度在重設時失效。手動選擇的帳號會一直保留，直到達到上限。 手動離開的帳號會排到最後，直到其每週重設：你可能知道應用程式看不到的情況，例如 Team 的每週上限。";
+"auto_switch.expiring.body" = "其每週額度將於%@重設，早於原帳號：先用掉這部分額度以免失效。已開啟的工作階段仍保留在原帳號。";
 
 "settings.title" = "設定";
 "settings.refresh_frequency" = "其他帳戶重新整理間隔";

@@ -122,6 +122,9 @@ final class AppState {
     /// hagan saltar de una cuenta a otra.
     private var lastAutomaticSwitchAt: Date?
     private let expiringQuotaSwitchCooldown: TimeInterval = 10 * 60
+    /// Cuentas de las que el usuario salió a mano, hasta su reinicio semanal.
+    /// Ver `AccountUsageState.leftByUser`.
+    private var leftByUserUntil: [String: Date] = [:]
 
     // MARK: Ciclo de vida
 
@@ -157,6 +160,10 @@ final class AppState {
             preferences.renewalCooldownTimestamps
         )
         self.renewalBlockedAccounts = preferences.renewalBlockedAccounts
+        self.leftByUserUntil = Self.loadCooldowns(
+            preferences.leftByUserTimestamps,
+            maximum: 7 * 24 * 3_600
+        )
         // Herencia de una versión que insistía contra el endpoint de
         // renovación hasta dejar todas las cuentas castigadas medio día.
         // Con el reparto de turnos ya corregido, arrastrar ese castigo solo
@@ -223,7 +230,7 @@ final class AppState {
                 // La identidad cambió mientras SwitchBar estaba cerrado:
                 // esta sí es una elección externa que conviene respetar.
                 self.manualLoginAt = Date()
-                self.preferences.manuallyChosenProfileID = initialProfileID
+                self.recordManualChoice(initialProfileID, leaving: previouslyObserved)
             }
             self.preferences.lastObservedAccountUuid = initialProfileID
             while !Task.isCancelled {
@@ -240,6 +247,7 @@ final class AppState {
                 }
                 guard let identity else { continue }
 
+                let previousProfileID = self.identityTracker.profileID
                 let change = self.identityTracker.observe(
                     profileID: identity.id,
                     expectedAppProfileID: self.lastSwitchByApp
@@ -257,7 +265,7 @@ final class AppState {
                     identity.id
                 if change == .manual {
                     self.manualLoginAt = Date()
-                    self.preferences.manuallyChosenProfileID = identity.id
+                    self.recordManualChoice(identity.id, leaving: previousProfileID)
                     self.infoMessage = nil
                     // Claude Code termina de confirmar el Llavero alrededor
                     // de la escritura de ~/.claude.json. Un breve margen evita
@@ -287,6 +295,26 @@ final class AppState {
                 await self.refreshAll()
             }
         }
+    }
+
+    /// El usuario eligió `chosen` a mano dejando `previous`. La elegida se
+    /// respeta hasta que llegue a un límite; la abandonada queda para el final
+    /// hasta su reinicio semanal (o un día, si no se conoce).
+    private func recordManualChoice(_ chosen: String, leaving previous: String?) {
+        preferences.manuallyChosenProfileID = chosen
+        let now = Date()
+        leftByUserUntil = leftByUserUntil.filter { $0.key != chosen && $0.value > now }
+        if let previous, previous != chosen {
+            let reset = usageByAccount[previous]
+                .flatMap(autoSwitchPolicy.weeklyDeadline)
+                .flatMap { $0 > now ? $0 : nil }
+            leftByUserUntil[previous] = min(
+                reset ?? now.addingTimeInterval(24 * 3_600),
+                now.addingTimeInterval(7 * 24 * 3_600)
+            )
+        }
+        preferences.leftByUserTimestamps =
+            leftByUserUntil.mapValues(\.timeIntervalSince1970)
     }
 
     /// El cambio automático está en pausa tras un login manual reciente.
@@ -1302,7 +1330,8 @@ final class AppState {
                 id: profile.id,
                 usage: freshUsage(for: profile.id)?
                     .scaledToPersonalCaps(fiveHourCap: profile.sharedFiveHourCap, weeklyCap: profile.sharedWeeklyCap),
-                needsLogin: profile.needsLogin
+                needsLogin: profile.needsLogin,
+                leftByUser: leftByUserUntil[profile.id].map { $0 > Date() } ?? false
             )
         }
     }
@@ -1415,8 +1444,8 @@ final class AppState {
         )
     }
 
-    /// Cambia sin esperar a un límite cuando otra cuenta va a perder cupo
-    /// semanal en su reinicio y la activa puede guardar el suyo para después.
+    /// Gestión autónoma: cambia sin esperar a un límite a la cuenta cuyo cupo
+    /// semanal caduca antes, para que la activa guarde el suyo para después.
     /// La política nunca propone una cuenta en su umbral ni en su tope
     /// personal; una cuenta elegida a mano se respeta hasta que llegue a un
     /// límite.
@@ -1437,16 +1466,13 @@ final class AppState {
         guard await verifyDestination(target, from: active.id, isValid: { activeState, _, states in
             policy.expiringQuotaTarget(active: activeState, all: states) == target
         }) else { return }
-        // El aviso usa el porcentaje real, el mismo que enseña la tarjeta.
-        guard let weekly = usageByAccount[target]?.sevenDay,
-              let resetsAt = weekly.resetsAt else { return }
+        guard let resetsAt = usageByAccount[target].flatMap(policy.weeklyDeadline) else { return }
         let f = RelativeDateTimeFormatter()
         f.locale = L10n.locale
         await switchAutomatically(
             to: target,
             body: L10n.tr(
                 "auto_switch.expiring.body",
-                Int(weekly.utilization),
                 f.localizedString(for: resetsAt, relativeTo: Date())
             )
         )
@@ -1626,6 +1652,7 @@ final class AppState {
     func switchTo(_ profileID: String) {
         guard !isSwitchingAccount else { return }
         isSwitchingAccount = true
+        let previous = activeProfileID
         let engine = self.engine
         lastError = nil
         infoMessage = nil
@@ -1666,7 +1693,7 @@ final class AppState {
             case .success(let outcome):
                 preferences.lastObservedAccountUuid =
                     outcome.0.id
-                preferences.manuallyChosenProfileID = outcome.0.id
+                recordManualChoice(outcome.0.id, leaving: previous)
                 infoMessage = outcome.1
                     ? L10n.tr(
                         "state.session_repaired",
@@ -1716,6 +1743,7 @@ final class AppState {
     func undo() {
         guard !isSwitchingAccount else { return }
         isSwitchingAccount = true
+        let previous = activeProfileID
         let engine = self.engine
         lastError = nil
         infoMessage = nil
@@ -1735,7 +1763,7 @@ final class AppState {
                 lastSwitchByApp = identity.id
                 preferences.lastObservedAccountUuid =
                     identity.id
-                preferences.manuallyChosenProfileID = identity.id
+                recordManualChoice(identity.id, leaving: previous)
                 infoMessage = L10n.tr(
                     "state.undo_success",
                     identity.emailAddress

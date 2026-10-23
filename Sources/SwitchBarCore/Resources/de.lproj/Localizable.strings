@@ -108,10 +108,10 @@
 "auto_switch.trigger.weekly" = "Die allgemeine Wochennutzung hat %d %% erreicht.";
 "auto_switch.trigger.five_hour" = "Das 5-Stunden-Fenster hat %d %% erreicht.";
 "auto_switch.next_reset" = "Die erste Zurücksetzung erfolgt %@.";
-"auto_switch.choice_explanation" = "Beim Wechsel wird zuerst der Account gewählt, dessen Woche als Erstes zurückgesetzt wird, denn bis zur Zurücksetzung ungenutztes Kontingent verfällt. Ein Account, der einen Schwellenwert oder sein persönliches Limit erreicht hat, wird nie gewählt.";
-"auto_switch.expiring_quota" = "Verfallendes Wochenkontingent zuerst nutzen";
-"auto_switch.expiring_quota.explanation" = "Wird die Woche eines anderen Accounts in weniger als 24 Stunden zurückgesetzt und hat er noch mindestens 10 Punkte Spielraum, wechselt SwitchBar zu ihm, ohne auf ein Limit zu warten. Ein von Hand gewählter Account bleibt, bis er ein Limit erreicht.";
-"auto_switch.expiring.body" = "Seine Woche liegt bei %1$d %% und wird %2$@ zurückgesetzt: Dieses Kontingent wird genutzt, bevor es verfällt. Offene Sitzungen bleiben beim vorherigen Account.";
+"auto_switch.choice_explanation" = "Beim Wechsel wird zuerst der Account gewählt, dessen Woche als Erstes zurückgesetzt wird, auch wenn es nur Minuten sind, denn bis zur Zurücksetzung ungenutztes Kontingent verfällt. Team-Accounts, die ihre allgemeine Woche nicht melden, verwenden die Zurücksetzung von Fable. Ein Account, der einen Schwellenwert oder sein persönliches Limit erreicht hat, wird nie gewählt.";
+"auto_switch.expiring_quota" = "Autonomer Modus: zuerst das Kontingent nutzen, das zuerst verfällt";
+"auto_switch.expiring_quota.explanation" = "SwitchBar hält den Account aktiv, dessen Woche als Erstes zurückgesetzt wird, und wechselt ohne auf ein Limit zu warten zu ihm, sobald er mindestens 15 Punkte Spielraum hat, damit bei keiner Zurücksetzung Kontingent verfällt. Ein von Hand gewählter Account bleibt, bis er ein Limit erreicht. Ein von Hand verlassener Account kommt bis zu seiner wöchentlichen Zurücksetzung zuletzt dran: Vielleicht wissen Sie etwas, das die App nicht sieht, etwa das Wochenlimit von Team.";
+"auto_switch.expiring.body" = "Seine Woche wird %@ zurückgesetzt, vor der des vorherigen Accounts: Sein Kontingent wird zuerst genutzt, damit es nicht verfällt. Offene Sitzungen bleiben beim vorherigen Account.";
 
 "settings.title" = "Einstellungen";
 "settings.refresh_frequency" = "Aktualisierung anderer Konten";
