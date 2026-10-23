@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.5 — 2026-10-23
+
+- Adding an account can request a specific organization. With the same
+  email in a personal Max and a Team, the login page kept authorizing the
+  Max organization, even after switching organization on claude.ai. The
+  "Organization" picker lists the Team organizations already known from
+  other saved accounts and asks Anthropic for that one. If a different
+  organization is authorized, nothing is saved and the sheet says which.
+- Validated with 128 automated tests.
+
 ## 1.0.4 — 2026-10-23
 
 - The account list in the menu bar panel scrolls. With six or more
