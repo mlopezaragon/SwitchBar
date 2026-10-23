@@ -1,6 +1,8 @@
 "account.active" = "目前使用";
 "account.add" = "加入帳號";
 "account.change" = "切換";
+"account.next" = "下一個";
+"account.next.help" = "目前帳號達到上限時，自動切換會轉到此帳號。";
 "account.change_to" = "切換到此帳號";
 "account.delete_profile" = "刪除帳號資料";
 "account.login" = "登入";
@@ -106,6 +108,10 @@
 "auto_switch.trigger.weekly" = "每週一般用量已達到 %d%%。";
 "auto_switch.trigger.five_hour" = "5 小時時段已達到 %d%%。";
 "auto_switch.next_reset" = "最早重設時間為 %@。";
+"auto_switch.choice_explanation" = "切換時優先選擇每週額度最先重設的帳號，因為重設前未用完的額度會失效。已達到門檻或個人上限的帳號絕不會被選中。";
+"auto_switch.expiring_quota" = "優先使用即將到期的每週額度";
+"auto_switch.expiring_quota.explanation" = "如果另一個帳號的每週額度將在 24 小時內重設，且仍有至少 10 個百分點的餘量，SwitchBar 會直接切換過去，不必等到達到上限。手動選擇的帳號會一直保留，直到達到上限。";
+"auto_switch.expiring.body" = "其每週用量為 %1$d%%，將於%2$@重設：在失效前先用掉這部分額度。已開啟的工作階段仍保留在原帳號。";
 
 "settings.title" = "設定";
 "settings.refresh_frequency" = "其他帳戶重新整理間隔";

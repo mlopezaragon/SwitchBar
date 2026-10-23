@@ -17,6 +17,8 @@ public final class AppPreferences: @unchecked Sendable {
         static let weeklyTriggerThreshold = "weeklyTriggerThreshold"
         static let fableTriggerThreshold = "fableTriggerThreshold"
         static let useFableForAutoSwitch = "useFableForAutoSwitch"
+        static let anticipateExpiringQuota = "anticipateExpiringQuota"
+        static let manuallyChosenProfileID = "manuallyChosenProfileID"
         static let pollIntervalSeconds = "pollIntervalSeconds"
         static let lastObservedAccountUuid = "lastObservedAccountUuid"
         static let usageRateLimitedUntilByAccount =
@@ -77,6 +79,34 @@ public final class AppPreferences: @unchecked Sendable {
         }
         set {
             defaults.set(newValue, forKey: Key.useFableForAutoSwitch)
+        }
+    }
+
+    /// Cambiar antes de llegar a un límite para gastar el cupo semanal que
+    /// otra cuenta va a perder en su reinicio. Activado por omisión: solo
+    /// cambia de cuenta cuando ese cupo se perdería sin remedio.
+    public var anticipateExpiringQuota: Bool {
+        get {
+            defaults.object(
+                forKey: Key.anticipateExpiringQuota
+            ) as? Bool ?? true
+        }
+        set {
+            defaults.set(newValue, forKey: Key.anticipateExpiringQuota)
+        }
+    }
+
+    /// Perfil que el usuario eligió a mano (clic, deshacer o `/login`). El
+    /// cambio automático solo lo abandona al llegar a un límite. Se guarda en
+    /// disco para que un reinicio de la app no olvide esa elección.
+    public var manuallyChosenProfileID: String? {
+        get { defaults.string(forKey: Key.manuallyChosenProfileID) }
+        set {
+            if let newValue {
+                defaults.set(newValue, forKey: Key.manuallyChosenProfileID)
+            } else {
+                defaults.removeObject(forKey: Key.manuallyChosenProfileID)
+            }
         }
     }
 

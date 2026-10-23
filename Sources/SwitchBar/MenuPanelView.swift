@@ -88,7 +88,8 @@ struct MenuPanelView: View {
     /// tarjetas y el botón de añadir quedaban fuera de su borde, como si
     /// hubiera un límite de cuentas.
     private var accountCards: some View {
-        ScrollView {
+        let next = state.nextAutoSwitchTarget
+        return ScrollView {
             VStack(spacing: 10) {
                 ForEach(state.profilesList) { profile in
                     AccountCardView(
@@ -104,6 +105,7 @@ struct MenuPanelView: View {
                         suggestsReconnect: state.suggestsReconnect(
                             for: profile.id
                         ),
+                        isNextAutoSwitch: profile.id == next,
                         onSwitch: { state.switchTo(profile.id) },
                         onReconnect: {
                             DetailWindowController.shared.show()

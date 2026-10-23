@@ -56,6 +56,9 @@ final class AppState {
     var useFableForAutoSwitch: Bool {
         didSet { preferences.useFableForAutoSwitch = useFableForAutoSwitch }
     }
+    var anticipateExpiringQuota: Bool {
+        didSet { preferences.anticipateExpiringQuota = anticipateExpiringQuota }
+    }
     var pollIntervalSeconds: Double {
         didSet { preferences.pollIntervalSeconds = pollIntervalSeconds }
     }
@@ -114,6 +117,11 @@ final class AppState {
     /// mantiene en pausa un rato después para no pisar la elección del usuario.
     private(set) var manualLoginAt: Date?
     private let manualLoginGracePeriod: TimeInterval = 15 * 60
+    /// Último cambio automático. Adelantarse a un cupo que caduca espera un
+    /// rato después de cualquier cambio, para que unos datos que oscilan no
+    /// hagan saltar de una cuenta a otra.
+    private var lastAutomaticSwitchAt: Date?
+    private let expiringQuotaSwitchCooldown: TimeInterval = 10 * 60
 
     // MARK: Ciclo de vida
 
@@ -138,6 +146,7 @@ final class AppState {
         // otros modelos con el cupo general. Solo participa si el usuario lo
         // activa expresamente.
         self.useFableForAutoSwitch = preferences.useFableForAutoSwitch
+        self.anticipateExpiringQuota = preferences.anticipateExpiringQuota
         self.pollIntervalSeconds = preferences.pollIntervalSeconds
         // Preserve server deadlines across restarts, even when Retry-After
         // exceeds the fallback retry policy.
@@ -214,6 +223,7 @@ final class AppState {
                 // La identidad cambió mientras SwitchBar estaba cerrado:
                 // esta sí es una elección externa que conviene respetar.
                 self.manualLoginAt = Date()
+                self.preferences.manuallyChosenProfileID = initialProfileID
             }
             self.preferences.lastObservedAccountUuid = initialProfileID
             while !Task.isCancelled {
@@ -247,6 +257,7 @@ final class AppState {
                     identity.id
                 if change == .manual {
                     self.manualLoginAt = Date()
+                    self.preferences.manuallyChosenProfileID = identity.id
                     self.infoMessage = nil
                     // Claude Code termina de confirmar el Llavero alrededor
                     // de la escritura de ~/.claude.json. Un breve margen evita
@@ -1296,21 +1307,50 @@ final class AppState {
         }
     }
 
+    private var autoSwitchPolicy: AutoSwitchPolicy {
+        AutoSwitchPolicy(
+            triggerThreshold: triggerThreshold,
+            weeklyThreshold: weeklyTriggerThreshold,
+            fableThreshold: fableTriggerThreshold,
+            considersFable: useFableForAutoSwitch,
+            anticipatesExpiringQuota: anticipateExpiringQuota
+        )
+    }
+
+    /// Datos de hace menos de un minuto: sirven para cambiar sin volver a
+    /// preguntar al servidor.
+    private func isRecentlyVerified(_ profileID: String, now: Date = Date()) -> Bool {
+        usageByAccount[profileID].map { now.timeIntervalSince($0.fetchedAt) < 60 } ?? false
+    }
+
+    /// Antes se preferían las cuentas consultadas en el último minuto aunque
+    /// hubiera otras mejores, y eso deshacía el orden de la política: ganaba
+    /// la que el sondeo acababa de visitar, no la que más convenía. El destino
+    /// se verifica de todos modos antes de cambiar.
     private func autoSwitchCandidate(
         policy: AutoSwitchPolicy, active: AccountUsageState, states: [AccountUsageState]
     ) -> String? {
+        policy.bestCandidate(active: active, others: verifiableStates(states))
+    }
+
+    /// Do not let an account whose usage endpoint is in cooldown hold up a
+    /// usable alternative: it could not be verified before switching.
+    private func verifiableStates(_ states: [AccountUsageState]) -> [AccountUsageState] {
         let now = Date()
-        let recentlyVerified = states.filter {
-            $0.usage.map { now.timeIntervalSince($0.fetchedAt) < 60 } ?? false
+        return states.filter {
+            isRecentlyVerified($0.id, now: now)
+                || (rateLimitedUntilByAccount[$0.id].map { $0 <= now } ?? true)
         }
-        if let verified = policy.bestCandidate(active: active, others: recentlyVerified) {
-            return verified
-        }
-        // Do not let the cheapest cached account hold up a usable alternative
-        // while its usage endpoint is in cooldown.
-        return policy.bestCandidate(active: active, others: states.filter {
-            rateLimitedUntilByAccount[$0.id].map { $0 <= now } ?? true
-        })
+    }
+
+    /// Cuenta a la que iría el cambio automático si la activa llegara ahora a
+    /// un límite. El panel la señala para que el orden no sea un misterio.
+    var nextAutoSwitchTarget: String? {
+        _ = monitoringDate
+        guard autoSwitchEnabled, let activeProfileID else { return nil }
+        let states = autoSwitchStates()
+        guard let active = states.first(where: { $0.id == activeProfileID }) else { return nil }
+        return autoSwitchCandidate(policy: autoSwitchPolicy, active: active, states: states)
     }
 
     private func runAutoSwitchIfNeeded() async {
@@ -1322,16 +1362,12 @@ final class AppState {
         isEvaluatingAutoSwitch = true
         defer { isEvaluatingAutoSwitch = false }
 
-        let policy = AutoSwitchPolicy(
-            triggerThreshold: triggerThreshold,
-            weeklyThreshold: weeklyTriggerThreshold,
-            fableThreshold: fableTriggerThreshold,
-            considersFable: useFableForAutoSwitch
-        )
+        let policy = autoSwitchPolicy
         var states = autoSwitchStates()
         guard var activeState = states.first(where: { $0.id == active }) else { return }
         guard policy.shouldSwitch(active: activeState) else {
             lastNoCandidateNotice = nil
+            await anticipateExpiringQuotaIfNeeded(policy: policy, active: activeState, states: states)
             return
         }
         var target = autoSwitchCandidate(policy: policy, active: activeState, states: states)
@@ -1368,21 +1404,81 @@ final class AppState {
             notifyNoCandidate(policy: policy, states: states, active: active)
             return
         }
-        // A standby account may have kept consuming in an older terminal.
-        // Verify the destination before writing credentials, using the same
-        // admission gate; a blocked request leaves the decision pending.
-        if usageByAccount[target].map({ Date().timeIntervalSince($0.fetchedAt) >= 60 }) ?? true {
-            guard await performUsageRefresh(target) == .attempted,
-                  usageByAccount[target].map({ Date().timeIntervalSince($0.fetchedAt) < 60 }) == true
-            else { return }
+        guard await verifyDestination(target, from: active, isValid: { activeState, targetState, _ in
+            policy.shouldSwitch(active: activeState) && policy.isCandidate(targetState)
+        }) else { return }
+        lastNoCandidateNotice = nil
+        let pct = usageByAccount[target]?.fiveHour.map { Int($0.utilization) } ?? 0
+        await switchAutomatically(
+            to: target,
+            body: L10n.tr("auto_switch.changed.body", triggerDescription, pct)
+        )
+    }
+
+    /// Cambia sin esperar a un límite cuando otra cuenta va a perder cupo
+    /// semanal en su reinicio y la activa puede guardar el suyo para después.
+    /// La política nunca propone una cuenta en su umbral ni en su tope
+    /// personal; una cuenta elegida a mano se respeta hasta que llegue a un
+    /// límite.
+    private func anticipateExpiringQuotaIfNeeded(
+        policy: AutoSwitchPolicy,
+        active: AccountUsageState,
+        states: [AccountUsageState]
+    ) async {
+        guard policy.anticipatesExpiringQuota,
+              preferences.manuallyChosenProfileID != active.id else { return }
+        if let lastAutomaticSwitchAt,
+           Date().timeIntervalSince(lastAutomaticSwitchAt) < expiringQuotaSwitchCooldown {
+            return
         }
+        guard let target = policy.expiringQuotaTarget(
+            active: active, all: verifiableStates(states)
+        ) else { return }
+        guard await verifyDestination(target, from: active.id, isValid: { activeState, _, states in
+            policy.expiringQuotaTarget(active: activeState, all: states) == target
+        }) else { return }
+        // El aviso usa el porcentaje real, el mismo que enseña la tarjeta.
+        guard let weekly = usageByAccount[target]?.sevenDay,
+              let resetsAt = weekly.resetsAt else { return }
+        let f = RelativeDateTimeFormatter()
+        f.locale = L10n.locale
+        await switchAutomatically(
+            to: target,
+            body: L10n.tr(
+                "auto_switch.expiring.body",
+                Int(weekly.utilization),
+                f.localizedString(for: resetsAt, relativeTo: Date())
+            )
+        )
+    }
+
+    /// A standby account may have kept consuming in an older terminal.
+    /// Verify the destination before writing credentials, using the same
+    /// admission gate; a blocked request leaves the decision pending.
+    private func verifyDestination(
+        _ target: String,
+        from active: String,
+        isValid: (
+            _ active: AccountUsageState,
+            _ target: AccountUsageState,
+            _ all: [AccountUsageState]
+        ) -> Bool
+    ) async -> Bool {
+        if !isRecentlyVerified(target) {
+            guard await performUsageRefresh(target) == .attempted,
+                  isRecentlyVerified(target)
+            else { return false }
+        }
+        let states = autoSwitchStates()
         guard autoSwitchEnabled, !autoSwitchPausedByManualLogin,
               activeProfileID == active, !isSwitchingAccount,
-              let verifiedActive = autoSwitchStates().first(where: { $0.id == active }),
-              let verifiedTarget = autoSwitchStates().first(where: { $0.id == target }),
-              policy.shouldSwitch(active: verifiedActive), policy.isCandidate(verifiedTarget)
-        else { return }
-        lastNoCandidateNotice = nil
+              let verifiedActive = states.first(where: { $0.id == active }),
+              let verifiedTarget = states.first(where: { $0.id == target })
+        else { return false }
+        return isValid(verifiedActive, verifiedTarget, states)
+    }
+
+    private func switchAutomatically(to target: String, body: String) async {
         let engine = self.engine
         isSwitchingAccount = true
         defer { isSwitchingAccount = false }
@@ -1394,20 +1490,17 @@ final class AppState {
         switch result {
         case .success(let identity):
             preferences.lastObservedAccountUuid = identity.id
+            preferences.manuallyChosenProfileID = nil
+            lastAutomaticSwitchAt = Date()
             await reloadLocalState()
             lastRefreshAt = usageByAccount[target]?.fetchedAt
             updateActiveUsageNotice()
-            let pct = usageByAccount[target]?.fiveHour.map { Int($0.utilization) } ?? 0
             Notifier.notify(
                 title: L10n.tr(
                     "auto_switch.changed.title",
                     identity.emailAddress
                 ),
-                body: L10n.tr(
-                    "auto_switch.changed.body",
-                    triggerDescription,
-                    pct
-                )
+                body: body
             )
         case .failure(let error):
             if lastSwitchByApp == target {
@@ -1573,6 +1666,7 @@ final class AppState {
             case .success(let outcome):
                 preferences.lastObservedAccountUuid =
                     outcome.0.id
+                preferences.manuallyChosenProfileID = outcome.0.id
                 infoMessage = outcome.1
                     ? L10n.tr(
                         "state.session_repaired",
@@ -1641,6 +1735,7 @@ final class AppState {
                 lastSwitchByApp = identity.id
                 preferences.lastObservedAccountUuid =
                     identity.id
+                preferences.manuallyChosenProfileID = identity.id
                 infoMessage = L10n.tr(
                     "state.undo_success",
                     identity.emailAddress

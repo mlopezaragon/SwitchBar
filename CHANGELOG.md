@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.1.0 — 2026-10-23
+
+- Automatic switching picks the destination by when its weekly quota
+  expires. Quota left unused at a weekly reset is lost, so the account whose
+  week resets first goes first and accounts that reset later keep theirs for
+  afterwards. Resets less than 6 hours apart count as the same, and the
+  5-hour usage decides between them. Team accounts, whose general week is not
+  reported, use their Fable reset, which shares the weekly cycle.
+- Accounts with less than 5 points before a threshold are only a last
+  resort: switching to them meant switching again minutes later.
+- New "Use expiring weekly quota early" setting, on by default. When another
+  account's week resets in less than 24 hours with at least 10 points of
+  room, and the active account resets at least 6 hours later, SwitchBar
+  moves to it without waiting for a limit. An account picked by hand (click,
+  undo or `/login`) is kept until it reaches a limit, and after any automatic
+  switch it waits 10 minutes before moving early again.
+- Limits are never relaxed: an account at any threshold or at its personal
+  cap is never a destination, however soon its quota expires.
+- The destination is no longer whichever account was polled in the last
+  minute; every candidate is ranked, then the chosen one is verified.
+- The panel and the detail window mark the account automatic switching
+  would move to next.
+- Validated with 144 automated tests.
+
 ## 1.0.5 — 2026-10-23
 
 - Adding an account can request a specific organization. With the same

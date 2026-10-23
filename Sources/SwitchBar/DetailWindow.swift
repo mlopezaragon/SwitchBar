@@ -118,6 +118,9 @@ struct DetailView: View {
                         .foregroundStyle(.green)
                         .fixedSize()
                 } else {
+                    if profile.id == state.nextAutoSwitchTarget {
+                        NextAutoSwitchBadge()
+                    }
                     Button(L10n.tr("account.change_to")) {
                         state.switchTo(profile.id)
                     }
@@ -235,6 +238,23 @@ struct DetailView: View {
                 state.useFableForAutoSwitch
                     ? L10n.tr("auto_switch.fable.enabled_explanation")
                     : L10n.tr("auto_switch.fable.disabled_explanation")
+            )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Toggle(
+                L10n.tr("auto_switch.expiring_quota"),
+                isOn: $state.anticipateExpiringQuota
+            )
+            .toggleStyle(.switch)
+            .controlSize(.small)
+
+            Text(
+                state.anticipateExpiringQuota
+                    ? L10n.tr("auto_switch.choice_explanation") + " "
+                        + L10n.tr("auto_switch.expiring_quota.explanation")
+                    : L10n.tr("auto_switch.choice_explanation")
             )
                 .font(.caption)
                 .foregroundStyle(.secondary)

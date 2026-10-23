@@ -1,6 +1,8 @@
 "account.active" = "Ativa";
 "account.add" = "Adicionar conta";
 "account.change" = "Trocar";
+"account.next" = "Próxima";
+"account.next.help" = "A troca automática passará para esta conta quando a ativa atingir um limite.";
 "account.change_to" = "Trocar para esta conta";
 "account.delete_profile" = "Excluir perfil";
 "account.login" = "Iniciar sessão";
@@ -106,6 +108,10 @@
 "auto_switch.trigger.weekly" = "O uso semanal geral atingiu %d%%.";
 "auto_switch.trigger.five_hour" = "A janela de 5 horas atingiu %d%%.";
 "auto_switch.next_reset" = "A primeira redefinição será %@.";
+"auto_switch.choice_explanation" = "Na troca, a conta cuja semana é redefinida primeiro é escolhida antes, porque a cota não usada até a redefinição é perdida. Uma conta que atingiu um limite configurado ou seu limite pessoal nunca é escolhida.";
+"auto_switch.expiring_quota" = "Usar antes a cota semanal que expira";
+"auto_switch.expiring_quota.explanation" = "Se faltarem menos de 24 horas para a semana de outra conta ser redefinida e ela ainda tiver pelo menos 10 pontos de margem, o SwitchBar troca para ela sem esperar um limite. Uma conta escolhida manualmente é mantida até atingir um limite.";
+"auto_switch.expiring.body" = "A semana dela está em %1$d%% e será redefinida %2$@: essa cota é usada antes de ser perdida. As sessões abertas permanecem na conta anterior.";
 
 "settings.title" = "Ajustes";
 "settings.refresh_frequency" = "Atualização das outras contas";

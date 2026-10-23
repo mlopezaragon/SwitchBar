@@ -28,3 +28,25 @@ func laPreferenciaDeFableSobreviveAlReinicio() throws {
     #expect(reopened.fableTriggerThreshold == 97)
     #expect(reopened.lastObservedAccountUuid == "cuenta-a")
 }
+
+@Test
+func adelantarseAlCupoQueCaducaEstaActivadoYSeRecuerdaLaEleccionManual() throws {
+    let suiteName = "SwitchBar-preferences-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+
+    let first = AppPreferences(defaults: defaults)
+    #expect(first.anticipateExpiringQuota == true)
+    #expect(first.manuallyChosenProfileID == nil)
+    first.anticipateExpiringQuota = false
+    first.manuallyChosenProfileID = "cuenta-a/org-1"
+
+    let reopened = AppPreferences(
+        defaults: try #require(UserDefaults(suiteName: suiteName))
+    )
+    #expect(reopened.anticipateExpiringQuota == false)
+    #expect(reopened.manuallyChosenProfileID == "cuenta-a/org-1")
+    reopened.manuallyChosenProfileID = nil
+    #expect(reopened.manuallyChosenProfileID == nil)
+}

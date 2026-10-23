@@ -1,6 +1,8 @@
 "account.active" = "활성";
 "account.add" = "계정 추가";
 "account.change" = "전환";
+"account.next" = "다음";
+"account.next.help" = "활성 계정이 한도에 도달하면 자동 전환이 이 계정으로 이동합니다.";
 "account.change_to" = "이 계정으로 전환";
 "account.delete_profile" = "프로필 삭제";
 "account.login" = "로그인";
@@ -106,6 +108,10 @@
 "auto_switch.trigger.weekly" = "일반 주간 사용량이 %d%%에 도달했습니다.";
 "auto_switch.trigger.five_hour" = "5시간 구간이 %d%%에 도달했습니다.";
 "auto_switch.next_reset" = "첫 번째 초기화는 %@입니다.";
+"auto_switch.choice_explanation" = "전환할 때는 주간 사용량이 가장 먼저 초기화되는 계정을 우선 선택합니다. 초기화 전까지 쓰지 않은 사용량은 사라지기 때문입니다. 기준치나 개인 한도에 도달한 계정은 선택하지 않습니다.";
+"auto_switch.expiring_quota" = "곧 만료되는 주간 사용량 먼저 쓰기";
+"auto_switch.expiring_quota.explanation" = "다른 계정의 주간 사용량이 24시간 안에 초기화되고 여유가 10포인트 이상 남아 있으면 한도를 기다리지 않고 그 계정으로 전환합니다. 직접 선택한 계정은 한도에 도달할 때까지 유지됩니다.";
+"auto_switch.expiring.body" = "주간 사용량은 %1$d%%이며 %2$@ 초기화됩니다. 사라지기 전에 그 사용량을 씁니다. 열려 있는 세션은 이전 계정에 그대로 유지됩니다.";
 
 "settings.title" = "설정";
 "settings.refresh_frequency" = "다른 계정 새로 고침 간격";

@@ -23,12 +23,17 @@ when a usage window fills up.
   Fable weekly quota, each with its reset time.
 - One-click switching of the active Claude Code account, with undo.
 - Automatic switching with independent, configurable thresholds per window.
+  It picks the account whose week resets first, because quota left unused at
+  the reset is lost, and it never picks an account at a threshold or at its
+  personal cap. Optionally it moves early to an account whose week resets
+  within 24 hours while it still has room. The panel marks the next account.
 - Shared accounts: set a personal cap (for example 70 %) so the app treats
   the account as exhausted early and leaves margin for the other person.
 - Anthropic public status (status.claude.com) shown during incidents, so a
   server-side outage is never confused with a local problem.
 - Pauses automatic switching for 15 minutes after you pick an account by
-  hand with `/login` — your explicit choice wins.
+  hand with `/login` — your explicit choice wins. An account you pick by hand
+  is only left when it reaches a limit.
 - Localized in 10 languages. No telemetry of any kind.
 
 ## Requirements

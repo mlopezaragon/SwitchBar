@@ -1,6 +1,8 @@
 "account.active" = "使用中";
 "account.add" = "アカウントを追加";
 "account.change" = "切り替え";
+"account.next" = "次";
+"account.next.help" = "使用中のアカウントが上限に達すると、自動切り替えでこのアカウントに移ります。";
 "account.change_to" = "このアカウントに切り替え";
 "account.delete_profile" = "プロフィールを削除";
 "account.login" = "サインイン";
@@ -106,6 +108,10 @@
 "auto_switch.trigger.weekly" = "週間の一般使用量が %d%% に達しました。";
 "auto_switch.trigger.five_hour" = "5時間枠が %d%% に達しました。";
 "auto_switch.next_reset" = "最初のリセットは %@ です。";
+"auto_switch.choice_explanation" = "切り替え時は、週間枠のリセットが最も早いアカウントを優先します。リセットまでに使わなかった枠は失われるためです。しきい値や個人上限に達したアカウントは選ばれません。";
+"auto_switch.expiring_quota" = "期限が近い週間枠を先に使う";
+"auto_switch.expiring_quota.explanation" = "別のアカウントの週間枠が24時間以内にリセットされ、まだ10ポイント以上の余裕がある場合は、上限を待たずにそのアカウントに切り替えます。手動で選んだアカウントは上限に達するまで維持されます。";
+"auto_switch.expiring.body" = "週間枠は %1$d%% で、%2$@にリセットされます。失われる前にその枠を使います。開いているセッションは以前のアカウントのままです。";
 
 "settings.title" = "設定";
 "settings.refresh_frequency" = "他のアカウントの更新間隔";

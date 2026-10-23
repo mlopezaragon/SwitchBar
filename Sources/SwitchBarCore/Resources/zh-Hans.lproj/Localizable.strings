@@ -1,6 +1,8 @@
 "account.active" = "当前";
 "account.add" = "添加账户";
 "account.change" = "切换";
+"account.next" = "下一个";
+"account.next.help" = "当前账户达到上限时，自动切换会转到此账户。";
 "account.change_to" = "切换到此账户";
 "account.delete_profile" = "删除账户资料";
 "account.login" = "登录";
@@ -106,6 +108,10 @@
 "auto_switch.trigger.weekly" = "每周总用量已达到 %d%%。";
 "auto_switch.trigger.five_hour" = "5 小时窗口已达到 %d%%。";
 "auto_switch.next_reset" = "最早重置时间为 %@。";
+"auto_switch.choice_explanation" = "切换时优先选择每周额度最先重置的账户，因为重置前未用完的额度会作废。已达到阈值或个人上限的账户绝不会被选中。";
+"auto_switch.expiring_quota" = "优先使用即将过期的每周额度";
+"auto_switch.expiring_quota.explanation" = "如果另一个账户的每周额度将在 24 小时内重置，且仍有至少 10 个百分点的余量，SwitchBar 会直接切换过去，不必等到达到上限。手动选择的账户会一直保留，直到达到上限。";
+"auto_switch.expiring.body" = "其每周用量为 %1$d%%，将于%2$@重置：在作废前先用掉这部分额度。已打开的会话仍保留在原账户。";
 
 "settings.title" = "设置";
 "settings.refresh_frequency" = "其他账户刷新间隔";

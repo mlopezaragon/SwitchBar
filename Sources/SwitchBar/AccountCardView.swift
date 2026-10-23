@@ -16,6 +16,8 @@ struct AccountCardView: View {
     /// Lleva tanto tiempo sin actualizarse que conviene ofrecer la salida
     /// manual: volver a conectarla emite credenciales nuevas al instante.
     var suggestsReconnect: Bool = false
+    /// Destino del cambio automático si la activa llegara ahora a un límite.
+    var isNextAutoSwitch: Bool = false
     let onSwitch: () -> Void
     let onReconnect: () -> Void
 
@@ -65,6 +67,8 @@ struct AccountCardView: View {
                         Text(L10n.tr("account.change"))
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.secondary)
+                    } else if isNextAutoSwitch {
+                        NextAutoSwitchBadge()
                     }
                 }
 
@@ -121,5 +125,19 @@ struct AccountCardView: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
+    }
+}
+
+/// Señala la cuenta a la que iría el cambio automático.
+struct NextAutoSwitchBadge: View {
+    var body: some View {
+        Text(L10n.tr("account.next"))
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(Color.accentColor.opacity(0.12)))
+            .foregroundStyle(Color.accentColor)
+            .fixedSize()
+            .help(L10n.tr("account.next.help"))
     }
 }

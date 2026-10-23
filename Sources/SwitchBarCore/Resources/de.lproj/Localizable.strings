@@ -1,6 +1,8 @@
 "account.active" = "Aktiv";
 "account.add" = "Account hinzufügen";
 "account.change" = "Wechseln";
+"account.next" = "Als Nächstes";
+"account.next.help" = "Der automatische Wechsel geht zu diesem Account, wenn der aktive ein Limit erreicht.";
 "account.change_to" = "Zu diesem Account wechseln";
 "account.delete_profile" = "Profil löschen";
 "account.login" = "Anmelden";
@@ -106,6 +108,10 @@
 "auto_switch.trigger.weekly" = "Die allgemeine Wochennutzung hat %d %% erreicht.";
 "auto_switch.trigger.five_hour" = "Das 5-Stunden-Fenster hat %d %% erreicht.";
 "auto_switch.next_reset" = "Die erste Zurücksetzung erfolgt %@.";
+"auto_switch.choice_explanation" = "Beim Wechsel wird zuerst der Account gewählt, dessen Woche als Erstes zurückgesetzt wird, denn bis zur Zurücksetzung ungenutztes Kontingent verfällt. Ein Account, der einen Schwellenwert oder sein persönliches Limit erreicht hat, wird nie gewählt.";
+"auto_switch.expiring_quota" = "Verfallendes Wochenkontingent zuerst nutzen";
+"auto_switch.expiring_quota.explanation" = "Wird die Woche eines anderen Accounts in weniger als 24 Stunden zurückgesetzt und hat er noch mindestens 10 Punkte Spielraum, wechselt SwitchBar zu ihm, ohne auf ein Limit zu warten. Ein von Hand gewählter Account bleibt, bis er ein Limit erreicht.";
+"auto_switch.expiring.body" = "Seine Woche liegt bei %1$d %% und wird %2$@ zurückgesetzt: Dieses Kontingent wird genutzt, bevor es verfällt. Offene Sitzungen bleiben beim vorherigen Account.";
 
 "settings.title" = "Einstellungen";
 "settings.refresh_frequency" = "Aktualisierung anderer Konten";

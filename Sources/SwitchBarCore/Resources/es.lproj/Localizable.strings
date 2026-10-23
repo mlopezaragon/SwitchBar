@@ -1,6 +1,8 @@
 "account.active" = "Activa";
 "account.add" = "Añadir cuenta";
 "account.change" = "Cambiar";
+"account.next" = "Siguiente";
+"account.next.help" = "El cambio automático pasará a esta cuenta cuando la activa llegue a un límite.";
 "account.change_to" = "Cambiar a esta";
 "account.delete_profile" = "Eliminar perfil";
 "account.login" = "Iniciar sesión";
@@ -106,6 +108,10 @@
 "auto_switch.trigger.weekly" = "La semana general alcanzó el %d %%.";
 "auto_switch.trigger.five_hour" = "La ventana de 5 h alcanzó el %d %%.";
 "auto_switch.next_reset" = "El primer reseteo llega %@.";
+"auto_switch.choice_explanation" = "Al cambiar se elige primero la cuenta cuya semana se reinicia antes, porque el cupo que no se usa antes del reinicio se pierde. Nunca se elige una cuenta que haya llegado a un umbral o a su tope personal.";
+"auto_switch.expiring_quota" = "Adelantarse al cupo semanal que caduca";
+"auto_switch.expiring_quota.explanation" = "Si a otra cuenta le quedan menos de 24 horas para reiniciar su semana y al menos 10 puntos de margen, se cambia a ella sin esperar a un límite. Una cuenta que elijas a mano se respeta hasta que llegue a un límite.";
+"auto_switch.expiring.body" = "Su semana está al %1$d %% y se reinicia %2$@: se aprovecha ese cupo antes de que se pierda. Las sesiones abiertas siguen con la cuenta anterior.";
 
 "settings.title" = "Ajustes";
 "settings.refresh_frequency" = "Actualización de otras cuentas";

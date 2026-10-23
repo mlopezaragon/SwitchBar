@@ -1,6 +1,8 @@
 "account.active" = "Attivo";
 "account.add" = "Aggiungi account";
 "account.change" = "Cambia";
+"account.next" = "Successivo";
+"account.next.help" = "Il cambio automatico passerà a questo account quando quello attivo raggiungerà un limite.";
 "account.change_to" = "Passa a questo account";
 "account.delete_profile" = "Elimina profilo";
 "account.login" = "Accedi";
@@ -106,6 +108,10 @@
 "auto_switch.trigger.weekly" = "L’utilizzo settimanale generale ha raggiunto il %d%%.";
 "auto_switch.trigger.five_hour" = "La finestra di 5 ore ha raggiunto il %d%%.";
 "auto_switch.next_reset" = "Il primo azzeramento avverrà %@.";
+"auto_switch.choice_explanation" = "Al cambio viene scelto prima l’account la cui settimana si azzera per prima, perché la quota non usata prima dell’azzeramento va persa. Un account che ha raggiunto una soglia o il suo limite personale non viene mai scelto.";
+"auto_switch.expiring_quota" = "Usa prima la quota settimanale in scadenza";
+"auto_switch.expiring_quota.explanation" = "Se la settimana di un altro account si azzera tra meno di 24 ore e gli restano almeno 10 punti di margine, SwitchBar passa a quell’account senza aspettare un limite. Un account scelto a mano viene mantenuto finché non raggiunge un limite.";
+"auto_switch.expiring.body" = "La sua settimana è al %1$d%% e si azzera %2$@: quella quota viene usata prima che vada persa. Le sessioni aperte rimangono sull’account precedente.";
 
 "settings.title" = "Impostazioni";
 "settings.refresh_frequency" = "Aggiornamento degli altri account";

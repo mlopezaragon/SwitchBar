@@ -1,6 +1,8 @@
 "account.active" = "Active";
 "account.add" = "Add account";
 "account.change" = "Switch";
+"account.next" = "Next";
+"account.next.help" = "Automatic switching will move to this account when the active one reaches a limit.";
 "account.change_to" = "Switch to this account";
 "account.delete_profile" = "Delete profile";
 "account.login" = "Sign in";
@@ -106,6 +108,10 @@
 "auto_switch.trigger.weekly" = "General weekly usage reached %d%%.";
 "auto_switch.trigger.five_hour" = "The 5-hour window reached %d%%.";
 "auto_switch.next_reset" = "The first reset is %@.";
+"auto_switch.choice_explanation" = "When switching, the account whose week resets first is chosen first, because quota left unused at the reset is lost. An account that has reached a threshold or its personal cap is never chosen.";
+"auto_switch.expiring_quota" = "Use expiring weekly quota early";
+"auto_switch.expiring_quota.explanation" = "If another account's week resets in less than 24 hours and it still has at least 10 points of room, SwitchBar moves to it without waiting for a limit. An account you pick by hand is kept until it reaches a limit.";
+"auto_switch.expiring.body" = "Its week is at %1$d%% and resets %2$@: that quota is used before it is lost. Open sessions remain on the previous account.";
 
 "settings.title" = "Settings";
 "settings.refresh_frequency" = "Other accounts refresh interval";
