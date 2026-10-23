@@ -236,7 +236,7 @@ private func activarCuenta(_ e: Entorno, uuid: String, email: String, token: Str
             actual: "uA"
         )
     ) {
-        try e.engine.captureActiveAsProfile(expectedAccountUuid: "uB")
+        try e.engine.captureActiveAsProfile(expectedProfileID: "uB")
     }
     #expect(try e.profiles.loadProfiles().first {
         $0.accountUuid == "uB"

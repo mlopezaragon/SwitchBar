@@ -161,7 +161,7 @@ public struct ClaudeCodeStore: Sendable {
         try SecureFileIO.writeAtomically(data, to: claudeJsonURL)
 
         // Verificación: si otra escritura concurrente pisó la nuestra, avisar.
-        if try readActiveIdentity()?.accountUuid != identity.accountUuid {
+        if try readActiveIdentity()?.id != identity.id {
             throw CoreError.malformedJSON(
                 L10n.tr("core.error.concurrent_write")
             )

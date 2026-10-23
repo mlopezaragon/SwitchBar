@@ -101,6 +101,7 @@ public final class ProfileStore: @unchecked Sendable {
         )
         do {
             return try JSONDecoder().decode([AccountProfile].self, from: data)
+                .map { $0.withOrganizationFromIdentity() }
         } catch {
             throw CoreError.malformedJSON(
                 L10n.tr("core.error.profiles_corrupt")
@@ -201,8 +202,8 @@ public final class ProfileStore: @unchecked Sendable {
                     )
                 )
             }
-            if destination[profile.accountUuid] == nil {
-                destination[profile.accountUuid] = credentials
+            if destination[profile.id] == nil {
+                destination[profile.id] = credentials
                 imported = true
             }
         }
@@ -225,6 +226,41 @@ public final class ProfileStore: @unchecked Sendable {
         }
         try legacy.removeStorageFile()
         return imported
+    }
+
+    /// Hasta la 1.0.3 cada perfil guardaba sus credenciales bajo su
+    /// `accountUuid`, y una segunda organización de la misma cuenta
+    /// sustituía a la primera. Mueve cada entrada a su identificador actual
+    /// (cuenta y organización). Entonces solo podía haber un perfil por
+    /// cuenta, así que cada entrada antigua tiene un único dueño. La
+    /// organización no hace falta reescribirla en `profiles.json`: se
+    /// recupera del bloque de identidad al cargar.
+    @discardableResult
+    public func migrateProfileKeysIfNeeded() throws -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        let currentProfiles = try loadProfilesLocked()
+        let previousVault = try loadVaultLocked()
+        var newVault = previousVault
+        for profile in currentProfiles where profile.id != profile.accountUuid {
+            guard let legacy = newVault[profile.accountUuid],
+                  !currentProfiles.contains(where: { $0.id == profile.accountUuid })
+            else { continue }
+            // Si la sesión activa ya se guardó con la clave nueva (el
+            // vigilante de identidad arranca a la vez), esa es más reciente.
+            if newVault[profile.id] == nil {
+                newVault[profile.id] = legacy
+            }
+            newVault[profile.accountUuid] = nil
+        }
+        guard !NSDictionary(dictionary: newVault).isEqual(to: previousVault) else {
+            return false
+        }
+        try commitLocked(
+            profiles: currentProfiles,
+            vault: newVault,
+            previousVault: previousVault
+        )
+        return true
     }
 
     // MARK: Metadatos y operaciones
@@ -252,10 +288,10 @@ public final class ProfileStore: @unchecked Sendable {
         let originalProfiles = currentProfiles
         let previousVault = try loadVaultLocked()
         if let existing = currentProfiles.first(where: {
-            $0.accountUuid == profile.accountUuid
+            $0.id == profile.id
         }) {
             if onlyIfFresher,
-               let stored = previousVault[profile.accountUuid] as? [String: Any],
+               let stored = previousVault[profile.id] as? [String: Any],
                let storedExpiry = (stored["expiresAt"] as? NSNumber)?.intValue,
                storedExpiry > (credentials.expiresAt ?? 0) {
                 return existing
@@ -264,15 +300,19 @@ public final class ProfileStore: @unchecked Sendable {
             profile.sharedFiveHourCap = existing.sharedFiveHourCap
             profile.sharedWeeklyCap = existing.sharedWeeklyCap
         }
-        currentProfiles.removeAll { $0.accountUuid == profile.accountUuid }
+        currentProfiles.removeAll { $0.id == profile.id }
         currentProfiles.append(profile)
+        // Mismo correo en dos organizaciones: un orden estable entre ellas.
         currentProfiles.sort {
-            $0.emailAddress.localizedCaseInsensitiveCompare($1.emailAddress)
-                == .orderedAscending
+            switch $0.emailAddress.localizedCaseInsensitiveCompare($1.emailAddress) {
+            case .orderedAscending: true
+            case .orderedDescending: false
+            case .orderedSame: $0.id < $1.id
+            }
         }
 
         var newVault = previousVault
-        newVault[profile.accountUuid] = try credentials.asDictionary()
+        newVault[profile.id] = try credentials.asDictionary()
         // The identity watcher runs often. Unchanged syncs must not rewrite
         // the entire vault and fsync metadata on every polling interval.
         if currentProfiles == originalProfiles,
@@ -287,9 +327,9 @@ public final class ProfileStore: @unchecked Sendable {
         return profile
     }
 
-    public func credentials(for accountUuid: String) throws -> OAuthCredentials? {
+    public func credentials(for profileID: String) throws -> OAuthCredentials? {
         lock.lock(); defer { lock.unlock() }
-        guard let entry = try loadVaultLocked()[accountUuid] as? [String: Any] else {
+        guard let entry = try loadVaultLocked()[profileID] as? [String: Any] else {
             return nil
         }
         let data = try JSONSerialization.data(
@@ -302,22 +342,22 @@ public final class ProfileStore: @unchecked Sendable {
     @discardableResult
     public func updateCredentials(
         _ credentials: OAuthCredentials,
-        for accountUuid: String,
+        for profileID: String,
         expectedAccessToken: String? = nil
     ) throws -> Bool {
         lock.lock(); defer { lock.unlock() }
         var currentProfiles = try loadProfilesLocked()
         guard let index = currentProfiles.firstIndex(where: {
-            $0.accountUuid == accountUuid
+            $0.id == profileID
         }) else { return false }
 
         let previousVault = try loadVaultLocked()
         if let expectedAccessToken,
-           (previousVault[accountUuid] as? [String: Any])?["accessToken"] as? String != expectedAccessToken {
+           (previousVault[profileID] as? [String: Any])?["accessToken"] as? String != expectedAccessToken {
             return false
         }
         var newVault = previousVault
-        newVault[accountUuid] = try credentials.asDictionary()
+        newVault[profileID] = try credentials.asDictionary()
         currentProfiles[index].refreshTokenFingerprint =
             AccountProfile.fingerprint(of: credentials.refreshToken)
         currentProfiles[index].needsLogin = false
@@ -332,35 +372,35 @@ public final class ProfileStore: @unchecked Sendable {
     public func setSharedCaps(
         fiveHour: Double?,
         weekly: Double?,
-        for accountUuid: String
+        for profileID: String
     ) throws {
         lock.lock(); defer { lock.unlock() }
         var currentProfiles = try loadProfilesLocked()
         guard let index = currentProfiles.firstIndex(where: {
-            $0.accountUuid == accountUuid
+            $0.id == profileID
         }) else { return }
         currentProfiles[index].sharedFiveHourCap = fiveHour
         currentProfiles[index].sharedWeeklyCap = weekly
         try saveProfilesLocked(currentProfiles)
     }
 
-    public func markNeedsLogin(_ accountUuid: String, _ flag: Bool) throws {
+    public func markNeedsLogin(_ profileID: String, _ flag: Bool) throws {
         lock.lock(); defer { lock.unlock() }
         var currentProfiles = try loadProfilesLocked()
         guard let index = currentProfiles.firstIndex(where: {
-            $0.accountUuid == accountUuid
+            $0.id == profileID
         }) else { return }
         currentProfiles[index].needsLogin = flag
         try saveProfilesLocked(currentProfiles)
     }
 
-    public func removeProfile(_ accountUuid: String) throws {
+    public func removeProfile(_ profileID: String) throws {
         lock.lock(); defer { lock.unlock() }
         var currentProfiles = try loadProfilesLocked()
-        currentProfiles.removeAll { $0.accountUuid == accountUuid }
+        currentProfiles.removeAll { $0.id == profileID }
         let previousVault = try loadVaultLocked()
         var newVault = previousVault
-        newVault[accountUuid] = nil
+        newVault[profileID] = nil
         try commitLocked(
             profiles: currentProfiles,
             vault: newVault,

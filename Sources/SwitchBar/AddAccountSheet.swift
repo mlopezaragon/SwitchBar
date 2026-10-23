@@ -75,6 +75,11 @@ struct AddAccountSheet: View {
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            Text(L10n.tr("add_account.organization_hint"))
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+
             if state.loginFlow != nil {
                 Text(L10n.tr("add_account.paste_code_label"))
                     .font(.callout)

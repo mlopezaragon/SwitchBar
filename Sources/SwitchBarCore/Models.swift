@@ -223,13 +223,61 @@ public struct OAuthCredentials: Sendable, Equatable {
     }
 }
 
+// MARK: - Identificador de perfil
+
+/// Una misma persona (un solo `accountUuid` y un solo correo) puede
+/// pertenecer a su organización personal, con un plan Max, y a la de un
+/// equipo, con un plan Team. Cada login autoriza una de ellas: son sesiones
+/// distintas, con cupos distintos, así que un perfil se identifica por la
+/// cuenta y la organización juntas.
+public enum ProfileID {
+    public static func make(accountUuid: String, organizationUuid: String?) -> String {
+        guard let organizationUuid, !organizationUuid.isEmpty else { return accountUuid }
+        return "\(accountUuid)/\(organizationUuid)"
+    }
+
+    /// Hasta la 1.0.3 los perfiles se guardaban por `accountUuid`. Traslada a
+    /// su identificador actual las claves antiguas que pertenezcan sin
+    /// ambigüedad a un único perfil; el resto se conservan tal cual.
+    public static func adoptingLegacyKeys<Value>(
+        _ values: [String: Value],
+        profiles: [AccountProfile]
+    ) -> [String: Value] {
+        var result: [String: Value] = [:]
+        var adopted: [String: Value] = [:]
+        for (key, value) in values {
+            let current = currentKey(for: key, profiles: profiles)
+            if current == key {
+                result[key] = value
+            } else {
+                adopted[current] = value
+            }
+        }
+        // Un valor ya guardado con la clave actual es más reciente.
+        result.merge(adopted) { current, _ in current }
+        return result
+    }
+
+    public static func currentKey(for key: String, profiles: [AccountProfile]) -> String {
+        guard !profiles.contains(where: { $0.id == key }) else { return key }
+        let owners = profiles.filter { $0.accountUuid == key }
+        return owners.count == 1 ? owners[0].id : key
+    }
+}
+
 // MARK: - Identidad de cuenta (bloque `oauthAccount` de ~/.claude.json)
 
-public struct AccountIdentity: Sendable, Equatable {
+public struct AccountIdentity: Sendable, Equatable, Identifiable {
     public var accountUuid: String
     public var emailAddress: String
     public var displayName: String?
+    /// Organización con la que se autorizó la sesión.
+    public var organizationUuid: String?
     public var rawJSON: Data
+
+    public var id: String {
+        ProfileID.make(accountUuid: accountUuid, organizationUuid: organizationUuid)
+    }
 
     public init(oauthAccountJSON data: Data) throws {
         guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -242,6 +290,9 @@ public struct AccountIdentity: Sendable, Equatable {
         self.accountUuid = uuid
         self.emailAddress = email
         self.displayName = dict["displayName"] as? String
+        self.organizationUuid = (dict["organizationUuid"] as? String).flatMap {
+            $0.isEmpty ? nil : $0
+        }
         self.rawJSON = data
     }
 
@@ -300,8 +351,22 @@ public struct AccountProfile: Codable, Identifiable, Sendable, Equatable {
     /// real que este usuario se permite consumir); nil = cuenta no compartida.
     public var sharedFiveHourCap: Double?
     public var sharedWeeklyCap: Double?
+    /// Organización de la sesión guardada. Los perfiles anteriores a la 1.0.4
+    /// no la guardaban aparte: `withOrganizationFromIdentity()` la recupera
+    /// del bloque de identidad al cargarlos.
+    public var organizationUuid: String?
 
-    public var id: String { accountUuid }
+    /// Cuenta y organización: ver `ProfileID`.
+    public var id: String {
+        ProfileID.make(accountUuid: accountUuid, organizationUuid: organizationUuid)
+    }
+
+    public func withOrganizationFromIdentity() -> AccountProfile {
+        guard organizationUuid == nil else { return self }
+        var profile = self
+        profile.organizationUuid = identityField("organizationUuid")
+        return profile
+    }
 
     /// Plan de la cuenta. La fuente es `organizationType` del bloque de
     /// identidad: en las cuentas Team el Llavero deja `subscriptionType`
@@ -315,6 +380,16 @@ public struct AccountProfile: Codable, Identifiable, Sendable, Equatable {
     /// («…'s Organization») que no aporta nada al usuario.
     public var organizationName: String? {
         identityField("organizationName")
+    }
+
+    /// Plan y, si es de una organización, su nombre. Distingue dos perfiles
+    /// con el mismo correo: «Max» y «Team · Utilia».
+    public var planLabel: String? {
+        guard let plan else { return nil }
+        if plan.isOrganization, let organizationName {
+            return "\(plan.displayName) · \(organizationName)"
+        }
+        return plan.displayName
     }
 
     private func identityField(_ key: String) -> String? {
@@ -332,6 +407,7 @@ public struct AccountProfile: Codable, Identifiable, Sendable, Equatable {
         self.needsLogin = needsLogin
         self.identityJSON = identity.rawJSON
         self.refreshTokenFingerprint = refreshTokenFingerprint
+        self.organizationUuid = identity.organizationUuid
     }
 
     /// Huella estable de un refresh token (no reversible).

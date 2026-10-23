@@ -95,8 +95,8 @@ struct DetailView: View {
     }
 
     private func accountSection(_ profile: AccountProfile) -> some View {
-        let usage = state.usageByAccount[profile.accountUuid]
-        let isActive = profile.accountUuid == state.activeAccountUuid
+        let usage = state.usageByAccount[profile.id]
+        let isActive = profile.id == state.activeProfileID
         return VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 Circle()
@@ -119,7 +119,7 @@ struct DetailView: View {
                         .fixedSize()
                 } else {
                     Button(L10n.tr("account.change_to")) {
-                        state.switchTo(profile.accountUuid)
+                        state.switchTo(profile.id)
                     }
                         .controlSize(.small)
                         .disabled(profile.needsLogin)
@@ -131,7 +131,7 @@ struct DetailView: View {
                         L10n.tr("account.delete_profile"),
                         role: .destructive
                     ) {
-                        state.removeProfile(profile.accountUuid)
+                        state.removeProfile(profile.id)
                     }
                 } label: {
                     Image(systemName: "ellipsis")
@@ -390,7 +390,7 @@ private struct SharedAccountControls: View {
         state.setSharedCaps(
             fiveHour: shared ? fiveHourCap : nil,
             weekly: shared ? weeklyCap : nil,
-            for: profile.accountUuid
+            for: profile.id
         )
     }
 }

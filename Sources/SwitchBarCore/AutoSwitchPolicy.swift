@@ -2,12 +2,12 @@ import Foundation
 
 /// Estado de uso de una cuenta para la política de cambio automático.
 public struct AccountUsageState: Sendable {
-    public var accountUuid: String
+    public var id: String
     public var usage: UsageSnapshot?
     public var needsLogin: Bool
 
-    public init(accountUuid: String, usage: UsageSnapshot?, needsLogin: Bool) {
-        self.accountUuid = accountUuid
+    public init(id: String, usage: UsageSnapshot?, needsLogin: Bool) {
+        self.id = id
         self.usage = usage
         self.needsLogin = needsLogin
     }
@@ -110,7 +110,7 @@ public struct AutoSwitchPolicy: Sendable {
 
     /// La mejor cuenta a la que cambiar, o nil si ninguna candidata sirve.
     public func bestCandidate(active: AccountUsageState, others: [AccountUsageState]) -> String? {
-        let candidates = others.filter { $0.accountUuid != active.accountUuid && isCandidate($0) }
+        let candidates = others.filter { $0.id != active.id && isCandidate($0) }
         guard !candidates.isEmpty else { return nil }
         let best = candidates.min { a, b in
             let fa = fiveHourUtilization(a)
@@ -118,7 +118,7 @@ public struct AutoSwitchPolicy: Sendable {
             if fa != fb { return fa < fb }
             return weeklyMargin(a) > weeklyMargin(b)
         }
-        return best?.accountUuid
+        return best?.id
     }
 
     /// Decisión completa: a qué cuenta cambiar dada la situación actual, o nil.

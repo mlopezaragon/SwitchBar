@@ -15,16 +15,23 @@ public struct OAuthLoginFlow: Sendable {
     public let verifier: String
     /// Valor opaco que liga la respuesta del navegador con esta petición.
     public let state: String
+    /// Organización que se pide autorizar. La misma cuenta puede estar en su
+    /// organización personal y en la de un equipo; sin indicarla, el
+    /// navegador autoriza la que tenga elegida claude.ai. Es el mismo
+    /// parámetro que envía Claude Code con `forceLoginOrgUUID`.
+    public let organizationUuid: String?
 
-    public init() {
+    public init(organizationUuid: String? = nil) {
         self.verifier = Self.randomURLSafeString()
         self.state = Self.randomURLSafeString()
+        self.organizationUuid = organizationUuid
     }
 
     /// Inicializador para pruebas reproducibles.
-    public init(verifier: String, state: String) {
+    public init(verifier: String, state: String, organizationUuid: String? = nil) {
         self.verifier = verifier
         self.state = state
+        self.organizationUuid = organizationUuid
     }
 
     static let authorizeEndpoint = "https://claude.com/cai/oauth/authorize"
@@ -51,6 +58,11 @@ public struct OAuthLoginFlow: Sendable {
             URLQueryItem(name: "code_challenge_method", value: "S256"),
             URLQueryItem(name: "state", value: state)
         ]
+        if let organizationUuid {
+            components.queryItems?.append(
+                URLQueryItem(name: "orgUUID", value: organizationUuid)
+            )
+        }
         return components.url!
     }
 

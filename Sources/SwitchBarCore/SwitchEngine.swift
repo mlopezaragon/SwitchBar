@@ -49,9 +49,9 @@ public final class SwitchEngine: @unchecked Sendable {
         self.defaults = defaults
     }
 
-    public func activeAccountUuid() -> String? {
+    public func activeProfileID() -> String? {
         operationLock.lock(); defer { operationLock.unlock() }
-        return try? store.readActiveIdentity()?.accountUuid
+        return try? store.readActiveIdentity()?.id
     }
 
     /// Lee identidad y credenciales activas comprobando que describen la
@@ -71,11 +71,11 @@ public final class SwitchEngine: @unchecked Sendable {
     /// perfil, sin leer sus secretos del Llavero (cada lectura podría abrir un
     /// diálogo de autorización).
     private func checkPairConsistency(identity: AccountIdentity, credentials: OAuthCredentials) throws {
-        guard let recheck = try store.readActiveIdentity(), recheck.accountUuid == identity.accountUuid else {
+        guard let recheck = try store.readActiveIdentity(), recheck.id == identity.id else {
             throw SwitchError.inconsistentActiveState
         }
         let fingerprint = AccountProfile.fingerprint(of: credentials.refreshToken)
-        for other in try profiles.loadProfiles() where other.accountUuid != identity.accountUuid {
+        for other in try profiles.loadProfiles() where other.id != identity.id {
             if let known = other.refreshTokenFingerprint, known == fingerprint {
                 throw SwitchError.inconsistentActiveState
             }
@@ -87,7 +87,7 @@ public final class SwitchEngine: @unchecked Sendable {
         operationLock.lock(); defer { operationLock.unlock() }
         guard let (identity, creds) = try readActivePair() else { return }
         let known = try profiles.loadProfiles().contains {
-            $0.accountUuid == identity.accountUuid
+            $0.id == identity.id
         }
         guard known else { return }
         try profiles.saveProfile(identity: identity, credentials: creds, onlyIfFresher: true)
@@ -106,37 +106,37 @@ public final class SwitchEngine: @unchecked Sendable {
     /// credenciales de una cuenta bajo la identidad de otra.
     public func adoptRenewedActiveCredentials(
         _ credentials: OAuthCredentials,
-        for accountUuid: String
+        for profileID: String
     ) throws {
         operationLock.lock(); defer { operationLock.unlock() }
         guard let identity = try store.readActiveIdentity(),
-              identity.accountUuid == accountUuid else {
+              identity.id == profileID else {
             throw SwitchError.inconsistentActiveState
         }
         try store.writeActiveCredentials(credentials)
     }
 
     @discardableResult
-    public func switchTo(_ accountUuid: String) throws -> AccountIdentity {
+    public func switchTo(_ profileID: String) throws -> AccountIdentity {
         operationLock.lock(); defer { operationLock.unlock() }
-        if let current = try store.readActiveIdentity(), current.accountUuid == accountUuid {
+        if let current = try store.readActiveIdentity(), current.id == profileID {
             try syncActiveIntoProfile()
             return current
         }
         let all = try profiles.loadProfiles()
-        guard let target = all.first(where: { $0.accountUuid == accountUuid }) else {
-            throw SwitchError.profileNotFound(accountUuid)
+        guard let target = all.first(where: { $0.id == profileID }) else {
+            throw SwitchError.profileNotFound(profileID)
         }
-        if target.needsLogin { throw SwitchError.profileNeedsLogin(accountUuid) }
-        guard let creds = try profiles.credentials(for: accountUuid) else {
-            throw SwitchError.profileNeedsLogin(accountUuid)
+        if target.needsLogin { throw SwitchError.profileNeedsLogin(profileID) }
+        guard let creds = try profiles.credentials(for: profileID) else {
+            throw SwitchError.profileNeedsLogin(profileID)
         }
         if creds.isRefreshTokenExpired() {
-            try profiles.markNeedsLogin(accountUuid, true)
-            throw SwitchError.profileNeedsLogin(accountUuid)
+            try profiles.markNeedsLogin(profileID, true)
+            throw SwitchError.profileNeedsLogin(profileID)
         }
 
-        let previous = activeAccountUuid()
+        let previous = activeProfileID()
         // Una sola lectura del Llavero de Claude Code para todo el cambio:
         // sirve a la vez para volcar la sesión saliente a su perfil, para
         // preservar las demás claves (mcpOAuth…) y para poder revertir.
@@ -145,7 +145,7 @@ public final class SwitchEngine: @unchecked Sendable {
 
         if let previousCreds,
            let previousIdentity = try store.readActiveIdentity(),
-           all.contains(where: { $0.accountUuid == previousIdentity.accountUuid }) {
+           all.contains(where: { $0.id == previousIdentity.id }) {
             try checkPairConsistency(identity: previousIdentity, credentials: previousCreds)
             try profiles.saveProfile(identity: previousIdentity, credentials: previousCreds, onlyIfFresher: true)
         }
@@ -162,8 +162,8 @@ public final class SwitchEngine: @unchecked Sendable {
             throw error
         }
 
-        if let previous, previous != accountUuid {
-            defaults.set([previous, accountUuid], forKey: Self.lastSwitchKey)
+        if let previous, previous != profileID {
+            defaults.set([previous, profileID], forKey: Self.lastSwitchKey)
         }
         return identity
     }
@@ -176,27 +176,27 @@ public final class SwitchEngine: @unchecked Sendable {
     /// `claudeAiOauth` desde el perfil destino.
     @discardableResult
     public func repairAndSwitchTo(
-        _ accountUuid: String
+        _ profileID: String
     ) throws -> AccountIdentity {
         operationLock.lock(); defer { operationLock.unlock() }
         let all = try profiles.loadProfiles()
         guard let target = all.first(where: {
-            $0.accountUuid == accountUuid
+            $0.id == profileID
         }) else {
-            throw SwitchError.profileNotFound(accountUuid)
+            throw SwitchError.profileNotFound(profileID)
         }
         if target.needsLogin {
-            throw SwitchError.profileNeedsLogin(accountUuid)
+            throw SwitchError.profileNeedsLogin(profileID)
         }
-        guard let creds = try profiles.credentials(for: accountUuid) else {
-            throw SwitchError.profileNeedsLogin(accountUuid)
+        guard let creds = try profiles.credentials(for: profileID) else {
+            throw SwitchError.profileNeedsLogin(profileID)
         }
         if creds.isRefreshTokenExpired() {
-            try profiles.markNeedsLogin(accountUuid, true)
-            throw SwitchError.profileNeedsLogin(accountUuid)
+            try profiles.markNeedsLogin(profileID, true)
+            throw SwitchError.profileNeedsLogin(profileID)
         }
 
-        let previous = activeAccountUuid()
+        let previous = activeProfileID()
         let readableBlob = try? store.readCredentialsBlob()
         let base = try readableBlob
             ?? ClaudeCodeStore.CredentialsBlob(dictionary: [:])
@@ -212,8 +212,8 @@ public final class SwitchEngine: @unchecked Sendable {
             }
             throw error
         }
-        if let previous, previous != accountUuid {
-            defaults.set([previous, accountUuid], forKey: Self.lastSwitchKey)
+        if let previous, previous != profileID {
+            defaults.set([previous, profileID], forKey: Self.lastSwitchKey)
         }
         return identity
     }
@@ -221,17 +221,17 @@ public final class SwitchEngine: @unchecked Sendable {
     /// Alta de cuenta: guarda la sesión activa de Claude Code como perfil.
     @discardableResult
     public func captureActiveAsProfile(
-        expectedAccountUuid: String? = nil
+        expectedProfileID: String? = nil
     ) throws -> AccountProfile {
         operationLock.lock(); defer { operationLock.unlock() }
         guard let (identity, creds) = try readActivePair() else {
             throw SwitchError.profileNotFound(L10n.tr("core.active_account"))
         }
-        if let expectedAccountUuid,
-           identity.accountUuid != expectedAccountUuid {
+        if let expectedProfileID,
+           identity.id != expectedProfileID {
             throw SwitchError.unexpectedActiveAccount(
-                expected: expectedAccountUuid,
-                actual: identity.accountUuid
+                expected: expectedProfileID,
+                actual: identity.id
             )
         }
         return try profiles.saveProfile(identity: identity, credentials: creds)
@@ -248,7 +248,10 @@ public final class SwitchEngine: @unchecked Sendable {
         guard let pair = defaults.array(forKey: Self.lastSwitchKey) as? [String], pair.count == 2 else {
             throw SwitchError.nothingToUndo
         }
-        let identity = try switchTo(pair[0])
+        // Un cambio hecho por la 1.0.3 o anterior guardó claves antiguas.
+        let identity = try switchTo(
+            ProfileID.currentKey(for: pair[0], profiles: try profiles.loadProfiles())
+        )
         defaults.removeObject(forKey: Self.lastSwitchKey)
         return identity
     }

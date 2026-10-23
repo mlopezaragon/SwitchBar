@@ -157,6 +157,8 @@
 "state.account_added" = "已添加账户 %@。";
 "state.account_reconnected" = "已重新连接账户 %@。";
 "state.unexpected_reconnect_account" = "登录后生效的是 %1$@，而不是 %2$@。浏览器通常会授权已登录的账户：请退出 claude.ai（或使用无痕窗口），选择 %2$@ 重新登录，然后再次点击“我已完成”。";
+"state.unexpected_reconnect_organization" = "授权的是组织 %1$@，而不是 %2$@。浏览器会授权 claude.ai 中当前选中的组织：请通过姓名首字母菜单切换后重新登录。";
+"state.account_already_added" = "%@ 已添加过：已更新其凭据。如需用此邮箱添加另一个组织，请先在 claude.ai 的姓名首字母菜单中选择该组织，然后重新登录。";
 "state.account_changed_while_saving" = "保存期间 Claude Code 切换了账户。请检查当前账户后重试。";
 "state.enrollment_failed" = "无法添加账户：%@";
 "state.shared_caps_failed" = "无法保存上限：%@";
@@ -198,6 +200,7 @@
 "add_account.open_sign_in" = "在浏览器中登录";
 "add_account.reopen_sign_in" = "重新打开登录";
 "add_account.private_window_hint" = "将打开 Anthropic 官方页面。如果浏览器已登录其他账户，将授权该账户：请使用无痕窗口，或先退出 claude.ai。";
+"add_account.organization_hint" = "你的邮箱属于多个组织（例如个人 Max 和 Team）吗？授权的是 claude.ai 中当前选中的组织：请先通过姓名首字母菜单切换。";
 "add_account.paste_code_label" = "在此粘贴浏览器显示的代码：";
 "add_account.paste_code_placeholder" = "授权码";
 "add_account.save" = "保存账户";

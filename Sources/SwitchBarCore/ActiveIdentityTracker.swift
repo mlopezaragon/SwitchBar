@@ -13,21 +13,21 @@ public enum ActiveIdentityChange: Sendable, Equatable {
 /// archivo contiene más estado y puede reescribirse aunque la cuenta activa
 /// siga siendo la misma.
 public struct ActiveIdentityTracker: Sendable {
-    public private(set) var accountUuid: String?
+    public private(set) var profileID: String?
 
-    public init(accountUuid: String? = nil) {
-        self.accountUuid = accountUuid
+    public init(profileID: String? = nil) {
+        self.profileID = profileID
     }
 
     public mutating func observe(
-        accountUuid newAccountUuid: String,
-        expectedAppAccountUuid: String?
+        profileID newProfileID: String,
+        expectedAppProfileID: String?
     ) -> ActiveIdentityChange {
-        guard newAccountUuid != accountUuid else {
+        guard newProfileID != profileID else {
             return .unchanged
         }
-        accountUuid = newAccountUuid
-        return newAccountUuid == expectedAppAccountUuid
+        profileID = newProfileID
+        return newProfileID == expectedAppProfileID
             ? .appInitiated
             : .manual
     }

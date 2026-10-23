@@ -3,14 +3,14 @@ import Testing
 @testable import SwitchBarCore
 
 private func estado(_ uuid: String, fiveHour: Double?, sevenDay: Double? = 0, opus: Double? = nil, needsLogin: Bool = false, sinDatos: Bool = false) -> AccountUsageState {
-    if sinDatos { return AccountUsageState(accountUuid: uuid, usage: nil, needsLogin: needsLogin) }
+    if sinDatos { return AccountUsageState(id: uuid, usage: nil, needsLogin: needsLogin) }
     let snapshot = UsageSnapshot(
         fiveHour: fiveHour.map { UsageWindow(utilization: $0, resetsAt: nil) },
         sevenDay: sevenDay.map { UsageWindow(utilization: $0, resetsAt: nil) },
         sevenDayOpus: opus.map { UsageWindow(utilization: $0, resetsAt: nil) },
         fetchedAt: Date()
     )
-    return AccountUsageState(accountUuid: uuid, usage: snapshot, needsLogin: needsLogin)
+    return AccountUsageState(id: uuid, usage: snapshot, needsLogin: needsLogin)
 }
 
 private let politica = AutoSwitchPolicy()

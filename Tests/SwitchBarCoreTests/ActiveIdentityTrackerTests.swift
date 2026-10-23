@@ -3,31 +3,31 @@ import Testing
 
 @Test
 func reescribirClaudeJsonNoSeConfundeConLogin() {
-    var tracker = ActiveIdentityTracker(accountUuid: "cuenta-a")
+    var tracker = ActiveIdentityTracker(profileID: "cuenta-a")
 
     #expect(
         tracker.observe(
-            accountUuid: "cuenta-a",
-            expectedAppAccountUuid: nil
+            profileID: "cuenta-a",
+            expectedAppProfileID: nil
         ) == .unchanged
     )
 }
 
 @Test
 func unCambioRealDistingueSuOrigen() {
-    var manual = ActiveIdentityTracker(accountUuid: "cuenta-a")
+    var manual = ActiveIdentityTracker(profileID: "cuenta-a")
     #expect(
         manual.observe(
-            accountUuid: "cuenta-b",
-            expectedAppAccountUuid: nil
+            profileID: "cuenta-b",
+            expectedAppProfileID: nil
         ) == .manual
     )
 
-    var app = ActiveIdentityTracker(accountUuid: "cuenta-a")
+    var app = ActiveIdentityTracker(profileID: "cuenta-a")
     #expect(
         app.observe(
-            accountUuid: "cuenta-b",
-            expectedAppAccountUuid: "cuenta-b"
+            profileID: "cuenta-b",
+            expectedAppProfileID: "cuenta-b"
         ) == .appInitiated
     )
 }

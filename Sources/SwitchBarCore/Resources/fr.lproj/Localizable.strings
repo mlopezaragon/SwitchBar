@@ -157,6 +157,8 @@
 "state.account_added" = "Compte %@ ajouté.";
 "state.account_reconnected" = "Compte %@ reconnecté.";
 "state.unexpected_reconnect_account" = "La connexion a laissé %1$@ actif, pas %2$@. Le navigateur autorise en général le compte déjà connecté : déconnectez-vous de claude.ai (ou utilisez une fenêtre privée), refaites la connexion en choisissant %2$@, puis cliquez de nouveau sur « J'ai terminé ».";
+"state.unexpected_reconnect_organization" = "L’organisation %1$@ a été autorisée au lieu de %2$@. Le navigateur autorise celle sélectionnée sur claude.ai : changez-la depuis le menu de vos initiales et reconnectez-vous.";
+"state.account_already_added" = "%@ était déjà ajouté : ses identifiants ont été renouvelés. Pour ajouter une autre organisation avec cette adresse, sélectionnez-la d’abord sur claude.ai depuis le menu de vos initiales, puis reconnectez-vous.";
 "state.account_changed_while_saving" = "Claude Code a changé de compte pendant l’enregistrement. Vérifiez le compte actif et réessayez.";
 "state.enrollment_failed" = "Impossible d’ajouter le compte : %@";
 "state.shared_caps_failed" = "Impossible d’enregistrer les plafonds : %@";
@@ -198,6 +200,7 @@
 "add_account.open_sign_in" = "Se connecter dans le navigateur";
 "add_account.reopen_sign_in" = "Rouvrir la connexion";
 "add_account.private_window_hint" = "La page officielle d'Anthropic va s'ouvrir. Si le navigateur est déjà connecté à un autre compte, c'est celui-là qui sera autorisé : utilisez une fenêtre privée ou déconnectez-vous de claude.ai.";
+"add_account.organization_hint" = "Votre adresse appartient à plusieurs organisations, par exemple une Max personnelle et une Team ? C’est celle sélectionnée sur claude.ai qui est autorisée : changez-la d’abord depuis le menu de vos initiales.";
 "add_account.paste_code_label" = "Collez ici le code affiché par le navigateur :";
 "add_account.paste_code_placeholder" = "Code d'autorisation";
 "add_account.save" = "Enregistrer le compte";

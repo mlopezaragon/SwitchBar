@@ -157,6 +157,8 @@
 "state.account_added" = "已加入帳號 %@。";
 "state.account_reconnected" = "已重新連結帳號 %@。";
 "state.unexpected_reconnect_account" = "登入後生效的是 %1$@，而不是 %2$@。瀏覽器通常會授權已登入的帳戶：請登出 claude.ai（或使用無痕視窗），選擇 %2$@ 重新登入，然後再次點擊「我已完成」。";
+"state.unexpected_reconnect_organization" = "授權的是組織 %1$@，而不是 %2$@。瀏覽器會授權 claude.ai 中目前選取的組織：請透過姓名縮寫選單切換後重新登入。";
+"state.account_already_added" = "%@ 先前已新增：已更新其憑證。若要以此電子郵件新增另一個組織，請先在 claude.ai 的姓名縮寫選單中選取該組織，然後重新登入。";
 "state.account_changed_while_saving" = "儲存期間 Claude Code 切換了帳號。請檢查目前帳號後重試。";
 "state.enrollment_failed" = "無法加入帳號：%@";
 "state.shared_caps_failed" = "無法儲存上限：%@";
@@ -198,6 +200,7 @@
 "add_account.open_sign_in" = "在瀏覽器中登入";
 "add_account.reopen_sign_in" = "重新開啟登入";
 "add_account.private_window_hint" = "將開啟 Anthropic 官方頁面。如果瀏覽器已登入其他帳戶，將授權該帳戶：請使用無痕視窗，或先登出 claude.ai。";
+"add_account.organization_hint" = "你的電子郵件屬於多個組織（例如個人 Max 和 Team）嗎？授權的是 claude.ai 中目前選取的組織：請先透過姓名縮寫選單切換。";
 "add_account.paste_code_label" = "在此貼上瀏覽器顯示的代碼：";
 "add_account.paste_code_placeholder" = "授權碼";
 "add_account.save" = "儲存帳戶";

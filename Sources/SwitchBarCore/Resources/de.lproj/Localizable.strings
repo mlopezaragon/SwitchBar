@@ -157,6 +157,8 @@
 "state.account_added" = "Account %@ hinzugefügt.";
 "state.account_reconnected" = "Account %@ erneut verbunden.";
 "state.unexpected_reconnect_account" = "Nach der Anmeldung ist %1$@ aktiv, nicht %2$@. Der Browser autorisiert meist das bereits angemeldete Konto: Melde dich bei claude.ai ab (oder nutze ein privates Fenster), wiederhole die Anmeldung mit %2$@ und klicke erneut auf „Fertig“.";
+"state.unexpected_reconnect_organization" = "Statt %2$@ wurde die Organisation %1$@ autorisiert. Der Browser autorisiert die auf claude.ai ausgewählte: Wechsle sie über das Menü mit deinen Initialen und melde dich erneut an.";
+"state.account_already_added" = "%@ war bereits hinzugefügt: Die Anmeldedaten wurden erneuert. Um eine andere Organisation mit dieser E-Mail-Adresse hinzuzufügen, wähle sie zuerst auf claude.ai über das Menü mit deinen Initialen aus und melde dich erneut an.";
 "state.account_changed_while_saving" = "Claude Code hat während des Sicherns den Account gewechselt. Prüfe den aktiven Account und versuche es erneut.";
 "state.enrollment_failed" = "Der Account konnte nicht hinzugefügt werden: %@";
 "state.shared_caps_failed" = "Die Limits konnten nicht gesichert werden: %@";
@@ -198,6 +200,7 @@
 "add_account.open_sign_in" = "Im Browser anmelden";
 "add_account.reopen_sign_in" = "Anmeldung erneut öffnen";
 "add_account.private_window_hint" = "Die offizielle Seite von Anthropic wird geöffnet. Ist der Browser bereits bei einem anderen Konto angemeldet, wird dieses autorisiert: Nutze ein privates Fenster oder melde dich zuvor bei claude.ai ab.";
+"add_account.organization_hint" = "Gehört deine E-Mail-Adresse zu mehreren Organisationen, etwa einer persönlichen Max und einer Team? Autorisiert wird die auf claude.ai ausgewählte: Wechsle sie vorher über das Menü mit deinen Initialen.";
 "add_account.paste_code_label" = "Füge hier den Code ein, den der Browser anzeigt:";
 "add_account.paste_code_placeholder" = "Autorisierungscode";
 "add_account.save" = "Konto speichern";

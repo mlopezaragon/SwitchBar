@@ -28,18 +28,18 @@ struct MenuPanelView: View {
             ForEach(state.profilesList) { profile in
                 AccountCardView(
                     profile: profile,
-                    usage: state.usageByAccount[profile.accountUuid],
-                    isActive: profile.accountUuid == state.activeAccountUuid,
+                    usage: state.usageByAccount[profile.id],
+                    isActive: profile.id == state.activeProfileID,
                     isUsageStale: state.isUsageStale(
-                        for: profile.accountUuid
+                        for: profile.id
                     ),
                     isRenewalBlocked: state.isRenewalBlocked(
-                        for: profile.accountUuid
+                        for: profile.id
                     ),
                     suggestsReconnect: state.suggestsReconnect(
-                        for: profile.accountUuid
+                        for: profile.id
                     ),
-                    onSwitch: { state.switchTo(profile.accountUuid) },
+                    onSwitch: { state.switchTo(profile.id) },
                     onReconnect: {
                         DetailWindowController.shared.show()
                         state.beginReconnect(profile)

@@ -22,7 +22,11 @@ public enum Diagnostics {
     )
 
     /// Identificador corto y no reversible a un correo, apto para el registro.
-    public static func tag(_ accountUuid: String) -> String {
-        String(accountUuid.prefix(8))
+    /// Con organización añade su principio: la misma cuenta puede estar en
+    /// una personal y en la de un equipo.
+    public static func tag(_ profileID: String) -> String {
+        let parts = profileID.split(separator: "/", maxSplits: 1)
+        guard parts.count == 2 else { return String(profileID.prefix(8)) }
+        return "\(parts[0].prefix(8))/\(parts[1].prefix(4))"
     }
 }
