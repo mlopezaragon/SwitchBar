@@ -220,3 +220,18 @@
 "add_account.error.code_rejected" = "Anthropic a rejeté le code. En général il a déjà été utilisé ou trop de temps s'est écoulé : recommencez la connexion.";
 "add_account.error.profile_unreadable" = "La session a été créée, mais les données du compte n'ont pas pu être lues. Utilisez la méthode du terminal.";
 "auto_switch.monitoring_stale" = "Le changement automatique manque de données récentes : la détection des limites est incertaine. Les mises à jour seront réessayées.";
+
+"limit_resets.summary" = "Réinitialisations : %1$d sur %2$d";
+"limit_resets.summary_until.one" = "Réinitialisations : %1$d sur %2$d · à utiliser avant le %3$@";
+"limit_resets.summary_until.many" = "Réinitialisations : %1$d sur %2$d · à utiliser avant le %3$@";
+"limit_resets.title" = "Réinitialisations de limite";
+"limit_resets.row" = "%1$@ : %2$d sur %3$d";
+"limit_resets.until" = "jusqu’au %@";
+"limit_resets.usable_now" = "utilisable maintenant";
+"limit_resets.requires_limit" = "utilisable une fois une limite atteinte";
+"limit_resets.paused" = "en pause";
+"limit_resets.kind.session" = "5 heures";
+"limit_resets.kind.weekly" = "Semaine";
+"limit_resets.kind.full" = "5 heures et semaine";
+"limit_resets.kind.other" = "Réinitialisation";
+"limit_resets.help" = "Anthropic accorde à certains comptes des réinitialisations qui remettent une fenêtre à zéro avant sa réinitialisation normale. Cette donnée provient d’une fonction qu’Anthropic n’a pas encore documentée et peut changer.";

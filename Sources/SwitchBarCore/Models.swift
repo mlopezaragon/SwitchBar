@@ -73,14 +73,18 @@ public struct UsageSnapshot: Sendable, Equatable {
     /// interfaz lo dice en lugar de mostrar «—», y el cambio automático no
     /// puede reaccionar a ese límite.
     public var weeklyLimitUnreported: Bool
+    /// Restablecimientos de límite concedidos a la cuenta; `nil` si el
+    /// servidor no informa de ellos.
+    public var limitResets: LimitResets?
 
     public init(fiveHour: UsageWindow?, sevenDay: UsageWindow?, sevenDayOpus: UsageWindow?, fetchedAt: Date,
-                weeklyLimitUnreported: Bool = false) {
+                weeklyLimitUnreported: Bool = false, limitResets: LimitResets? = nil) {
         self.fiveHour = fiveHour
         self.sevenDay = sevenDay
         self.sevenDayOpus = sevenDayOpus
         self.fetchedAt = fetchedAt
         self.weeklyLimitUnreported = weeklyLimitUnreported
+        self.limitResets = limitResets
     }
 
     /// Reescala las ventanas a un tope personal (cuentas compartidas): con un
@@ -97,7 +101,8 @@ public struct UsageSnapshot: Sendable, Equatable {
             sevenDay: scale(sevenDay, cap: weeklyCap),
             sevenDayOpus: scale(sevenDayOpus, cap: weeklyCap),
             fetchedAt: fetchedAt,
-            weeklyLimitUnreported: weeklyLimitUnreported
+            weeklyLimitUnreported: weeklyLimitUnreported,
+            limitResets: limitResets
         )
     }
 
@@ -137,7 +142,8 @@ public struct UsageSnapshot: Sendable, Equatable {
             fetchedAt: fetchedAt,
             // Con otro límite semanal en la lista (el de Fable), la ausencia
             // del general no es una ventana aún sin abrir: no se informa.
-            weeklyLimitUnreported: sevenDay == nil && reportsWeeklyLimits
+            weeklyLimitUnreported: sevenDay == nil && reportsWeeklyLimits,
+            limitResets: LimitResets.parse(dict["cedar_ember"])
         )
     }
 }

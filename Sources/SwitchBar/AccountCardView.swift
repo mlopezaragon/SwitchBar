@@ -80,6 +80,14 @@ struct AccountCardView: View {
                 }
                 .opacity(isUsageStale ? 0.55 : 1)
 
+                if let resets = LimitResetText.summary(usage?.limitResets) {
+                    Label(resets, systemImage: "arrow.counterclockwise")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .opacity(isUsageStale ? 0.55 : 1)
+                        .help(LimitResetText.help(usage?.limitResets))
+                }
+
                 if suggestsReconnect {
                     // La espera puede ser larga y no depende de la app, pero
                     // reconectar la cuenta la arregla al instante: el botón

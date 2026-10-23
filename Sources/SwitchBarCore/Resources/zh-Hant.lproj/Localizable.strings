@@ -220,3 +220,18 @@
 "add_account.error.code_rejected" = "Anthropic 拒絕了該代碼。通常是已使用過或時間過久：請重新登入。";
 "add_account.error.profile_unreadable" = "工作階段已建立，但無法讀取帳戶資訊。請改用終端機方式新增。";
 "auto_switch.monitoring_stale" = "自動切換缺少最新用量資料，無法可靠偵測限額。將繼續重試更新。";
+
+"limit_resets.summary" = "額度重設：剩餘 %1$d 次，共 %2$d 次";
+"limit_resets.summary_until.one" = "額度重設：剩餘 %1$d 次，共 %2$d 次 · 請在%3$@前使用";
+"limit_resets.summary_until.many" = "額度重設：剩餘 %1$d 次，共 %2$d 次 · 請在%3$@前使用";
+"limit_resets.title" = "額度重設";
+"limit_resets.row" = "%1$@：剩餘 %2$d 次，共 %3$d 次";
+"limit_resets.until" = "截至%@";
+"limit_resets.usable_now" = "現在可用";
+"limit_resets.requires_limit" = "達到上限後可用";
+"limit_resets.paused" = "已暫停";
+"limit_resets.kind.session" = "5 小時";
+"limit_resets.kind.weekly" = "每週";
+"limit_resets.kind.full" = "5 小時和每週";
+"limit_resets.kind.other" = "重設";
+"limit_resets.help" = "Anthropic 會向部分帳號提供重設，在正常重設前將某個用量時段歸零。此資料來自 Anthropic 尚未公開說明的功能，可能會變更。";

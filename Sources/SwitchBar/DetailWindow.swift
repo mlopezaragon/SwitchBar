@@ -172,6 +172,20 @@ struct DetailView: View {
             }
             .frame(maxWidth: .infinity, alignment: .center)
 
+            let resetRows = LimitResetText.rows(usage?.limitResets)
+            if !resetRows.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label(L10n.tr("limit_resets.title"), systemImage: "arrow.counterclockwise")
+                        .font(.callout.weight(.medium))
+                    ForEach(resetRows, id: \.self) { row in
+                        Text(row)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .help(L10n.tr("limit_resets.help"))
+            }
+
             SharedAccountControls(profile: profile, state: state)
 
             if let fetched = usage?.fetchedAt {

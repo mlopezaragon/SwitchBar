@@ -572,6 +572,17 @@ final class AppState {
         }
     }
 
+    /// Anota si el servidor informó de restablecimientos: el bloque no está
+    /// documentado y así se ve enseguida si deja de llegar. Sin secretos.
+    private func logLimitResets(_ usage: UsageSnapshot, for profileID: String) {
+        let summary = usage.limitResets.map { resets in
+            "\(resets.resetsLeft())/\(resets.resetsTotal()) en \(resets.grants.count) lote(s), elegible: \(resets.eligible)"
+        } ?? "sin bloque"
+        Diagnostics.usage.debug(
+            "\(Diagnostics.tag(profileID), privacy: .public) restablecimientos: \(summary, privacy: .public)"
+        )
+    }
+
     /// De dónde viene una pausa impuesta por el servidor.
     ///
     /// Importa mucho: consultar el uso es barato y se puede reintentar pronto,
@@ -938,9 +949,11 @@ final class AppState {
                 }
             }
             do {
-                usageByAccount[profile.id] = try await api.fetchUsage(
+                let usage = try await api.fetchUsage(
                     accessToken: creds.accessToken
                 )
+                usageByAccount[profile.id] = usage
+                logLimitResets(usage, for: profile.id)
                 return .updated
             } catch AnthropicAPIError.httpError(401) {
                 // El servidor rechazó un token que parecía vigente: renovar la
@@ -951,10 +964,11 @@ final class AppState {
                     current: creds
                 ) {
                 case .success(let renewed):
-                    usageByAccount[profile.id] =
-                        try await api.fetchUsage(
-                            accessToken: renewed.accessToken
-                        )
+                    let usage = try await api.fetchUsage(
+                        accessToken: renewed.accessToken
+                    )
+                    usageByAccount[profile.id] = usage
+                    logLimitResets(usage, for: profile.id)
                     return .updated
                 case .failure(let outcome):
                     return outcome

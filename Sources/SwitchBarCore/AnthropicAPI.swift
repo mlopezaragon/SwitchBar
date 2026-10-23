@@ -64,8 +64,12 @@ public final class AnthropicAPI: Sendable {
     static let appVersion: String = Bundle.main.object(
         forInfoDictionaryKey: "CFBundleShortVersionString"
     ) as? String ?? "0"
+    /// `cedar_ember=1` añade a la respuesta los restablecimientos de límite
+    /// de la cuenta (ver `LimitResets`) sin gastar otra petición, y
+    /// `skip_spend=1` omite el gasto de uso extra, que la app no usa. Son los
+    /// mismos parámetros con los que Claude Code lee ese bloque.
     static let usageEndpoint = URL(
-        string: "https://api.anthropic.com/api/oauth/usage"
+        string: "https://api.anthropic.com/api/oauth/usage?cedar_ember=1&skip_spend=1"
     )!
     /// Mismo endpoint y client_id públicos que emplea el propio Claude Code.
     /// El anterior (`console.anthropic.com`) dejó de existir: ahora responde

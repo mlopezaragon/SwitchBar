@@ -61,7 +61,8 @@ public final class UsageSnapshotCache: @unchecked Sendable {
                 sevenDay: window("sevenDay"),
                 sevenDayOpus: window("sevenDayOpus"),
                 fetchedAt: Date(timeIntervalSince1970: fetchedAt),
-                weeklyLimitUnreported: raw["weeklyLimitUnreported"] as? Bool ?? false
+                weeklyLimitUnreported: raw["weeklyLimitUnreported"] as? Bool ?? false,
+                limitResets: decodeLimitResets(raw["limitResets"])
             )
         }
         return result
@@ -86,6 +87,7 @@ public final class UsageSnapshotCache: @unchecked Sendable {
             raw["sevenDay"] = encode(snapshot.sevenDay)
             raw["sevenDayOpus"] = encode(snapshot.sevenDayOpus)
             if snapshot.weeklyLimitUnreported { raw["weeklyLimitUnreported"] = true }
+            raw["limitResets"] = snapshot.limitResets.map(encodeLimitResets)
             dict[account] = raw
         }
         let data = try JSONSerialization.data(
@@ -93,5 +95,46 @@ public final class UsageSnapshotCache: @unchecked Sendable {
             options: [.sortedKeys]
         )
         try SecureFileIO.writeAtomically(data, to: fileURL)
+    }
+
+    private func encodeLimitResets(_ resets: LimitResets) -> [String: Any] {
+        [
+            "eligible": resets.eligible,
+            "grants": resets.grants.map { grant -> [String: Any] in
+                var raw: [String: Any] = [
+                    "id": grant.id,
+                    "label": grant.label,
+                    "resetsLeft": grant.resetsLeft,
+                    "resetsTotal": grant.resetsTotal,
+                    "usableNow": grant.usableNow,
+                    "useRequiresLimit": grant.useRequiresLimit,
+                    "paused": grant.paused
+                ]
+                raw["kind"] = grant.kind?.rawValue
+                raw["endsAt"] = grant.endsAt?.timeIntervalSince1970
+                return raw
+            }
+        ]
+    }
+
+    private func decodeLimitResets(_ any: Any?) -> LimitResets? {
+        guard let raw = any as? [String: Any] else { return nil }
+        let grants = (raw["grants"] as? [[String: Any]] ?? []).compactMap { g -> LimitResetGrant? in
+            guard let id = g["id"] as? String,
+                  let left = (g["resetsLeft"] as? NSNumber)?.intValue,
+                  let total = (g["resetsTotal"] as? NSNumber)?.intValue else { return nil }
+            return LimitResetGrant(
+                id: id,
+                label: g["label"] as? String ?? "",
+                kind: (g["kind"] as? String).flatMap(LimitResetGrant.Kind.init),
+                resetsLeft: left,
+                resetsTotal: total,
+                endsAt: (g["endsAt"] as? NSNumber).map { Date(timeIntervalSince1970: $0.doubleValue) },
+                usableNow: g["usableNow"] as? Bool ?? false,
+                useRequiresLimit: g["useRequiresLimit"] as? Bool ?? true,
+                paused: g["paused"] as? Bool ?? false
+            )
+        }
+        return LimitResets(eligible: raw["eligible"] as? Bool ?? false, grants: grants)
     }
 }

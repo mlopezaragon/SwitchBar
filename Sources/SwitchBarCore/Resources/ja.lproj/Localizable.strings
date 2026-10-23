@@ -220,3 +220,18 @@
 "add_account.error.code_rejected" = "Anthropic がコードを拒否しました。すでに使用済みか、時間が経ちすぎた場合に起こります。サインインをやり直してください。";
 "add_account.error.profile_unreadable" = "セッションは作成されましたが、アカウント情報を読み取れませんでした。ターミナルの方法で追加してください。";
 "auto_switch.monitoring_stale" = "自動切り替え用の最新の使用量データがないため、上限を確実に検出できません。更新を再試行します。";
+
+"limit_resets.summary" = "リミットのリセット：%2$d 回中 %1$d 回";
+"limit_resets.summary_until.one" = "リミットのリセット：%2$d 回中 %1$d 回 · %3$@までに使用";
+"limit_resets.summary_until.many" = "リミットのリセット：%2$d 回中 %1$d 回 · %3$@までに使用";
+"limit_resets.title" = "リミットのリセット";
+"limit_resets.row" = "%1$@：%3$d 回中 %2$d 回";
+"limit_resets.until" = "%@まで";
+"limit_resets.usable_now" = "今すぐ使用可能";
+"limit_resets.requires_limit" = "上限に達すると使用可能";
+"limit_resets.paused" = "一時停止中";
+"limit_resets.kind.session" = "5時間";
+"limit_resets.kind.weekly" = "週間";
+"limit_resets.kind.full" = "5時間と週間";
+"limit_resets.kind.other" = "リセット";
+"limit_resets.help" = "Anthropic は一部のアカウントに、通常のリセット前に枠をゼロに戻すリセットを付与しています。この情報は Anthropic がまだ公開していない機能から取得しており、変更される可能性があります。";

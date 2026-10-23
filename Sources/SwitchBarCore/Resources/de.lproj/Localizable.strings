@@ -220,3 +220,18 @@
 "add_account.error.code_rejected" = "Anthropic hat den Code abgelehnt. Meist wurde er bereits verwendet oder es verging zu viel Zeit: Anmeldung wiederholen.";
 "add_account.error.profile_unreadable" = "Die Sitzung wurde erstellt, aber die Kontodaten konnten nicht gelesen werden. Nutze die Terminal-Methode.";
 "auto_switch.monitoring_stale" = "Für den automatischen Wechsel fehlen aktuelle Nutzungsdaten. Limits können nicht zuverlässig erkannt werden. Aktualisierungen werden weiter versucht.";
+
+"limit_resets.summary" = "Limit-Zurücksetzungen: %1$d von %2$d";
+"limit_resets.summary_until.one" = "Limit-Zurücksetzungen: %1$d von %2$d · bis %3$@ nutzen";
+"limit_resets.summary_until.many" = "Limit-Zurücksetzungen: %1$d von %2$d · bis %3$@ nutzen";
+"limit_resets.title" = "Limit-Zurücksetzungen";
+"limit_resets.row" = "%1$@: %2$d von %3$d";
+"limit_resets.until" = "bis %@";
+"limit_resets.usable_now" = "jetzt nutzbar";
+"limit_resets.requires_limit" = "nutzbar, sobald ein Limit erreicht ist";
+"limit_resets.paused" = "pausiert";
+"limit_resets.kind.session" = "5 Stunden";
+"limit_resets.kind.weekly" = "Woche";
+"limit_resets.kind.full" = "5 Stunden und Woche";
+"limit_resets.kind.other" = "Zurücksetzung";
+"limit_resets.help" = "Anthropic gewährt manchen Accounts Zurücksetzungen, die ein Fenster vor seiner regulären Zurücksetzung auf null bringen. Die Angabe stammt aus einer Funktion, die Anthropic noch nicht dokumentiert hat, und kann sich ändern.";

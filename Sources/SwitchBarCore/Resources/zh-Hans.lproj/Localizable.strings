@@ -220,3 +220,18 @@
 "add_account.error.code_rejected" = "Anthropic 拒绝了该代码。通常是已被使用或时间过久：请重新登录。";
 "add_account.error.profile_unreadable" = "会话已创建，但无法读取账户信息。请改用终端方式添加。";
 "auto_switch.monitoring_stale" = "自动切换缺少最新用量数据，无法可靠检测限额。将继续重试更新。";
+
+"limit_resets.summary" = "额度重置：剩余 %1$d 次，共 %2$d 次";
+"limit_resets.summary_until.one" = "额度重置：剩余 %1$d 次，共 %2$d 次 · 请在%3$@前使用";
+"limit_resets.summary_until.many" = "额度重置：剩余 %1$d 次，共 %2$d 次 · 请在%3$@前使用";
+"limit_resets.title" = "额度重置";
+"limit_resets.row" = "%1$@：剩余 %2$d 次，共 %3$d 次";
+"limit_resets.until" = "截至%@";
+"limit_resets.usable_now" = "现在可用";
+"limit_resets.requires_limit" = "达到上限后可用";
+"limit_resets.paused" = "已暂停";
+"limit_resets.kind.session" = "5 小时";
+"limit_resets.kind.weekly" = "每周";
+"limit_resets.kind.full" = "5 小时和每周";
+"limit_resets.kind.other" = "重置";
+"limit_resets.help" = "Anthropic 会向部分账户提供重置，在正常重置前将某个用量窗口归零。此数据来自 Anthropic 尚未公开说明的功能，可能会变化。";

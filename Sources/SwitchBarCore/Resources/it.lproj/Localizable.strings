@@ -220,3 +220,18 @@
 "add_account.error.code_rejected" = "Anthropic ha rifiutato il codice. Di solito è già stato usato o è passato troppo tempo: ripeti l'accesso.";
 "add_account.error.profile_unreadable" = "La sessione è stata creata, ma non è stato possibile leggere i dati dell'account. Usa il metodo del terminale.";
 "auto_switch.monitoring_stale" = "Il cambio automatico non dispone di dati recenti: il rilevamento dei limiti non è affidabile. Gli aggiornamenti verranno ritentati.";
+
+"limit_resets.summary" = "Azzeramenti: %1$d di %2$d";
+"limit_resets.summary_until.one" = "Azzeramenti: %1$d di %2$d · da usare entro il %3$@";
+"limit_resets.summary_until.many" = "Azzeramenti: %1$d di %2$d · da usare entro il %3$@";
+"limit_resets.title" = "Azzeramenti del limite";
+"limit_resets.row" = "%1$@: %2$d di %3$d";
+"limit_resets.until" = "fino al %@";
+"limit_resets.usable_now" = "utilizzabile ora";
+"limit_resets.requires_limit" = "utilizzabile al raggiungimento di un limite";
+"limit_resets.paused" = "in pausa";
+"limit_resets.kind.session" = "5 ore";
+"limit_resets.kind.weekly" = "Settimana";
+"limit_resets.kind.full" = "5 ore e settimana";
+"limit_resets.kind.other" = "Azzeramento";
+"limit_resets.help" = "Anthropic concede ad alcuni account azzeramenti che riportano a zero una finestra prima del suo azzeramento normale. Il dato proviene da una funzione che Anthropic non ha ancora documentato e può cambiare.";

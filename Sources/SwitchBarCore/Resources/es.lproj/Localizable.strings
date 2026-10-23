@@ -220,3 +220,18 @@
 "add_account.error.code_rejected" = "Anthropic rechazó el código. Suele pasar si ya se usó o si pasó demasiado tiempo: repite el inicio de sesión.";
 "add_account.error.profile_unreadable" = "La sesión se creó, pero no se pudieron leer los datos de la cuenta. Usa el método de la terminal para darla de alta.";
 "auto_switch.monitoring_stale" = "Cambio automático sin datos recientes: no se puede detectar el límite con fiabilidad. Se sigue intentando actualizar.";
+
+"limit_resets.summary" = "Restablecimientos: %1$d de %2$d";
+"limit_resets.summary_until.one" = "Restablecimientos: %1$d de %2$d · úsalo antes del %3$@";
+"limit_resets.summary_until.many" = "Restablecimientos: %1$d de %2$d · úsalos antes del %3$@";
+"limit_resets.title" = "Restablecimientos de límite";
+"limit_resets.row" = "%1$@: %2$d de %3$d";
+"limit_resets.until" = "hasta el %@";
+"limit_resets.usable_now" = "se puede usar ya";
+"limit_resets.requires_limit" = "se usa al llegar a un límite";
+"limit_resets.paused" = "en pausa";
+"limit_resets.kind.session" = "5 horas";
+"limit_resets.kind.weekly" = "Semana";
+"limit_resets.kind.full" = "5 horas y semana";
+"limit_resets.kind.other" = "Restablecimiento";
+"limit_resets.help" = "Anthropic concede a algunas cuentas restablecimientos que devuelven a cero una ventana antes de su reinicio. El dato sale de una función que Anthropic aún no documenta y puede cambiar.";

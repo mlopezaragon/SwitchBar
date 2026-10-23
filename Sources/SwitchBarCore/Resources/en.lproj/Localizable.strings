@@ -220,3 +220,18 @@
 "add_account.error.code_rejected" = "Anthropic rejected the code. That usually means it was already used or too much time passed: repeat the sign-in.";
 "add_account.error.profile_unreadable" = "The session was created, but the account details couldn't be read. Use the terminal method to add it.";
 "auto_switch.monitoring_stale" = "Auto-switch has no recent usage data: limit detection is unreliable. Updates will keep retrying.";
+
+"limit_resets.summary" = "Limit resets: %1$d of %2$d";
+"limit_resets.summary_until.one" = "Limit resets: %1$d of %2$d · use it by %3$@";
+"limit_resets.summary_until.many" = "Limit resets: %1$d of %2$d · use them by %3$@";
+"limit_resets.title" = "Limit resets";
+"limit_resets.row" = "%1$@: %2$d of %3$d";
+"limit_resets.until" = "until %@";
+"limit_resets.usable_now" = "usable now";
+"limit_resets.requires_limit" = "usable once a limit is reached";
+"limit_resets.paused" = "paused";
+"limit_resets.kind.session" = "5 hours";
+"limit_resets.kind.weekly" = "Week";
+"limit_resets.kind.full" = "5 hours and week";
+"limit_resets.kind.other" = "Reset";
+"limit_resets.help" = "Anthropic grants some accounts resets that bring a window back to zero before it resets. This comes from a feature Anthropic has not documented yet and may change.";

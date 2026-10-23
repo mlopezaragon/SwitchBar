@@ -16,6 +16,8 @@ política automática.
 
 - Barras de uso por cuenta: ventana de 5 horas, semana general y el cupo
   semanal independiente de Fable, con su hora de reinicio.
+- Restablecimientos de límite concedidos por Anthropic, por cuenta y con
+  su fecha límite.
 - Cambio de cuenta activa con un clic, con deshacer.
 - Cambio automático con umbrales independientes y configurables. Elige la
   cuenta cuya semana se reinicia antes, aunque sea por minutos, porque el

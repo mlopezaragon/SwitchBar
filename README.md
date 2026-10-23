@@ -21,6 +21,7 @@ when a usage window fills up.
 
 - Usage bars per account: 5-hour window, weekly window, and the separate
   Fable weekly quota, each with its reset time.
+- Limit resets granted by Anthropic, per account, with their deadline.
 - One-click switching of the active Claude Code account, with undo.
 - Automatic switching with independent, configurable thresholds per window.
   It picks the account whose week resets first, even by minutes, because
