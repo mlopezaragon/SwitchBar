@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.0.2 — 2026-10-23
+
+- Fixed: inactive accounts stopped renewing their session whenever Claude
+  Code (or any node/bun process) was running, so within hours their usage
+  froze and the cards asked for a new browser login. They renew again while
+  terminals are open: Claude Code re-reads its Keychain entry before every
+  refresh, so an older terminal never presents the token SwitchBar rotates.
+  Switching accounts waits for an in-flight renewal to finish.
+- A rotated refresh token no longer inherits the previous token's expiry,
+  which could mark a live session as needing login.
+- Cards and the detail window show each account's plan (Pro, Max, Team,
+  Enterprise). Team and Enterprise accounts are highlighted, and the tooltip
+  names the organization. The plan comes from the account's organization
+  type, because Claude Code leaves `subscriptionType` empty for Team.
+- Plans without a general weekly limit (Team reports only the 5-hour and
+  Fable windows) show "No limit" instead of an empty "—" bar.
+- README and PRIVACY name the current token refresh host
+  (`platform.claude.com`).
+- Validated with 117 automated tests.
+
 ## 1.0.1 — 2026-09-05
 
 - Account enrollment now shares concurrent submissions and retains a successful
