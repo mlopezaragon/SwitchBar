@@ -1,17 +1,24 @@
 # Changelog
 
-## 1.3.0 — 2026-10-23
+## 1.3.0 — 2026-10-24
 
 - Each account's card shows the limit resets Anthropic has granted it, for
   example "Limit resets: 1 of 2 · use it by Oct 30". The detail window
   lists each batch with what it resets (5-hour window, week, or both), its
-  deadline, and whether it can be used now or only at a limit.
+  deadline, and whether it can be used now or only at a limit. An account
+  without any says so there, with the reason Anthropic gives (plan, seat
+  type, none granted…).
 - The data comes from the `cedar_ember` block of the usage endpoint, the
   one Claude Code's `/limit-reset` command reads. It is requested in the
   same call SwitchBar already makes, so there are no extra requests.
   Anthropic does not document it: when the block is missing or malformed
   the card shows nothing and usage is unaffected.
-- Validated with 154 automated tests.
+- Today Anthropic only reveals resets to Claude Code and claude.ai: asked
+  by any other app, every account comes back ineligible with reason
+  `surface`. SwitchBar does not pose as Claude Code to get them, so the
+  detail window says they cannot be seen from SwitchBar, and they appear
+  on their own if Anthropic opens the data to other apps.
+- Validated with 155 automated tests.
 
 ## 1.2.0 — 2026-10-23
 

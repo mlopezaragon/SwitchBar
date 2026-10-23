@@ -235,3 +235,11 @@
 "limit_resets.kind.full" = "5時間と週間";
 "limit_resets.kind.other" = "リセット";
 "limit_resets.help" = "Anthropic は一部のアカウントに、通常のリセット前に枠をゼロに戻すリセットを付与しています。この情報は Anthropic がまだ公開していない機能から取得しており、変更される可能性があります。";
+"limit_resets.none" = "現在利用できるものはありません";
+"limit_resets.reason.config_off" = "Anthropic はこのアカウントで機能を有効にしていません";
+"limit_resets.reason.tier" = "アカウントのプランに含まれていません";
+"limit_resets.reason.seat" = "シートの種類に含まれていません";
+"limit_resets.reason.no_grant" = "Anthropic から付与されていません";
+"limit_resets.reason.tenure" = "アカウントの利用期間によるものです";
+"limit_resets.reason.client" = "SwitchBar からは表示できません。Anthropic は Claude Code と claude.ai でのみ表示します";
+"limit_resets.reason.other" = "Anthropic は現在このアカウントに提供していません";

@@ -66,10 +66,14 @@ public struct LimitResetGrant: Sendable, Equatable {
 /// del uso.
 public struct LimitResets: Sendable, Equatable {
     public var eligible: Bool
+    /// Por qué la cuenta no puede tener restablecimientos, tal como lo dice
+    /// el servidor (`tier`, `seat`, `no_grant`, `surface`…).
+    public var ineligibleReason: String?
     public var grants: [LimitResetGrant]
 
-    public init(eligible: Bool, grants: [LimitResetGrant]) {
+    public init(eligible: Bool, ineligibleReason: String? = nil, grants: [LimitResetGrant]) {
         self.eligible = eligible
+        self.ineligibleReason = ineligibleReason
         self.grants = grants
     }
 
@@ -99,6 +103,7 @@ public struct LimitResets: Sendable, Equatable {
         let grants = (dict["grants"] as? [Any] ?? []).compactMap(grant)
         return LimitResets(
             eligible: dict["eligible"] as? Bool ?? false,
+            ineligibleReason: dict["ineligible_reason"] as? String,
             grants: grants
         )
     }

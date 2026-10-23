@@ -235,3 +235,11 @@
 "limit_resets.kind.full" = "5 小时和每周";
 "limit_resets.kind.other" = "重置";
 "limit_resets.help" = "Anthropic 会向部分账户提供重置，在正常重置前将某个用量窗口归零。此数据来自 Anthropic 尚未公开说明的功能，可能会变化。";
+"limit_resets.none" = "目前没有可用的重置";
+"limit_resets.reason.config_off" = "Anthropic 尚未为此账户开启该功能";
+"limit_resets.reason.tier" = "账户的套餐不包含";
+"limit_resets.reason.seat" = "席位类型不包含";
+"limit_resets.reason.no_grant" = "Anthropic 未授予任何重置";
+"limit_resets.reason.tenure" = "因账户使用时长";
+"limit_resets.reason.client" = "无法在 SwitchBar 中查看：Anthropic 仅在 Claude Code 和 claude.ai 中显示";
+"limit_resets.reason.other" = "Anthropic 目前不向此账户提供";

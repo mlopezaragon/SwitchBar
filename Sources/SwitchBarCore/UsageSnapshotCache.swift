@@ -98,7 +98,7 @@ public final class UsageSnapshotCache: @unchecked Sendable {
     }
 
     private func encodeLimitResets(_ resets: LimitResets) -> [String: Any] {
-        [
+        var raw: [String: Any] = [
             "eligible": resets.eligible,
             "grants": resets.grants.map { grant -> [String: Any] in
                 var raw: [String: Any] = [
@@ -115,6 +115,8 @@ public final class UsageSnapshotCache: @unchecked Sendable {
                 return raw
             }
         ]
+        raw["ineligibleReason"] = resets.ineligibleReason
+        return raw
     }
 
     private func decodeLimitResets(_ any: Any?) -> LimitResets? {
@@ -135,6 +137,10 @@ public final class UsageSnapshotCache: @unchecked Sendable {
                 paused: g["paused"] as? Bool ?? false
             )
         }
-        return LimitResets(eligible: raw["eligible"] as? Bool ?? false, grants: grants)
+        return LimitResets(
+            eligible: raw["eligible"] as? Bool ?? false,
+            ineligibleReason: raw["ineligibleReason"] as? String,
+            grants: grants
+        )
     }
 }

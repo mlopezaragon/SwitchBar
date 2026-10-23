@@ -235,3 +235,11 @@
 "limit_resets.kind.full" = "5 hours and week";
 "limit_resets.kind.other" = "Reset";
 "limit_resets.help" = "Anthropic grants some accounts resets that bring a window back to zero before it resets. This comes from a feature Anthropic has not documented yet and may change.";
+"limit_resets.none" = "None available now";
+"limit_resets.reason.config_off" = "Anthropic has not turned the feature on for this account";
+"limit_resets.reason.tier" = "the account's plan does not include them";
+"limit_resets.reason.seat" = "the seat type does not include them";
+"limit_resets.reason.no_grant" = "Anthropic has not granted it any";
+"limit_resets.reason.tenure" = "because of the account's age";
+"limit_resets.reason.client" = "Not visible from SwitchBar: Anthropic only shows them in Claude Code and on claude.ai";
+"limit_resets.reason.other" = "Anthropic does not offer them to this account right now";

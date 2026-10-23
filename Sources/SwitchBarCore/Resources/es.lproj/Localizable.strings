@@ -235,3 +235,11 @@
 "limit_resets.kind.full" = "5 horas y semana";
 "limit_resets.kind.other" = "Restablecimiento";
 "limit_resets.help" = "Anthropic concede a algunas cuentas restablecimientos que devuelven a cero una ventana antes de su reinicio. El dato sale de una función que Anthropic aún no documenta y puede cambiar.";
+"limit_resets.none" = "Ninguno disponible ahora";
+"limit_resets.reason.config_off" = "Anthropic no tiene activada la función para esta cuenta";
+"limit_resets.reason.tier" = "el plan de la cuenta no los incluye";
+"limit_resets.reason.seat" = "el tipo de plaza no los incluye";
+"limit_resets.reason.no_grant" = "Anthropic no le ha concedido ninguno";
+"limit_resets.reason.tenure" = "por la antigüedad de la cuenta";
+"limit_resets.reason.client" = "No se pueden ver desde SwitchBar: Anthropic solo los muestra en Claude Code y en claude.ai";
+"limit_resets.reason.other" = "Anthropic no los ofrece ahora a esta cuenta";

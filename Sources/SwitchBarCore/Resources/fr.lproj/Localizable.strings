@@ -235,3 +235,11 @@
 "limit_resets.kind.full" = "5 heures et semaine";
 "limit_resets.kind.other" = "Réinitialisation";
 "limit_resets.help" = "Anthropic accorde à certains comptes des réinitialisations qui remettent une fenêtre à zéro avant sa réinitialisation normale. Cette donnée provient d’une fonction qu’Anthropic n’a pas encore documentée et peut changer.";
+"limit_resets.none" = "Aucune disponible pour le moment";
+"limit_resets.reason.config_off" = "Anthropic n’a pas activé la fonction pour ce compte";
+"limit_resets.reason.tier" = "le forfait du compte ne les inclut pas";
+"limit_resets.reason.seat" = "le type de siège ne les inclut pas";
+"limit_resets.reason.no_grant" = "Anthropic ne lui en a accordé aucune";
+"limit_resets.reason.tenure" = "en raison de l’ancienneté du compte";
+"limit_resets.reason.client" = "Invisibles depuis SwitchBar : Anthropic ne les affiche que dans Claude Code et sur claude.ai";
+"limit_resets.reason.other" = "Anthropic ne les propose pas à ce compte pour le moment";

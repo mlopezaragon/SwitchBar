@@ -235,3 +235,11 @@
 "limit_resets.kind.full" = "5 ore e settimana";
 "limit_resets.kind.other" = "Azzeramento";
 "limit_resets.help" = "Anthropic concede ad alcuni account azzeramenti che riportano a zero una finestra prima del suo azzeramento normale. Il dato proviene da una funzione che Anthropic non ha ancora documentato e può cambiare.";
+"limit_resets.none" = "Nessuno disponibile ora";
+"limit_resets.reason.config_off" = "Anthropic non ha attivato la funzione per questo account";
+"limit_resets.reason.tier" = "il piano dell’account non li include";
+"limit_resets.reason.seat" = "il tipo di postazione non li include";
+"limit_resets.reason.no_grant" = "Anthropic non gliene ha concesso nessuno";
+"limit_resets.reason.tenure" = "per l’anzianità dell’account";
+"limit_resets.reason.client" = "Non visibili da SwitchBar: Anthropic li mostra solo in Claude Code e su claude.ai";
+"limit_resets.reason.other" = "Anthropic non li offre ora a questo account";

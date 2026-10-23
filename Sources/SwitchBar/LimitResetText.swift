@@ -20,10 +20,23 @@ enum LimitResetText {
     }
 
     /// Una línea por lote: "5 horas: 1 de 2 · hasta el 30 oct, 18:00 · se
-    /// usa al llegar a un límite".
+    /// usa al llegar a un límite". Sin lotes vigentes, una sola línea que lo
+    /// dice y, si el servidor lo explica, por qué.
     static func rows(_ resets: LimitResets?, now: Date = Date()) -> [String] {
         guard let resets else { return [] }
-        return resets.current(now: now).map { grant in
+        let current = resets.current(now: now)
+        guard !current.isEmpty else {
+            // Que no se vean desde SwitchBar no quiere decir que no haya.
+            if hiddenFromThisApp(resets.ineligibleReason) {
+                return [L10n.tr("limit_resets.reason.client")]
+            }
+            var parts = [L10n.tr("limit_resets.none")]
+            if let reason = reason(resets.ineligibleReason) {
+                parts.append(reason)
+            }
+            return [parts.joined(separator: " · ")]
+        }
+        return current.map { grant in
             var parts = [
                 L10n.tr("limit_resets.row", kindName(grant), grant.resetsLeft, grant.resetsTotal)
             ]
@@ -46,6 +59,26 @@ enum LimitResetText {
     /// Ayuda de la línea de la tarjeta: el desglose y de dónde sale el dato.
     static func help(_ resets: LimitResets?, now: Date = Date()) -> String {
         (rows(resets, now: now) + [L10n.tr("limit_resets.help")]).joined(separator: "\n")
+    }
+
+    /// Motivo legible de que la cuenta no tenga restablecimientos.
+    private static func reason(_ raw: String?) -> String? {
+        switch raw {
+        case nil: nil
+        case "config_off": L10n.tr("limit_resets.reason.config_off")
+        case "tier": L10n.tr("limit_resets.reason.tier")
+        case "seat": L10n.tr("limit_resets.reason.seat")
+        case "no_grant": L10n.tr("limit_resets.reason.no_grant")
+        case "tenure": L10n.tr("limit_resets.reason.tenure")
+        default: L10n.tr("limit_resets.reason.other")
+        }
+    }
+
+    /// El servidor no los enseña a quien pregunta (`surface`, `mobile`,
+    /// `cli_version`): depende de la app, no de la cuenta. Hoy solo los
+    /// revela a Claude Code y a claude.ai.
+    private static func hiddenFromThisApp(_ raw: String?) -> Bool {
+        ["surface", "mobile", "cli_version"].contains(raw)
     }
 
     private static func kindName(_ grant: LimitResetGrant) -> String {

@@ -235,3 +235,11 @@
 "limit_resets.kind.full" = "5 小時和每週";
 "limit_resets.kind.other" = "重設";
 "limit_resets.help" = "Anthropic 會向部分帳號提供重設，在正常重設前將某個用量時段歸零。此資料來自 Anthropic 尚未公開說明的功能，可能會變更。";
+"limit_resets.none" = "目前沒有可用的重設";
+"limit_resets.reason.config_off" = "Anthropic 尚未為此帳號開啟該功能";
+"limit_resets.reason.tier" = "帳號的方案不包含";
+"limit_resets.reason.seat" = "席位類型不包含";
+"limit_resets.reason.no_grant" = "Anthropic 未授予任何重設";
+"limit_resets.reason.tenure" = "因帳號使用時間";
+"limit_resets.reason.client" = "無法在 SwitchBar 中查看：Anthropic 僅在 Claude Code 和 claude.ai 中顯示";
+"limit_resets.reason.other" = "Anthropic 目前不向此帳號提供";

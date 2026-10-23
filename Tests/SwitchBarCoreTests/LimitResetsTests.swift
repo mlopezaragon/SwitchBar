@@ -10,6 +10,7 @@ private let respuestaConRestablecimientos = """
   ],
   "cedar_ember": {
     "eligible": true,
+    "ineligible_reason": null,
     "at_limit": true,
     "grants": [
       {"id": "grant_a", "label": "Session reset", "resets_total": 2, "resets_left": 1,
@@ -54,6 +55,17 @@ private let respuestaConRestablecimientos = """
     #expect(usage.limitResets == nil)
 }
 
+@Test func unaCuentaNoElegibleDiceElMotivo() throws {
+    let usage = try UsageSnapshot.parse(
+        Data(#"{"cedar_ember": {"eligible": false, "ineligible_reason": "tier", "grants": []}}"#.utf8),
+        fetchedAt: Date()
+    )
+    let resets = try #require(usage.limitResets)
+    #expect(!resets.eligible)
+    #expect(resets.ineligibleReason == "tier")
+    #expect(resets.resetsTotal() == 0)
+}
+
 @Test func unBloqueIlegibleNoEstropeaElUso() throws {
     let usage = try UsageSnapshot.parse(
         Data(#"{"five_hour": {"utilization": 10}, "cedar_ember": "roto"}"#.utf8),
@@ -92,7 +104,7 @@ private let respuestaConRestablecimientos = """
         .appendingPathComponent("switchbar-resets-\(UUID().uuidString)")
     defer { try? FileManager.default.removeItem(at: directory) }
     let fin = Date(timeIntervalSince1970: 1_900_000_000)
-    let resets = LimitResets(eligible: true, grants: [
+    let resets = LimitResets(eligible: true, ineligibleReason: "no_grant", grants: [
         LimitResetGrant(id: "g1", label: "Full reset", kind: .full, resetsLeft: 1, resetsTotal: 2,
                         endsAt: fin, usableNow: true, useRequiresLimit: false),
         LimitResetGrant(id: "g2", kind: nil, resetsLeft: 0, resetsTotal: 1, paused: true)

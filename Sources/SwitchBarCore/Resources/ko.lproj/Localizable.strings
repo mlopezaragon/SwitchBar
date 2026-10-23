@@ -235,3 +235,11 @@
 "limit_resets.kind.full" = "5시간 및 주간";
 "limit_resets.kind.other" = "초기화";
 "limit_resets.help" = "Anthropic은 일부 계정에 정기 초기화 전에 사용량을 0으로 되돌리는 초기화를 제공합니다. 이 정보는 Anthropic이 아직 문서화하지 않은 기능에서 가져오며 바뀔 수 있습니다.";
+"limit_resets.none" = "현재 사용 가능한 초기화 없음";
+"limit_resets.reason.config_off" = "Anthropic이 이 계정에서 기능을 켜지 않았습니다";
+"limit_resets.reason.tier" = "계정 요금제에 포함되지 않습니다";
+"limit_resets.reason.seat" = "좌석 유형에 포함되지 않습니다";
+"limit_resets.reason.no_grant" = "Anthropic이 부여한 초기화가 없습니다";
+"limit_resets.reason.tenure" = "계정 사용 기간 때문입니다";
+"limit_resets.reason.client" = "SwitchBar에서는 볼 수 없습니다. Anthropic은 Claude Code와 claude.ai에서만 보여 줍니다";
+"limit_resets.reason.other" = "Anthropic이 지금은 이 계정에 제공하지 않습니다";

@@ -235,3 +235,11 @@
 "limit_resets.kind.full" = "5 horas e semana";
 "limit_resets.kind.other" = "Redefinição";
 "limit_resets.help" = "A Anthropic concede a algumas contas redefinições que zeram uma janela antes da redefinição normal. O dado vem de um recurso que a Anthropic ainda não documentou e pode mudar.";
+"limit_resets.none" = "Nenhuma disponível agora";
+"limit_resets.reason.config_off" = "A Anthropic não ativou o recurso para esta conta";
+"limit_resets.reason.tier" = "o plano da conta não as inclui";
+"limit_resets.reason.seat" = "o tipo de assento não as inclui";
+"limit_resets.reason.no_grant" = "A Anthropic não concedeu nenhuma";
+"limit_resets.reason.tenure" = "pela antiguidade da conta";
+"limit_resets.reason.client" = "Não aparecem no SwitchBar: a Anthropic só as mostra no Claude Code e no claude.ai";
+"limit_resets.reason.other" = "A Anthropic não as oferece a esta conta agora";

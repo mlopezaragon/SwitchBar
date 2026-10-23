@@ -235,3 +235,11 @@
 "limit_resets.kind.full" = "5 Stunden und Woche";
 "limit_resets.kind.other" = "Zurücksetzung";
 "limit_resets.help" = "Anthropic gewährt manchen Accounts Zurücksetzungen, die ein Fenster vor seiner regulären Zurücksetzung auf null bringen. Die Angabe stammt aus einer Funktion, die Anthropic noch nicht dokumentiert hat, und kann sich ändern.";
+"limit_resets.none" = "Derzeit keine verfügbar";
+"limit_resets.reason.config_off" = "Anthropic hat die Funktion für diesen Account nicht aktiviert";
+"limit_resets.reason.tier" = "der Tarif des Accounts enthält sie nicht";
+"limit_resets.reason.seat" = "die Art des Platzes enthält sie nicht";
+"limit_resets.reason.no_grant" = "Anthropic hat ihm keine gewährt";
+"limit_resets.reason.tenure" = "wegen des Alters des Accounts";
+"limit_resets.reason.client" = "In SwitchBar nicht sichtbar: Anthropic zeigt sie nur in Claude Code und auf claude.ai";
+"limit_resets.reason.other" = "Anthropic bietet sie diesem Account derzeit nicht an";
