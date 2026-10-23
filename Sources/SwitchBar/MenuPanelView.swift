@@ -4,6 +4,9 @@ import SwitchBarCore
 /// Panel desplegable de la barra de menús.
 struct MenuPanelView: View {
     @Bindable var state: AppState
+    /// Altura real de las tarjetas, para que el panel se ajuste a ellas
+    /// mientras quepan y se desplace cuando no.
+    @State private var cardsHeight: CGFloat = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -25,26 +28,8 @@ struct MenuPanelView: View {
                 emptyState
             }
 
-            ForEach(state.profilesList) { profile in
-                AccountCardView(
-                    profile: profile,
-                    usage: state.usageByAccount[profile.id],
-                    isActive: profile.id == state.activeProfileID,
-                    isUsageStale: state.isUsageStale(
-                        for: profile.id
-                    ),
-                    isRenewalBlocked: state.isRenewalBlocked(
-                        for: profile.id
-                    ),
-                    suggestsReconnect: state.suggestsReconnect(
-                        for: profile.id
-                    ),
-                    onSwitch: { state.switchTo(profile.id) },
-                    onReconnect: {
-                        DetailWindowController.shared.show()
-                        state.beginReconnect(profile)
-                    }
-                )
+            if !state.profilesList.isEmpty {
+                accountCards
             }
 
             Button {
@@ -96,6 +81,49 @@ struct MenuPanelView: View {
         .onAppear {
             state.refreshIfStale()
         }
+    }
+
+    /// Las tarjetas se desplazan en vez de crecer sin fin. El panel no tiene
+    /// más espacio que la pantalla: con seis o siete cuentas, las últimas
+    /// tarjetas y el botón de añadir quedaban fuera de su borde, como si
+    /// hubiera un límite de cuentas.
+    private var accountCards: some View {
+        ScrollView {
+            VStack(spacing: 10) {
+                ForEach(state.profilesList) { profile in
+                    AccountCardView(
+                        profile: profile,
+                        usage: state.usageByAccount[profile.id],
+                        isActive: profile.id == state.activeProfileID,
+                        isUsageStale: state.isUsageStale(
+                            for: profile.id
+                        ),
+                        isRenewalBlocked: state.isRenewalBlocked(
+                            for: profile.id
+                        ),
+                        suggestsReconnect: state.suggestsReconnect(
+                            for: profile.id
+                        ),
+                        onSwitch: { state.switchTo(profile.id) },
+                        onReconnect: {
+                            DetailWindowController.shared.show()
+                            state.beginReconnect(profile)
+                        }
+                    )
+                }
+            }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
+                cardsHeight = $0
+            }
+        }
+        .frame(height: min(cardsHeight, maxCardsHeight))
+    }
+
+    /// Espacio para las tarjetas: la pantalla menos lo que ocupan la
+    /// cabecera, los avisos y el pie del panel.
+    private var maxCardsHeight: CGFloat {
+        let visible = NSScreen.main?.visibleFrame.height ?? 800
+        return max(240, visible - 320)
     }
 
     private var header: some View {
