@@ -38,6 +38,8 @@ public struct RefreshedTokens: Sendable, Equatable {
     public var refreshToken: String?
     /// Vigencia del access token en segundos.
     public var expiresIn: TimeInterval?
+    /// Vigencia del refresh token en segundos, cuando el servidor la indica.
+    public var refreshTokenExpiresIn: TimeInterval? = nil
 }
 
 /// Cliente del uso y de la renovación de sesiones de perfiles inactivos.
@@ -175,7 +177,9 @@ public final class AnthropicAPI: Sendable {
             return RefreshedTokens(
                 accessToken: accessToken,
                 refreshToken: dict["refresh_token"] as? String,
-                expiresIn: (dict["expires_in"] as? NSNumber)?.doubleValue
+                expiresIn: (dict["expires_in"] as? NSNumber)?.doubleValue,
+                refreshTokenExpiresIn:
+                    (dict["refresh_token_expires_in"] as? NSNumber)?.doubleValue
             )
         case 400, 401, 403:
             Diagnostics.usage.log(

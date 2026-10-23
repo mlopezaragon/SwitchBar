@@ -65,6 +65,8 @@
 
 "usage.five_hours" = "5 小时";
 "usage.week" = "每周";
+"usage.no_limit" = "无上限";
+"usage.no_limit.help" = "Anthropic 未报告此账户的总体每周上限。";
 "usage.fable" = "Fable";
 "usage.updated" = "用量更新于 %@";
 "usage.stale" = "上次检查于 %@";

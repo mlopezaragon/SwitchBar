@@ -101,7 +101,7 @@ private final class TokenRefreshSuccessProtocol: URLProtocol, @unchecked Sendabl
         client?.urlProtocol(
             self,
             didLoad: Data(
-                #"{"access_token":"nuevo-access","refresh_token":"nuevo-refresh","expires_in":28800}"#.utf8
+                #"{"access_token":"nuevo-access","refresh_token":"nuevo-refresh","expires_in":28800,"refresh_token_expires_in":2592000}"#.utf8
             )
         )
         client?.urlProtocolDidFinishLoading(self)
@@ -148,6 +148,7 @@ func renovarSesionUsaElFlujoEstandarDeRefreshToken() async throws {
     #expect(refreshed.accessToken == "nuevo-access")
     #expect(refreshed.refreshToken == "nuevo-refresh")
     #expect(refreshed.expiresIn == 28_800)
+    #expect(refreshed.refreshTokenExpiresIn == 2_592_000)
     #expect(TokenRefreshSuccessProtocol.observedRequest?.httpMethod == "POST")
     #expect(
         TokenRefreshSuccessProtocol.observedRequest?.url?.absoluteString

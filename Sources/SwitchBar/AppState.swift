@@ -86,9 +86,10 @@ final class AppState {
     /// Se sube al corregir algo que dejaba bloqueos injustos guardados en
     /// disco. Ver `AppPreferences.renewalBlockResetGeneration`.
     private static let renewalBlockResetGeneration = 1
-    /// Averigua si hay alguna terminal de Claude Code viva antes de tocar el
-    /// token de la cuenta activa.
-    private let claudeCodeProbe = ClaudeCodeProcessProbe()
+    /// Cuentas cuya sesión se está renovando ahora mismo. Un cambio de cuenta
+    /// espera a que terminen: copiaría al Llavero de Claude Code un refresh
+    /// token que Anthropic invalida al rotarlo.
+    private var renewingAccounts: Set<String> = []
     private var usagePollingSchedule = UsagePollingSchedule()
     private var pendingInitialUsageAccounts: Set<String> = []
     private var renewalRateLimitStreakByAccount: [String: Int] = [:]
@@ -845,9 +846,8 @@ final class AppState {
                 return .unchanged
             }
             // La cuenta activa es propiedad de Claude Code: su token se
-            // recoge del Llavero oficial cuando Claude Code lo renueva.
-            // Inactive accounts may still belong to older terminals; renewal
-            // also checks for running clients before rotating their tokens.
+            // recoge del Llavero oficial cuando Claude Code lo renueva. Las
+            // inactivas se renuevan aquí con el flujo OAuth estándar.
             if creds.isAccessTokenExpired() {
                 switch await renewedCredentials(
                     for: profile,
@@ -925,8 +925,15 @@ final class AppState {
     /// - Cuenta activa: se recoge la sesión que Claude Code ya renovó en su
     ///   Llavero oficial. SwitchBar nunca rota el token de la sesión
     ///   activa, porque una terminal abierta quedaría invalidada.
-    /// - Cuenta inactiva: también puede seguir en uso en terminales anteriores.
-    ///   Solo se renueva cuando no hay procesos que puedan usar Claude Code.
+    /// - Cuenta inactiva: se renueva aunque queden terminales abiertas con
+    ///   ella. Antes de renovar, Claude Code relee su Llavero y, si el token
+    ///   ya no es el que tenía en memoria, adopta el que encuentra; la
+    ///   renovación siempre usa el refresh token del Llavero, nunca uno
+    ///   guardado solo en memoria (comprobado en Claude Code 2.1.309). Una
+    ///   terminal anterior nunca presenta el refresh token que se rota aquí.
+    ///   Exigir que no hubiera ninguna abierta dejaba estas cuentas sin
+    ///   renovar en la práctica, y a las pocas horas pedían un login que no
+    ///   hacía falta.
     private func renewedCredentials(
         for profile: AccountProfile,
         previousAccessToken: String,
@@ -942,12 +949,9 @@ final class AppState {
             }
             return .failure(.waitingForSession)
         }
-        if !isActive {
-            let probe = claudeCodeProbe
-            guard await offMain({ !probe.isClaudeCodeRunning() }) else {
-                return .failure(.waitingForSession)
-            }
-        }
+        // Un cambio de cuenta en curso podría estar copiando este mismo refresh
+        // token al Llavero de Claude Code. Se deja para la próxima vuelta.
+        guard !isSwitchingAccount else { return .failure(.unchanged) }
         // El endpoint de renovación está castigado para esta cuenta: pedirle
         // otra solo alargaría el castigo. Se informa sin gastar la petición.
         if let until = renewalBlockedUntilByAccount[profile.accountUuid],
@@ -957,18 +961,25 @@ final class AppState {
             )
             return .failure(.renewalUnavailable)
         }
+        renewingAccounts.insert(profile.accountUuid)
+        defer { renewingAccounts.remove(profile.accountUuid) }
         do {
             let refreshed = try await api.refreshAccessToken(
                 refreshToken: creds.refreshToken
             )
-            let expiresAt = refreshed.expiresIn.map {
-                Int(Date().addingTimeInterval($0)
-                    .timeIntervalSince1970 * 1000)
+            func epochMilliseconds(_ lifetime: TimeInterval?) -> Int? {
+                lifetime.map {
+                    Int(Date().addingTimeInterval($0)
+                        .timeIntervalSince1970 * 1000)
+                }
             }
             let updated = try creds.updating(
                 accessToken: refreshed.accessToken,
                 refreshToken: refreshed.refreshToken,
-                expiresAt: expiresAt
+                expiresAt: epochMilliseconds(refreshed.expiresIn),
+                refreshTokenExpiresAt: epochMilliseconds(
+                    refreshed.refreshTokenExpiresIn
+                )
             )
             let profiles = self.profiles
             let accountUuid = profile.accountUuid
@@ -996,6 +1007,17 @@ final class AppState {
             return .failure(.failed(.server(code)))
         } catch {
             return .failure(.failed(.connection(describe(error))))
+        }
+    }
+
+    /// Espera a que terminen las renovaciones en curso antes de cambiar de
+    /// cuenta. Cambiar a mitad de una copiaría al Llavero de Claude Code el
+    /// refresh token que Anthropic está a punto de invalidar al rotarlo. El
+    /// plazo cubre de sobra el máximo de una petición al endpoint de tokens.
+    private func waitForPendingRenewals() async {
+        let deadline = Date().addingTimeInterval(35)
+        while !renewingAccounts.isEmpty, Date() < deadline {
+            try? await Task.sleep(for: .milliseconds(100))
         }
     }
 
@@ -1309,6 +1331,7 @@ final class AppState {
         let engine = self.engine
         isSwitchingAccount = true
         defer { isSwitchingAccount = false }
+        await waitForPendingRenewals()
         lastSwitchByApp = target
         let result: Result<AccountIdentity, Error> = await offMain {
             Result { try engine.switchTo(target) }
@@ -1461,6 +1484,7 @@ final class AppState {
         lastSwitchByApp = accountUuid
         Task {
             defer { isSwitchingAccount = false }
+            await waitForPendingRenewals()
             let result: Result<(AccountIdentity, Bool), Error> = await offMain {
                 Result {
                     do {
@@ -1548,6 +1572,7 @@ final class AppState {
         infoMessage = nil
         Task {
             defer { isSwitchingAccount = false }
+            await waitForPendingRenewals()
             let result: Result<AccountIdentity, Error> = await offMain {
                 Result { try engine.undoLastSwitch() }
             }

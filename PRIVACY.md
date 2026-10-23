@@ -25,7 +25,7 @@ it reads, what it stores, and what it sends.
 | Destination | Purpose | Credentials |
 |---|---|---|
 | `api.anthropic.com` | Read-only usage query | The account's own OAuth token |
-| `console.anthropic.com` | Standard OAuth token refresh for inactive profiles | The account's own refresh token |
+| `platform.claude.com` | Standard OAuth token refresh for inactive profiles | The account's own refresh token |
 | `status.claude.com` | Public service status | None |
 
 There is no telemetry, no analytics, no crash reporting, and no server of

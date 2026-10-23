@@ -81,15 +81,18 @@ autorización OAuth por su cuenta.
   Claude Code — y nunca amplía la ACL de una entrada.
 - El ciclo de credenciales de la cuenta activa es propiedad de Claude Code:
   SwitchBar nunca rota su token, así que las terminales abiertas no quedan
-  invalidadas. Solo los perfiles inactivos (sin ninguna terminal detrás) se
-  renuevan, y el token rotado se guarda en el almacén privado.
+  invalidadas. Solo se renuevan los perfiles inactivos, y el token rotado
+  se guarda en el almacén privado. Una terminal antigua que siga con una
+  cuenta inactiva no se ve afectada: Claude Code relee su entrada del
+  Llavero antes de renovar y nunca presenta un refresh token que solo
+  tenga en memoria.
 
 ## Privacidad
 
 SwitchBar envía peticiones de red exclusivamente a:
 
 - `api.anthropic.com` — consulta de uso de solo lectura por cuenta.
-- `console.anthropic.com` — renovación OAuth estándar de perfiles inactivos.
+- `platform.claude.com` — renovación OAuth estándar de perfiles inactivos.
 - `status.claude.com` — página pública de estado (sin credenciales).
 
 Nada más sale de tu Mac. No hay telemetría, analítica, informes de fallos

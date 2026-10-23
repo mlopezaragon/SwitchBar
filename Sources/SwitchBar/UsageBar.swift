@@ -7,6 +7,8 @@ struct UsageBar: View {
     let window: UsageWindow?
     /// Tope personal (0–100) en cuentas compartidas; dibuja una marca en la barra.
     var cap: Double? = nil
+    /// El plan no tiene esta ventana: se dice en vez de pintar una barra vacía.
+    var noLimit: Bool = false
 
     private var fraction: Double {
         guard let u = window?.utilization else { return 0 }
@@ -34,42 +36,54 @@ struct UsageBar: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 52, alignment: .leading)
 
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(.quaternary)
-                    Capsule()
-                        .fill(fillColor)
-                        .frame(width: max(4, geo.size.width * fraction))
-                        .opacity(window == nil ? 0 : 1)
-                }
-                // La marca del tope sobresale de la barra a propósito, así que
-                // se dibuja como superposición: dentro del ZStack su altura
-                // mandaría sobre la de las cápsulas y engordaría la barra al
-                // doble solo en las cuentas con tope personal.
-                .overlay(alignment: .leading) {
-                    if let cap, cap > 0, cap < 100 {
-                        Rectangle()
-                            .fill(.secondary)
-                            .frame(width: 1.5, height: 8)
-                            .offset(x: geo.size.width * cap / 100)
-                            .help(L10n.tr("usage.personal_cap", Int(cap)))
-                    }
+            if window == nil && noLimit {
+                Text(L10n.tr("usage.no_limit"))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .help(L10n.tr("usage.no_limit.help"))
+            } else {
+                bar
+
+                Text(window.map { "\(Int($0.utilization.rounded())) %" } ?? "—")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(window == nil ? .tertiary : .primary)
+                    .frame(width: 38, alignment: .trailing)
+
+                Text(ResetFormatter.compact(window?.resetsAt))
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 46, alignment: .trailing)
+                    .lineLimit(1)
+                    .help(ResetFormatter.absolute(window?.resetsAt))
+            }
+        }
+    }
+
+    private var bar: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(.quaternary)
+                Capsule()
+                    .fill(fillColor)
+                    .frame(width: max(4, geo.size.width * fraction))
+                    .opacity(window == nil ? 0 : 1)
+            }
+            // La marca del tope sobresale de la barra a propósito, así que
+            // se dibuja como superposición: dentro del ZStack su altura
+            // mandaría sobre la de las cápsulas y engordaría la barra al
+            // doble solo en las cuentas con tope personal.
+            .overlay(alignment: .leading) {
+                if let cap, cap > 0, cap < 100 {
+                    Rectangle()
+                        .fill(.secondary)
+                        .frame(width: 1.5, height: 8)
+                        .offset(x: geo.size.width * cap / 100)
+                        .help(L10n.tr("usage.personal_cap", Int(cap)))
                 }
             }
-            .frame(height: 4)
-
-            Text(window.map { "\(Int($0.utilization.rounded())) %" } ?? "—")
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(window == nil ? .tertiary : .primary)
-                .frame(width: 38, alignment: .trailing)
-
-            Text(ResetFormatter.compact(window?.resetsAt))
-                .font(.caption2.monospacedDigit())
-                .foregroundStyle(.tertiary)
-                .frame(width: 46, alignment: .trailing)
-                .lineLimit(1)
-                .help(ResetFormatter.absolute(window?.resetsAt))
         }
+        .frame(height: 4)
     }
 }

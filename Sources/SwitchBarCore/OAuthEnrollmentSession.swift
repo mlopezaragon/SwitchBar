@@ -49,12 +49,18 @@ public actor OAuthEnrollmentSession {
               let lifetime = tokens.expiresIn, lifetime.isFinite, lifetime > 0,
               lifetime < 365 * 24 * 3_600
         else { throw AnthropicAPIError.malformedResponse }
-        let data = try JSONSerialization.data(withJSONObject: [
+        var credentials: [String: Any] = [
             "accessToken": tokens.accessToken,
             "refreshToken": refreshToken,
             "expiresAt": Int(now.addingTimeInterval(lifetime).timeIntervalSince1970 * 1000),
             "scopes": OAuthLoginFlow.scopes
-        ], options: [.sortedKeys])
+        ]
+        if let refreshLifetime = tokens.refreshTokenExpiresIn,
+           refreshLifetime.isFinite, refreshLifetime > 0 {
+            credentials["refreshTokenExpiresAt"] =
+                Int(now.addingTimeInterval(refreshLifetime).timeIntervalSince1970 * 1000)
+        }
+        let data = try JSONSerialization.data(withJSONObject: credentials, options: [.sortedKeys])
         return try OAuthCredentials(claudeAiOauthJSON: data)
     }
 }

@@ -71,6 +71,36 @@ private let respuestaConLimits = """
     #expect(s.sevenDayOpus == nil)
 }
 
+/// Respuesta real de una cuenta Team, recortada: Anthropic informa del límite
+/// de 5 horas y del semanal de Fable, pero no de un semanal general.
+private let respuestaTeam = """
+{
+  "five_hour": {"utilization": 29.0, "resets_at": "2026-10-23T23:49:59.719794+00:00"},
+  "seven_day": null,
+  "seven_day_opus": null,
+  "limits": [
+    {"kind": "session", "group": "session", "percent": 29, "severity": "normal", "resets_at": "2026-10-23T23:49:59.719794+00:00", "scope": null, "is_active": true},
+    {"kind": "weekly_scoped", "group": "weekly", "percent": 0, "severity": "normal", "resets_at": "2026-10-27T23:00:00+00:00", "scope": {"model": {"id": null, "display_name": "Fable"}, "surface": null}, "is_active": false}
+  ]
+}
+""".data(using: .utf8)!
+
+@Test func unPlanSinSemanalGeneralSeDistingueDeUnDatoQueFalta() throws {
+    let team = try UsageSnapshot.parse(respuestaTeam, fetchedAt: Date())
+    #expect(team.fiveHour?.utilization == 29)
+    #expect(team.sevenDay == nil)
+    #expect(team.noWeeklyLimit)
+    #expect(team.sevenDayOpus?.utilization == 0)
+    #expect(team.scaledToPersonalCaps(fiveHourCap: 50, weeklyCap: 50).noWeeklyLimit)
+
+    // Con el semanal general presente, o sin la lista `limits`, un hueco en
+    // la semana es solo un dato que falta.
+    #expect(try !UsageSnapshot.parse(respuestaConLimits, fetchedAt: Date()).noWeeklyLimit)
+    #expect(try !UsageSnapshot.parse(
+        Data(#"{"five_hour": null, "seven_day": null}"#.utf8), fetchedAt: Date()
+    ).noWeeklyLimit)
+}
+
 @Test func rechazaJSONInvalido() {
     #expect(throws: CoreError.self) {
         _ = try UsageSnapshot.parse(Data("[]".utf8), fetchedAt: Date())
@@ -120,4 +150,27 @@ private let respuestaConLimits = """
     #expect((dict["expiresAt"] as? NSNumber)?.intValue == 99)
     #expect(dict["rateLimitTier"] as? String == "max_20x")
     #expect((dict["campoRaro"] as? [String: Any])?["x"] as? Int == 1)
+}
+
+@Test func unRefreshTokenRotadoNoHeredaLaCaducidadDelAnterior() throws {
+    let creds = try OAuthCredentials(claudeAiOauthJSON: Data("""
+    {"accessToken": "a", "refreshToken": "r", "expiresAt": 1, "refreshTokenExpiresAt": 1000}
+    """.utf8))
+    let despues = Date(timeIntervalSince1970: 10)
+    #expect(creds.isRefreshTokenExpired(now: despues))
+
+    // La caducidad guardada describía el token anterior: heredarla daría
+    // por perdida una sesión que acaba de renovarse.
+    let rotada = try creds.updating(accessToken: "a2", refreshToken: "r2", expiresAt: 99)
+    #expect(rotada.refreshTokenExpiresAt == nil)
+    #expect(!rotada.isRefreshTokenExpired(now: despues))
+
+    let conDato = try creds.updating(
+        accessToken: "a2", refreshToken: "r2", expiresAt: 99, refreshTokenExpiresAt: 50_000
+    )
+    #expect(conDato.refreshTokenExpiresAt == 50_000)
+
+    // Sin rotación, el refresh token y su caducidad siguen siendo los mismos.
+    let sinRotar = try creds.updating(accessToken: "a2", refreshToken: nil, expiresAt: 99)
+    #expect(sinRotar.refreshTokenExpiresAt == 1000)
 }

@@ -65,6 +65,8 @@
 
 "usage.five_hours" = "5 Stunden";
 "usage.week" = "Woche";
+"usage.no_limit" = "Kein Limit";
+"usage.no_limit.help" = "Anthropic meldet für diesen Account kein allgemeines Wochenlimit.";
 "usage.fable" = "Fable";
 "usage.updated" = "Nutzung aktualisiert %@";
 "usage.stale" = "Zuletzt geprüft %@";

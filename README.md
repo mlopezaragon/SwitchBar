@@ -85,15 +85,17 @@ an OAuth authorization on its own.
   Claude Code uses — and never widens an entry's ACL.
 - The active account's credential lifecycle is owned by Claude Code:
   SwitchBar never rotates its token, so open terminals are never
-  invalidated. Only inactive profiles (which no terminal is using) are
-  refreshed, and the rotated token is stored back in the private vault.
+  invalidated. Only inactive profiles are refreshed, and the rotated token
+  is stored back in the private vault. An older terminal still on an
+  inactive account is unaffected: Claude Code re-reads its Keychain entry
+  before renewing and never presents a refresh token held only in memory.
 
 ## Privacy
 
 SwitchBar sends network requests exclusively to:
 
 - `api.anthropic.com` — read-only usage query per account.
-- `console.anthropic.com` — standard OAuth token refresh for inactive
+- `platform.claude.com` — standard OAuth token refresh for inactive
   profiles.
 - `status.claude.com` — public status page (no credentials attached).
 

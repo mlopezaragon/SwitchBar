@@ -5,6 +5,8 @@ import SwitchBarCore
 struct UsageRing: View {
     let label: String
     let window: UsageWindow?
+    /// El plan no tiene esta ventana: se dice en vez de dejar el anillo vacío.
+    var noLimit: Bool = false
 
     private var fraction: Double {
         guard let u = window?.utilization else { return 0 }
@@ -36,7 +38,9 @@ struct UsageRing: View {
             VStack(spacing: 2) {
                 Text(label)
                     .font(.caption.weight(.medium))
-                Text(ResetFormatter.long(window?.resetsAt))
+                Text(window == nil && noLimit
+                     ? L10n.tr("usage.no_limit")
+                     : ResetFormatter.long(window?.resetsAt))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .lineLimit(2)
@@ -45,5 +49,6 @@ struct UsageRing: View {
             }
         }
         .frame(minWidth: 110)
+        .help(window == nil && noLimit ? L10n.tr("usage.no_limit.help") : "")
     }
 }

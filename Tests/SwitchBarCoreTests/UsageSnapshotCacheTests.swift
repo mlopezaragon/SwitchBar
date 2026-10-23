@@ -37,6 +37,28 @@ func laCacheSobreviveAUnReinicio() throws {
 }
 
 @Test
+func laCacheRecuerdaQueElPlanNoTieneSemanalGeneral() throws {
+    let directory = temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let cache = UsageSnapshotCache(directoryURL: directory)
+
+    let now = Date()
+    try cache.save([
+        "team": UsageSnapshot(
+            fiveHour: nil, sevenDay: nil, sevenDayOpus: nil,
+            fetchedAt: now, noWeeklyLimit: true
+        ),
+        "otra": UsageSnapshot(
+            fiveHour: nil, sevenDay: nil, sevenDayOpus: nil, fetchedAt: now
+        )
+    ])
+
+    let restored = UsageSnapshotCache(directoryURL: directory).load()
+    #expect(restored["team"]?.noWeeklyLimit == true)
+    #expect(restored["otra"]?.noWeeklyLimit == false)
+}
+
+@Test
 func lasVentanasConReinicioPasadoSeDescartanAlCargar() throws {
     let directory = temporaryDirectory()
     defer { try? FileManager.default.removeItem(at: directory) }

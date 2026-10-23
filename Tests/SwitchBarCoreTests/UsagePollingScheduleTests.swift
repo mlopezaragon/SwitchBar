@@ -105,12 +105,6 @@ private let pollingEpoch = Date(timeIntervalSince1970: 1_800_000_000)
     }
 }
 
-@Test func npmAndBunRuntimesCannotBeAssumedSafeForTokenRotation() {
-    #expect(ClaudeCodeProcessProbe.isAmbiguousRuntime("/opt/homebrew/bin/node"))
-    #expect(ClaudeCodeProcessProbe.isAmbiguousRuntime("/usr/local/bin/bun"))
-    #expect(!ClaudeCodeProcessProbe.isAmbiguousRuntime("/bin/zsh"))
-}
-
 @Test func newlyLinkedAccountGetsTheNextStandbySlotWithoutABurst() {
     var schedule = UsagePollingSchedule()
     schedule.recordAttempt("active", now: pollingEpoch)

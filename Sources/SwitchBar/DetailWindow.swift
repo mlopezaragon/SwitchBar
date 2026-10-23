@@ -163,7 +163,8 @@ struct DetailView: View {
 
             HStack(spacing: 24) {
                 UsageRing(label: L10n.tr("usage.five_hours"), window: usage?.fiveHour)
-                UsageRing(label: L10n.tr("usage.week"), window: usage?.sevenDay)
+                UsageRing(label: L10n.tr("usage.week"), window: usage?.sevenDay,
+                          noLimit: usage?.noWeeklyLimit == true)
                 UsageRing(label: L10n.tr("usage.fable"), window: usage?.sevenDayOpus)
             }
             .frame(maxWidth: .infinity, alignment: .center)

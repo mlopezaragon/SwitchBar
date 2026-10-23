@@ -67,12 +67,18 @@ public struct UsageSnapshot: Sendable, Equatable {
     public var sevenDay: UsageWindow?
     public var sevenDayOpus: UsageWindow?
     public var fetchedAt: Date
+    /// El servidor informa de límites semanales para esta cuenta, pero no
+    /// del general: su plan no lo tiene (ocurre en Team). No equivale a que
+    /// falte el dato, así que la interfaz lo dice en lugar de mostrar «—».
+    public var noWeeklyLimit: Bool
 
-    public init(fiveHour: UsageWindow?, sevenDay: UsageWindow?, sevenDayOpus: UsageWindow?, fetchedAt: Date) {
+    public init(fiveHour: UsageWindow?, sevenDay: UsageWindow?, sevenDayOpus: UsageWindow?, fetchedAt: Date,
+                noWeeklyLimit: Bool = false) {
         self.fiveHour = fiveHour
         self.sevenDay = sevenDay
         self.sevenDayOpus = sevenDayOpus
         self.fetchedAt = fetchedAt
+        self.noWeeklyLimit = noWeeklyLimit
     }
 
     /// Reescala las ventanas a un tope personal (cuentas compartidas): con un
@@ -88,7 +94,8 @@ public struct UsageSnapshot: Sendable, Equatable {
             fiveHour: scale(fiveHour, cap: fiveHourCap),
             sevenDay: scale(sevenDay, cap: weeklyCap),
             sevenDayOpus: scale(sevenDayOpus, cap: weeklyCap),
-            fetchedAt: fetchedAt
+            fetchedAt: fetchedAt,
+            noWeeklyLimit: noWeeklyLimit
         )
     }
 
@@ -105,10 +112,12 @@ public struct UsageSnapshot: Sendable, Equatable {
             )
         }
         var byKind: [String: UsageWindow] = [:]
+        var reportsWeeklyLimits = false
         if let limits = dict["limits"] as? [[String: Any]] {
             for limit in limits {
                 guard let kind = limit["kind"] as? String,
                       let percent = (limit["percent"] as? NSNumber)?.doubleValue else { continue }
+                if kind.hasPrefix("weekly") { reportsWeeklyLimits = true }
                 let resetsAt = (limit["resets_at"] as? String).flatMap(ISO8601.parse)
                 let window = UsageWindow(utilization: percent, resetsAt: resetsAt)
                 // Puede haber varios límites del mismo kind (p. ej. un
@@ -118,11 +127,15 @@ public struct UsageSnapshot: Sendable, Equatable {
                 byKind[kind] = window
             }
         }
+        let sevenDay = byKind["weekly_all"] ?? UsageWindow.from(dict["seven_day"])
         return UsageSnapshot(
             fiveHour: byKind["session"] ?? UsageWindow.from(dict["five_hour"]),
-            sevenDay: byKind["weekly_all"] ?? UsageWindow.from(dict["seven_day"]),
+            sevenDay: sevenDay,
             sevenDayOpus: byKind["weekly_scoped"] ?? UsageWindow.from(dict["seven_day_opus"]),
-            fetchedAt: fetchedAt
+            fetchedAt: fetchedAt,
+            // Con otro límite semanal en la lista (el de Fable), la ausencia
+            // del general no es una ventana aún sin abrir: el plan no lo tiene.
+            noWeeklyLimit: sevenDay == nil && reportsWeeklyLimits
         )
     }
 }
@@ -169,10 +182,25 @@ public struct OAuthCredentials: Sendable, Equatable {
     }
 
     /// Devuelve una copia con los tokens renovados, preservando el resto de campos.
-    public func updating(accessToken: String, refreshToken: String?, expiresAt: Int?) throws -> OAuthCredentials {
+    ///
+    /// Un refresh token rotado no hereda la caducidad del anterior: si el
+    /// servidor no indica la nueva se elimina, porque conservarla marcaría
+    /// como caducada una sesión que sigue viva.
+    public func updating(
+        accessToken: String,
+        refreshToken: String?,
+        expiresAt: Int?,
+        refreshTokenExpiresAt: Int? = nil
+    ) throws -> OAuthCredentials {
         var dict = try asDictionary()
         dict["accessToken"] = accessToken
-        if let refreshToken { dict["refreshToken"] = refreshToken }
+        if let refreshToken, refreshToken != self.refreshToken {
+            dict["refreshToken"] = refreshToken
+            dict.removeValue(forKey: "refreshTokenExpiresAt")
+        }
+        if let refreshTokenExpiresAt {
+            dict["refreshTokenExpiresAt"] = refreshTokenExpiresAt
+        }
         if let expiresAt { dict["expiresAt"] = expiresAt }
         let data = try JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys])
         return try OAuthCredentials(claudeAiOauthJSON: data)
