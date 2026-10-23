@@ -540,26 +540,20 @@ final class AppState {
         renewalBlockedAccounts.contains(accountUuid)
     }
 
-    /// Cuánto se tolera que una cuenta lleve sin datos antes de ofrecer la
-    /// salida manual. Muy por encima del ciclo normal: si a la hora sigue sin
-    /// actualizarse, ya no es un tropiezo pasajero.
-    private let reconnectHintThreshold: TimeInterval = 3_600
-
     /// Conviene ofrecerle al usuario reconectar esta cuenta.
     ///
-    /// Basta con que sus datos lleven mucho tiempo parados: da igual si fue un
-    /// límite del servidor, una sesión que no se puede renovar o cualquier
-    /// otra causa, porque la acción que lo resuelve es la misma. Esperar a
-    /// tener el error concreto en la mano dejaba el botón escondido justo
-    /// cuando más falta hace.
+    /// Solo cuando el problema es la sesión: Anthropic no deja renovarla y
+    /// reconectar emite credenciales nuevas al instante. Antes bastaba con
+    /// que los datos llevaran una hora parados, por cualquier causa, y una
+    /// pausa del endpoint de uso acababa pidiendo un login que no arreglaba
+    /// nada que no arreglara esperar. El registro lo confirmó: ninguna de esas
+    /// sesiones había caducado. La antigüedad de los datos ya se indica en la
+    /// tarjeta, y la renovación aparcada sobrevive a los reinicios.
     func suggestsReconnect(for accountUuid: String) -> Bool {
         guard !profilesList.contains(where: {
             $0.accountUuid == accountUuid && $0.needsLogin
         }) else { return false }
-        if renewalBlockedAccounts.contains(accountUuid) { return true }
-        guard let snapshot = usageByAccount[accountUuid] else { return false }
-        return Date().timeIntervalSince(snapshot.fetchedAt)
-            >= reconnectHintThreshold
+        return renewalBlockedAccounts.contains(accountUuid)
     }
 
     private func markRenewalBlocked(
@@ -588,7 +582,13 @@ final class AppState {
         await refreshUsageAccount(activeAccountUuid, force: force)
     }
 
+    /// Ritmo de la cuenta activa. Solo se acelera cerca de un umbral cuando
+    /// el cambio automático está activado: sin él, nadie actúa sobre ese dato
+    /// y acelerar solo gastaría el cupo de consultas de la cuenta.
     private var activeUsageInterval: TimeInterval {
+        guard autoSwitchEnabled else {
+            return UsagePollingSchedule.activeInterval(nearLimit: false)
+        }
         let usage = activeAccountUuid.flatMap { uuid in
             let profile = profilesList.first { $0.accountUuid == uuid }
             return usageByAccount[uuid]?.scaledToPersonalCaps(
@@ -599,9 +599,7 @@ final class AppState {
         let nearLimit = (usage?.fiveHour?.utilization ?? 0) >= triggerThreshold - 15
             || (usage?.sevenDay?.utilization ?? 0) >= weeklyTriggerThreshold - 10
             || (useFableForAutoSwitch && (usage?.sevenDayOpus?.utilization ?? 0) >= fableTriggerThreshold - 10)
-        return UsagePollingSchedule.activeInterval(
-            configured: pollIntervalSeconds, nearLimit: nearLimit
-        )
+        return UsagePollingSchedule.activeInterval(nearLimit: nearLimit)
     }
 
     private func refreshNextScheduledAccount() async {
@@ -741,6 +739,15 @@ final class AppState {
         guard !Task.isCancelled, usagePollingSchedule.canStart(now: Date()) else {
             return .skipped
         }
+        // El cupo estimado evita provocar la pausa del servidor. Solo el botón
+        // se lo salta: es una petición explícita y aislada del usuario.
+        guard force || usagePollingSchedule.hasBudget(for: accountUuid, now: Date()) else {
+            Diagnostics.usage.debug(
+                "\(Diagnostics.tag(accountUuid), privacy: .public) omitida: sin cupo estimado de consultas"
+            )
+            updateActiveUsageNotice()
+            return .skipped
+        }
         usagePollingSchedule.recordAttempt(accountUuid, now: Date())
         await adoptActiveCredentialsIfFresher(profile)
         let outcome = await refreshUsage(for: profile)
@@ -748,6 +755,14 @@ final class AppState {
         Diagnostics.usage.log(
             "\(Diagnostics.tag(accountUuid), privacy: .public) -> \(outcome.logDescription, privacy: .public)"
         )
+        switch outcome {
+        case .updated, .failed:
+            usagePollingSchedule.recordUsageRequest(accountUuid, now: Date())
+        case .rateLimited(_, .usage):
+            usagePollingSchedule.recordUsageRateLimit(accountUuid, now: Date())
+        case .rateLimited(_, .renewal), .renewalUnavailable, .waitingForSession, .unchanged:
+            break
+        }
         switch outcome {
         case .updated:
             rateLimitedUntilByAccount[accountUuid] = nil
@@ -1177,8 +1192,9 @@ final class AppState {
     /// Antigüedad a partir de la cual una instantánea deja de servir para
     /// decidir. Es también la que marca los datos como viejos en el panel:
     /// mostrar un 0 % de hace horas como si fuera de ahora induce a error.
-    /// La activa caduca antes (dos minutos); un destino se vuelve a comprobar
-    /// antes de cambiar porque también puede estar usándose en otra terminal.
+    /// La activa caduca antes (`activeFreshnessLimit`); un destino se vuelve
+    /// a comprobar antes de cambiar porque también puede estar usándose en
+    /// otra terminal.
     var usageFreshnessLimit: TimeInterval {
         max(600, 2 * inactiveRefreshInterval)
     }
@@ -1196,8 +1212,24 @@ final class AppState {
     func isUsageStale(for accountUuid: String) -> Bool {
         guard let snapshot = usageByAccount[accountUuid] else { return false }
         let now = max(monitoringDate, Date())
-        return now.timeIntervalSince(snapshot.fetchedAt)
-            >= (accountUuid == activeAccountUuid ? 120 : usageFreshnessLimit)
+        let limit: TimeInterval
+        if accountUuid == activeAccountUuid {
+            limit = activeFreshnessLimit
+        } else if UsagePollingSchedule.saturatedUntil(snapshot, now: now) != nil {
+            // Agotada: se consulta de hora en hora porque su uso no cambia.
+            limit = UsagePollingSchedule.saturatedRecheckInterval + usageFreshnessLimit
+        } else {
+            limit = usageFreshnessLimit
+        }
+        return now.timeIntervalSince(snapshot.fetchedAt) >= limit
+    }
+
+    /// Antigüedad a partir de la cual los datos de la cuenta activa son
+    /// viejos: dos turnos de su ritmo normal más la separación entre
+    /// peticiones. Con menos, cada turno ordinario la marcaría como vieja.
+    private var activeFreshnessLimit: TimeInterval {
+        2 * UsagePollingSchedule.activeInterval(nearLimit: false)
+            + UsagePollingSchedule.minimumSpacing
     }
 
     var autoSwitchMonitoringNotice: String? {

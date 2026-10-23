@@ -4,7 +4,12 @@ import Foundation
 /// Failed requests consume a slot too; cached data never hides a failed attempt.
 public struct UsagePollingSchedule: Sendable {
     public static let minimumSpacing: TimeInterval = 30
+    /// Una cuenta en reposo con un cupo agotado no puede consumir más hasta
+    /// su reinicio. Aun así se mira de vez en cuando, por si Anthropic lo
+    /// adelanta (los reinicios de límite que concede a algunas cuentas).
+    public static let saturatedRecheckInterval: TimeInterval = 3_600
     public private(set) var lastAttemptByAccount: [String: Date] = [:]
+    public private(set) var budget = UsageRequestBudget()
     private var lastAccount: String?
     private var lastAttempt: Date?
 
@@ -14,18 +19,52 @@ public struct UsagePollingSchedule: Sendable {
         lastAttempt.map { now.timeIntervalSince($0) >= Self.minimumSpacing } ?? true
     }
 
+    public func hasBudget(for account: String, now: Date) -> Bool {
+        budget.canSpend(account, now: now)
+    }
+
     public mutating func recordAttempt(_ account: String, now: Date) {
         lastAttempt = now
         lastAccount = account
         lastAttemptByAccount[account] = now
     }
 
+    /// Solo gasta cupo una consulta que llegó a enviarse: esperar a que Claude
+    /// Code renueve la sesión o encontrar la renovación aparcada no pregunta
+    /// nada al endpoint de uso.
+    public mutating func recordUsageRequest(_ account: String, now: Date) {
+        budget.spend(account, now: now)
+    }
+
+    public mutating func recordUsageRateLimit(_ account: String, now: Date) {
+        budget.drain(account, now: now)
+    }
+
     public mutating func forgetAttempt(for account: String) {
         lastAttemptByAccount[account] = nil
     }
 
-    public static func activeInterval(configured: TimeInterval, nearLimit: Bool) -> TimeInterval {
-        nearLimit ? 30 : min(60, max(30, configured))
+    /// Ritmo de la cuenta activa. Por debajo de lo que el cupo del servidor
+    /// recupera, salvo cerca de un umbral del cambio automático: ahí se acepta
+    /// gastar el margen acumulado para cambiar a tiempo, y el cupo estimado
+    /// impide que esa ráfaga acabe en una pausa.
+    public static func activeInterval(nearLimit: Bool) -> TimeInterval {
+        nearLimit ? 60 : UsageRequestBudget.refillInterval
+    }
+
+    /// Hasta cuándo una cuenta no puede consumir porque tiene agotada la
+    /// ventana de 5 horas o la semanal, o `nil` si puede. Fable no cuenta:
+    /// agotarlo solo impide usar ese modelo.
+    public static func saturatedUntil(_ snapshot: UsageSnapshot?, now: Date) -> Date? {
+        guard let snapshot else { return nil }
+        // Un minuto de margen: justo en el reinicio el servidor aún puede
+        // devolver el porcentaje anterior.
+        return [snapshot.fiveHour, snapshot.sevenDay]
+            .compactMap { $0 }
+            .filter { $0.utilization >= 100 }
+            .compactMap { $0.resetsAt?.addingTimeInterval(60) }
+            .filter { $0 > now }
+            .max()
     }
 
     /// Prioritize the active account whenever due, but give overdue standby
@@ -40,10 +79,18 @@ public struct UsagePollingSchedule: Sendable {
             max(lastAttemptByAccount[account] ?? .distantPast,
                 snapshots[account]?.fetchedAt ?? .distantPast)
         }
-        let due = accounts.filter {
-            !blocked.contains($0) && now.timeIntervalSince(lastCheck($0)) >=
-                ($0 == active ? activeInterval : inactiveInterval)
+        func isDue(_ account: String) -> Bool {
+            guard !blocked.contains(account), budget.canSpend(account, now: now) else {
+                return false
+            }
+            let elapsed = now.timeIntervalSince(lastCheck(account))
+            if account == active { return elapsed >= activeInterval }
+            guard elapsed >= inactiveInterval else { return false }
+            // Agotada y en reposo: su uso no puede cambiar hasta el reinicio.
+            return Self.saturatedUntil(snapshots[account], now: now) == nil
+                || elapsed >= Self.saturatedRecheckInterval
         }
+        let due = accounts.filter(isDue)
         let standby = due.filter { $0 != active }.min {
             if prioritized.contains($0) != prioritized.contains($1) {
                 return prioritized.contains($0)

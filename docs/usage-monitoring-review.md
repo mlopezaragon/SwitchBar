@@ -68,3 +68,31 @@ Las pruebas usan datos ficticios y respuestas simuladas. No prueban cuotas
 reales de Anthropic ni la migración de sesiones vivas. La validación de desarrollo no reinicia Claude ni cambia cuentas reales.
 La publicación e instalación de 1.0.1 se validan por separado. Los cambios previos del
 repositorio se han conservado; el diff completo incluye trabajo anterior.
+
+## Actualización — 23 de octubre de 2026
+
+Dieciséis horas de registro con cinco cuentas mostraron que el endpoint de
+uso limita por cuenta. La activa, consultada cada ~60 s, recibió 157
+respuestas 429 frente a unas 590 correctas. Las inactivas, cada ~3 min, no recibieron ninguna.
+Las rachas de 30 a 45 aciertos seguidos y la alternancia posterior entre
+acierto y 429 encajan con un cupo que admite ráfagas de unas quince
+consultas y se recupera a razón de una cada dos minutos, aproximadamente.
+Claude Code consulta el mismo endpoint (`/api/oauth/usage?at_wall=1` y
+variantes) contra ese mismo cupo, y guarda la última respuesta en
+`~/.claude.json` (`cachedUsageUtilization`) solo cuando la ha pedido él.
+
+| Problema | Cambio |
+| --- | --- |
+| El ritmo de 60 s vaciaba el cupo en media hora. | La activa se consulta cada 150 s. Solo se acelera a 60 s cerca de un umbral y con el cambio automático activado. |
+| Nada impedía repetir el ritmo que provoca los 429. | `UsageRequestBudget` estima el cupo de cada cuenta (6 consultas, una recuperada cada 150 s). Un 429 lo vacía. Las esperas sin petición no lo gastan y el botón de actualizar se lo salta. |
+| Las cuentas inactivas agotadas se consultaban igual. | Con la ventana de 5 h o la semanal al 100 %, se consultan justo después del reinicio y, mientras tanto, una vez por hora. |
+| Una hora sin datos, por cualquier causa, pedía iniciar sesión. | Solo se ofrece reconectar si Anthropic no deja renovar la sesión. En el registro no hubo ningún `invalid_grant`: esas sesiones no habían caducado. |
+| Desde la 1.0.1 las inactivas solo se renovaban sin ningún Claude Code abierto. | Se renuevan siempre (1.0.2). Claude Code relee su Llavero antes de renovar, así que una terminal antigua nunca presenta el refresh token rotado. |
+
+En Team, el endpoint informa del límite de 5 horas y del semanal de Fable,
+pero no del semanal general (`seven_day: null`, sin `weekly_all`), aunque
+según Anthropic ese plan sí lo tiene. La interfaz lo indica como dato no
+informado y el cambio automático no puede reaccionar a ese límite.
+
+Fuentes: [What is the Team plan?](https://support.claude.com/en/articles/9266767-what-is-the-team-plan)
+y [Customize your status line](https://code.claude.com/docs/en/statusline).
