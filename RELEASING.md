@@ -24,9 +24,18 @@ Checklist for cutting a release. All steps run from the repo root.
 
 - Never change the code-signing identifier (`com.mlopara.ClaudeSwitch`) or
   the storage identifiers — see CONTRIBUTING.md.
-- The Sparkle private key lives only in the maintainer's Keychain. If it is
-  ever lost, shipped apps can no longer verify updates: a new key requires
-  users to reinstall manually.
+- The Sparkle private key lives in the maintainer's login Keychain, which is
+  lost with the Mac. Keep an offline copy: `generate_keys -x <file>` exports
+  it (store the file in a password manager, then delete it) and
+  `generate_keys -f <file>` imports it on a new Mac.
+- If the private key is lost anyway, rotate it (done in 1.0.4): run
+  `generate_keys` to create a new one, put its public key in
+  `SUPublicEDKey`, and sign the next release with it. Installed versions
+  accept that one update because Sparkle 2 allows the EdDSA key to change
+  when the new app has the same Apple code signature (same Developer ID
+  certificate and identifier). Never change the EdDSA key and the code
+  signing certificate in the same release: that breaks the chain of trust
+  and users would have to reinstall by hand.
 
 ## Homebrew official cask (pending)
 

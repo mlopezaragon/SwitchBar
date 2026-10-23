@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.4 — 2026-10-23
+
+- The account list in the menu bar panel scrolls. With six or more
+  accounts the panel grew past the bottom of the screen, hiding the last
+  cards and the "Add account" button, as if there were an account limit.
+  There is none.
+- New Sparkle update signing key. The previous EdDSA private key was lost
+  with the Mac that held it; 1.0.1–1.0.3 accept this update through
+  Sparkle's key rotation, because it carries the same Developer ID code
+  signature, and later updates are signed with the new key.
+- Validated with 128 automated tests.
+
 ## 1.0.3 — 2026-10-23
 
 - Fixed: Team accounts showed "No limit" for the week. Team seats do have
