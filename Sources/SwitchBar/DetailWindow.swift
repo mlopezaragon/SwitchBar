@@ -207,6 +207,65 @@ struct DetailView: View {
         )
     }
 
+    /// Previsión de cupo y ritmos medidos de cada plan.
+    private var paceDetails: some View {
+        let summary = state.paceSummary
+        return VStack(alignment: .leading, spacing: 5) {
+            Text(L10n.tr("forecast.title"))
+                .font(.callout.weight(.medium))
+            if let forecast = state.coverageForecast {
+                Label(CoverageText.summary(forecast), systemImage: "hourglass")
+                    .font(.caption)
+                    .foregroundStyle(CoverageText.isUrgent(forecast) ? AnyShapeStyle(.orange) : AnyShapeStyle(.primary))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let pace = summary.currentPace, let email = summary.activeEmail {
+                Text(L10n.tr("pace.current", email, Int(pace.rounded())))
+                    .font(.caption)
+            }
+            ForEach(summary.plans, id: \.plan) { entry in
+                Text(
+                    L10n.tr(
+                        "pace.plan",
+                        entry.plan.displayName,
+                        Int(entry.pace.pointsPerHour.rounded()),
+                        ResetFormatter.duration(entry.pace.measured)
+                    )
+                )
+                .font(.caption)
+            }
+            if let ratio = capacityRatio(summary) {
+                Text(ratio)
+                    .font(.caption)
+            }
+            if summary.plans.isEmpty {
+                Text(L10n.tr("pace.unmeasured"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Text(L10n.tr("forecast.explanation"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// Cuánto rinde el plan con más cupo frente al que menos: con el mismo
+    /// trabajo, el que tiene más cupo gasta menos puntos por hora.
+    private func capacityRatio(_ summary: AppState.PaceSummary) -> String? {
+        guard summary.plans.count >= 2,
+              let roomiest = summary.plans.min(by: { $0.pace.pointsPerHour < $1.pace.pointsPerHour }),
+              let tightest = summary.plans.max(by: { $0.pace.pointsPerHour < $1.pace.pointsPerHour }),
+              roomiest.plan != tightest.plan, roomiest.pace.pointsPerHour > 0 else { return nil }
+        let ratio = tightest.pace.pointsPerHour / roomiest.pace.pointsPerHour
+        return L10n.tr(
+            "pace.ratio",
+            roomiest.plan.displayName,
+            ratio.formatted(.number.precision(.fractionLength(1)).locale(L10n.locale)),
+            tightest.plan.displayName
+        )
+    }
+
     private var settingsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(L10n.tr("settings.title"))
@@ -273,6 +332,22 @@ struct DetailView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            Toggle(
+                L10n.tr("auto_switch.pace"),
+                isOn: $state.switchByPace
+            )
+            .toggleStyle(.switch)
+            .controlSize(.small)
+
+            Text(L10n.tr("auto_switch.pace.explanation"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if state.switchByPace {
+                paceDetails
+            }
 
             HStack {
                 Text(L10n.tr("settings.refresh_frequency"))

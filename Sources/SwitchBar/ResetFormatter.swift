@@ -8,7 +8,11 @@ enum ResetFormatter {
     /// "45 min", "3 h 20", "2 d 4 h", "ahora".
     static func compact(_ date: Date?) -> String {
         guard let date else { return "" }
-        let seconds = date.timeIntervalSinceNow
+        return duration(date.timeIntervalSinceNow)
+    }
+
+    /// Una duración con el mismo formato compacto: "45 min", "3 h 20".
+    static func duration(_ seconds: TimeInterval) -> String {
         if seconds <= 0 { return L10n.tr("time.now") }
         let minutes = Int(seconds / 60)
         if minutes < 60 {

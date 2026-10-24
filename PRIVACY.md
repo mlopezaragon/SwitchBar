@@ -17,6 +17,10 @@ it reads, what it stores, and what it sends.
 - `~/Library/Application Support/ClaudeSwitch/profiles.json` — non-secret
   metadata (e-mail, account id, preferences), file mode 0600. The folder
   keeps the project's historical name so upgrades keep existing data.
+- `usage-cache.json` and `usage-history.json` in the same folder, file mode
+  0600 — the last usage reading of each account and a week of past readings
+  (percentages and reset times only), used to show the panel at launch and
+  to measure how fast each account is spent. Nothing leaves your Mac.
 - App preferences (thresholds, polling interval) in standard macOS user
   defaults.
 

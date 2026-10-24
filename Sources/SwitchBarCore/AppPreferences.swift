@@ -18,6 +18,7 @@ public final class AppPreferences: @unchecked Sendable {
         static let fableTriggerThreshold = "fableTriggerThreshold"
         static let useFableForAutoSwitch = "useFableForAutoSwitch"
         static let anticipateExpiringQuota = "anticipateExpiringQuota"
+        static let switchByPace = "switchByPace"
         static let manuallyChosenProfileID = "manuallyChosenProfileID"
         static let leftByUserUntil = "leftByUserUntilByProfile"
         static let pollIntervalSeconds = "pollIntervalSeconds"
@@ -95,6 +96,14 @@ public final class AppPreferences: @unchecked Sendable {
         set {
             defaults.set(newValue, forKey: Key.anticipateExpiringQuota)
         }
+    }
+
+    /// Usar el ritmo de uso medido: cambiar antes si la cuenta activa se va a
+    /// agotar enseguida y no elegir destinos que durarían minutos. Activado
+    /// por omisión; sin medidas suficientes se comporta como sin él.
+    public var switchByPace: Bool {
+        get { defaults.object(forKey: Key.switchByPace) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.switchByPace) }
     }
 
     /// Perfil que el usuario eligió a mano (clic, deshacer o `/login`). El

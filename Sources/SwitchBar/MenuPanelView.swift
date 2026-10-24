@@ -34,6 +34,14 @@ struct MenuPanelView: View {
                 accountCards
             }
 
+            if let forecast = state.coverageForecast {
+                Label(CoverageText.summary(forecast), systemImage: "hourglass")
+                    .font(.caption)
+                    .foregroundStyle(CoverageText.isUrgent(forecast) ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .help(L10n.tr("forecast.explanation"))
+            }
+
             Button {
                 DetailWindowController.shared.show()
                 state.beginAddAccount()

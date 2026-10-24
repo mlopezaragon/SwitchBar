@@ -429,3 +429,140 @@ private let activaHolgada = cuenta("a", fiveHour: 30, sevenDay: 40, semanaEn: 10
     // ...y solo se usa si no queda otra.
     #expect(politica.decision(active: agotada, all: [abandonada]) == "b")
 }
+
+// MARK: - Ritmo de uso
+
+private let conRitmo = AutoSwitchPolicy(switchesByPace: true)
+
+/// Duraciones calculadas con coma flotante: un segundo de margen.
+private func cerca(_ valor: TimeInterval?, _ esperado: TimeInterval) -> Bool {
+    valor.map { abs($0 - esperado) < 1 } ?? false
+}
+
+/// Cuenta con su ventana de 5 h reiniciándose en `cincoEn` horas (si la hay)
+/// y el ritmo al que se gastaría si se usara ahora.
+private func medida(
+    _ uuid: String,
+    fiveHour: Double? = 0,
+    cincoEn: Double? = nil,
+    sevenDay: Double? = nil,
+    semanaEn: Double? = nil,
+    opus: Double? = nil,
+    fableEn: Double? = nil,
+    ritmo: Double? = nil,
+    ritmoAlto: Double? = nil,
+    semanaPorPunto: Double? = nil
+) -> AccountUsageState {
+    let snapshot = UsageSnapshot(
+        fiveHour: fiveHour.map { UsageWindow(utilization: $0, resetsAt: cincoEn.map(horas)) },
+        sevenDay: sevenDay.map { UsageWindow(utilization: $0, resetsAt: semanaEn.map(horas)) },
+        sevenDayOpus: opus.map { UsageWindow(utilization: $0, resetsAt: fableEn.map(horas)) },
+        fetchedAt: ahora,
+        weeklyLimitUnreported: sevenDay == nil
+    )
+    return AccountUsageState(
+        id: uuid,
+        usage: snapshot,
+        needsLogin: false,
+        fiveHourPace: ritmo,
+        fiveHourPaceUpper: ritmoAlto,
+        weeklyPerFiveHour: semanaPorPunto
+    )
+}
+
+@Test func alRitmoActualCambiaAntesDeQueLaSesionSeCorte() {
+    // Al 75 % gastando 90 puntos/h: se agotaría en menos de 17 minutos.
+    let deprisa = medida("a", fiveHour: 75, cincoEn: 3, ritmoAlto: 90)
+    #expect(conRitmo.shouldSwitch(active: deprisa))
+    #expect(conRitmo.paceRequiresSwitch(deprisa))
+    #expect(!conRitmo.reachedThreshold(deprisa))
+    // Sin la opción, manda solo el umbral.
+    #expect(!politica.shouldSwitch(active: deprisa))
+}
+
+@Test func gastandoDespacioNoSeCambiaAntesDeTiempo() {
+    // Al 85 % gastando 20 puntos/h quedan 45 minutos: aún no hace falta.
+    let despacio = medida("a", fiveHour: 85, cincoEn: 3, ritmoAlto: 20)
+    #expect(!conRitmo.shouldSwitch(active: despacio))
+    // El umbral configurado sigue mandando aunque el ritmo sea lento.
+    let enUmbral = medida("a", fiveHour: 91, cincoEn: 3, ritmoAlto: 1)
+    #expect(conRitmo.shouldSwitch(active: enUmbral))
+}
+
+@Test func unaRafagaNoSacaDeUnaCuentaCasiVacia() {
+    // Al 40 % no se cambia por ritmo, por rápido que se gaste ahora.
+    let rafaga = medida("a", fiveHour: 40, cincoEn: 4, ritmoAlto: 400)
+    #expect(!conRitmo.shouldSwitch(active: rafaga))
+}
+
+@Test func laAutonomiaCuentaConElReinicioDeLaVentana() {
+    // 40 puntos a 30 por hora: 80 minutos.
+    let sinReinicioCercano = medida("b", fiveHour: 60, cincoEn: 4, ritmo: 30)
+    #expect(cerca(conRitmo.runway(sinReinicioCercano, now: ahora), 80 * 60))
+    // Se reinicia en 30 minutos, antes de agotarse: sigue con una ventana
+    // nueva, que a 30 por hora dura 200 minutos.
+    let reiniciaPronto = medida("c", fiveHour: 60, cincoEn: 0.5, ritmo: 30)
+    #expect(cerca(conRitmo.runway(reiniciaPronto, now: ahora), 230 * 60))
+    // Tan despacio que ninguna ventana llegaría a agotarse.
+    let lenta = medida("d", fiveHour: 60, cincoEn: 0.5, ritmo: 10)
+    #expect(conRitmo.runway(lenta, now: ahora) == AutoSwitchPolicy.runwayHorizon)
+    // Sin la opción o sin ritmo no se estima.
+    #expect(politica.runway(sinReinicioCercano, now: ahora) == nil)
+    #expect(conRitmo.runway(medida("e", fiveHour: 10), now: ahora) == nil)
+}
+
+@Test func enMaxLaSemanaTambienLimitaLaAutonomia() {
+    // 10 puntos de semana a 0,1 por punto de 5 h y 50 puntos/h: 2 horas,
+    // aunque la ventana de 5 h esté vacía.
+    let max = medida("b", fiveHour: 0, sevenDay: 90, semanaEn: 48, ritmo: 50, semanaPorPunto: 0.1)
+    #expect(cerca(conRitmo.runway(max, now: ahora), 2 * 3_600))
+}
+
+@Test func unaVentanaAbiertaConMargenSeGastaAntesQueEstrenarOtra() {
+    // b ya tiene la ventana abierta y se reinicia en 2 h; c está sin
+    // estrenar y su semana (Fable en Team) se reinicia antes que la de b.
+    let abierta = medida("b", fiveHour: 30, cincoEn: 2, opus: 0, fableEn: 70)
+    let sinEstrenar = medida("c", fiveHour: nil, opus: 0, fableEn: 20)
+    #expect(politica.decision(active: agotada, all: [sinEstrenar, abierta], now: ahora) == "b")
+    // Sin margen útil en esa ventana, no hay nada que rescatar.
+    let casiLlena = medida("d", fiveHour: 86, cincoEn: 2, opus: 0, fableEn: 70)
+    #expect(politica.expiryDeadline(casiLlena, now: ahora) == horas(70))
+}
+
+@Test func lasVentanasAbiertasSeGastanPorOrdenDeReinicio() {
+    let antes = medida("b", fiveHour: 50, cincoEn: 1, opus: 0, fableEn: 100)
+    let despues = medida("c", fiveHour: 10, cincoEn: 4, opus: 0, fableEn: 30)
+    #expect(politica.decision(active: agotada, all: [despues, antes], now: ahora) == "b")
+}
+
+@Test func unaSemanaQueCaducaAntesQueLaVentanaManda() {
+    let semanaInminente = medida("b", fiveHour: nil, sevenDay: 40, semanaEn: 1)
+    let ventanaAbierta = medida("c", fiveHour: 20, cincoEn: 3, opus: 0, fableEn: 90)
+    #expect(politica.decision(active: agotada, all: [ventanaAbierta, semanaInminente], now: ahora) == "b")
+}
+
+@Test func unDestinoQueSeAgotariaEnMinutosEsUltimoRecurso() {
+    // b caduca antes, pero al ritmo medido aguantaría 20 minutos.
+    let corta = medida("b", fiveHour: 80, cincoEn: 3, opus: 0, fableEn: 10, ritmo: 60)
+    let larga = medida("c", fiveHour: 0, opus: 0, fableEn: 90, ritmo: 60)
+    #expect(conRitmo.decision(active: agotada, all: [corta, larga], now: ahora) == "c")
+    #expect(conRitmo.decision(active: agotada, all: [corta], now: ahora) == "b")
+    // Sin la opción, el orden es el de siempre.
+    #expect(politica.decision(active: agotada, all: [corta, larga], now: ahora) == "b")
+}
+
+@Test func aIgualDeCaducidadGanaLaQueMasAguanta() {
+    let menos = medida("b", fiveHour: nil, opus: 0, fableEn: 50, ritmo: 60)
+    let mas = medida("c", fiveHour: nil, opus: 0, fableEn: 50, ritmo: 20)
+    #expect(conRitmo.decision(active: agotada, all: [menos, mas], now: ahora) == "c")
+}
+
+@Test func noSeAdelantaAUnaCuentaQueAguantariaPoco() {
+    let autonomaConRitmo = AutoSwitchPolicy(anticipatesExpiringQuota: true, switchesByPace: true)
+    let activa = medida("a", fiveHour: 20, cincoEn: 4, sevenDay: 40, semanaEn: 100, ritmo: 30)
+    // Su semana caduca antes, pero a 120 puntos/h su ventana duraría 25 minutos.
+    let corta = medida("b", fiveHour: 50, cincoEn: 4, sevenDay: 30, semanaEn: 10, ritmo: 120)
+    #expect(autonomaConRitmo.expiringQuotaTarget(active: activa, all: [activa, corta], now: ahora) == nil)
+    let holgada = medida("c", fiveHour: 0, sevenDay: 30, semanaEn: 10, ritmo: 30)
+    #expect(autonomaConRitmo.expiringQuotaTarget(active: activa, all: [activa, corta, holgada], now: ahora) == "c")
+}

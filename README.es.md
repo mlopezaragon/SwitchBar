@@ -20,11 +20,18 @@ política automática.
   su fecha límite.
 - Cambio de cuenta activa con un clic, con deshacer.
 - Cambio automático con umbrales independientes y configurables. Elige la
-  cuenta cuya semana se reinicia antes, aunque sea por minutos, porque el
-  cupo que no se usa antes del reinicio se pierde, y nunca una cuenta que
-  esté en un umbral o en su tope personal. En modo autónomo (activado por
+  cuenta que antes perdería cupo —una ventana de 5 h ya abierta con margen,
+  o la semana que se reinicia antes, aunque sea por minutos— porque el cupo
+  que no se usa antes de un reinicio se pierde, y nunca una cuenta que esté
+  en un umbral o en su tope personal. En modo autónomo (activado por
   omisión) mantiene activa esa cuenta por sí sola, sin esperar a un límite.
   El panel marca la siguiente cuenta.
+- Ritmo de uso (activado por omisión): SwitchBar mide a qué ritmo se gasta
+  cada cuenta, cambia antes del umbral si la activa se va a agotar en menos
+  de 20 minutos, evita destinos que durarían minutos y calcula hasta cuándo
+  te llega el cupo entre todas las cuentas, con un aviso antes de que se
+  acabe. Comparar el ritmo de cada plan estima cuánto da de verdad, algo que
+  Anthropic no publica.
 - Cuentas compartidas: define un tope personal (por ejemplo 70 %) para que
   la app trate la cuenta como agotada antes y deje margen a la otra persona.
 - Estado público de Anthropic (status.claude.com) durante incidencias, para

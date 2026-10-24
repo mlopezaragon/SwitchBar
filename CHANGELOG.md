@@ -18,10 +18,31 @@
   `surface`. SwitchBar does not pose as Claude Code to get them, so the
   detail window says they cannot be seen from SwitchBar, and they appear
   on their own if Anthropic opens the data to other apps.
+- Automatic switching spends first whatever would expire first, including
+  5-hour windows: an already open window with room left goes before opening
+  a fresh one, because what it does not use before its reset is lost. Until
+  now only weekly resets counted, and a fresh account always won the
+  tie-break, leaving open windows to expire half used.
+- New "Use your usage pace" setting, on by default. SwitchBar keeps a week of
+  usage readings per account (`usage-history.json`, mode 0600, percentages
+  and reset times only) and measures how fast each one is spent:
+  - It switches before the threshold when, at the current pace, the active
+    account would run out of its 5-hour window within 20 minutes, so a new
+    session does not start on an account about to cut off. It never switches
+    later than the threshold, since open sessions stay on their account and
+    drain it anyway.
+  - Destinations that would last under 45 minutes are a last resort; among
+    the rest, the one that lasts longest wins ties. Autonomous mode only
+    moves early to an account that would last at least an hour.
+  - The panel forecasts how long quota lasts across all accounts at the
+    current (or usual) pace, and a notification warns 45 minutes before
+    every account would hit its limit.
+  - The detail window shows each plan's measured pace and how much longer
+    one plan lasts than another for the same work.
 - The menu bar panel shrinks back when a notice or error goes away. Its
   window grew to fit them but never shrank again, so the panel sat
   centered in a taller window with empty strips above and below.
-- Validated with 155 automated tests.
+- Validated with 189 automated tests.
 
 ## 1.2.0 — 2026-10-23
 

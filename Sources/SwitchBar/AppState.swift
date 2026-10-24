@@ -17,6 +17,7 @@ final class AppState {
     private let statusAPI: AnthropicStatusAPI
     private let preferences: AppPreferences
     private let usageCache: UsageSnapshotCache
+    private let historyStore: UsageHistoryStore
 
     // MARK: Estado observable
 
@@ -58,6 +59,9 @@ final class AppState {
     }
     var anticipateExpiringQuota: Bool {
         didSet { preferences.anticipateExpiringQuota = anticipateExpiringQuota }
+    }
+    var switchByPace: Bool {
+        didSet { preferences.switchByPace = switchByPace }
     }
     var pollIntervalSeconds: Double {
         didSet { preferences.pollIntervalSeconds = pollIntervalSeconds }
@@ -125,6 +129,15 @@ final class AppState {
     /// Cuentas de las que el usuario salió a mano, hasta su reinicio semanal.
     /// Ver `AccountUsageState.leftByUser`.
     private var leftByUserUntil: [String: Date] = [:]
+    /// Lecturas recientes de cada cuenta, para medir a qué ritmo se gastan.
+    private var usageHistory = UsageHistory()
+    /// Ritmo habitual de cada cuenta y de cada plan, recalculado al llegar
+    /// lecturas nuevas.
+    private(set) var paceModel = PaceModel()
+    private var lastHistorySave: Date?
+    private let historySaveInterval: TimeInterval = 5 * 60
+    /// Último aviso de que se va a acabar el cupo, para no repetirlo.
+    private var lastCoverageNotice: (runsOutAt: Date, at: Date)?
 
     // MARK: Ciclo de vida
 
@@ -133,11 +146,13 @@ final class AppState {
          api: AnthropicAPI = AnthropicAPI(),
          statusAPI: AnthropicStatusAPI = AnthropicStatusAPI(),
          preferences: AppPreferences = AppPreferences(),
-         usageCache: UsageSnapshotCache = UsageSnapshotCache()) {
+         usageCache: UsageSnapshotCache = UsageSnapshotCache(),
+         historyStore: UsageHistoryStore = UsageHistoryStore()) {
         self.store = store
         self.profiles = profiles
         self.preferences = preferences
         self.usageCache = usageCache
+        self.historyStore = historyStore
         self.engine = SwitchEngine(store: store, profiles: profiles)
         self.api = api
         self.statusAPI = statusAPI
@@ -150,6 +165,7 @@ final class AppState {
         // activa expresamente.
         self.useFableForAutoSwitch = preferences.useFableForAutoSwitch
         self.anticipateExpiringQuota = preferences.anticipateExpiringQuota
+        self.switchByPace = preferences.switchByPace
         self.pollIntervalSeconds = preferences.pollIntervalSeconds
         // Preserve server deadlines across restarts, even when Retry-After
         // exceeds the fallback retry policy.
@@ -185,6 +201,7 @@ final class AppState {
             await reloadLocalState()
             adoptLegacyProfileKeys()
             await restoreCachedUsage()
+            await restoreUsageHistory()
             startStatusPolling()
             startPolling()
         }
@@ -357,6 +374,7 @@ final class AppState {
                 await self.runAutoSwitchIfNeeded()
                 self.monitoringDate = Date()
                 self.updateActiveUsageNotice()
+                self.notifyCoverageIfNeeded()
                 try? await Task.sleep(for: .seconds(5))
             }
         }
@@ -387,6 +405,75 @@ final class AppState {
         Task.detached(priority: .utility) {
             try? usageCache.save(snapshots)
         }
+    }
+
+    // MARK: Ritmo de uso
+
+    private func restoreUsageHistory() async {
+        let historyStore = self.historyStore
+        var history = await offMain { historyStore.load() }
+        // Lecturas tomadas mientras se cargaba el fichero: no se pierden.
+        for (account, samples) in usageHistory.samplesByAccount {
+            for sample in samples {
+                history.record(sample, for: account)
+            }
+        }
+        usageHistory = history
+        rebuildPaceModel()
+    }
+
+    /// Guarda la lectura recién traída y recalcula los ritmos si aportaba
+    /// algo. El fichero se escribe como mucho cada pocos minutos: perder las
+    /// últimas lecturas al cerrar la app no cambia ningún ritmo.
+    private func recordUsageSample(for profileID: String) {
+        guard let snapshot = usageByAccount[profileID],
+              usageHistory.record(snapshot, for: profileID) else { return }
+        rebuildPaceModel()
+        let now = Date()
+        if let lastHistorySave, now.timeIntervalSince(lastHistorySave) < historySaveInterval {
+            return
+        }
+        lastHistorySave = now
+        // Las cuentas borradas se olvidan; una lista vacía (aún sin cargar)
+        // no debe borrar el historial de todas.
+        usageHistory.prune(
+            now: now,
+            keeping: profilesList.isEmpty ? nil : Set(profilesList.map(\.id))
+        )
+        let historyStore = self.historyStore
+        let history = usageHistory
+        Task.detached(priority: .utility) {
+            try? historyStore.save(history)
+        }
+    }
+
+    private func rebuildPaceModel() {
+        let plans = Dictionary(
+            profilesList.map { ($0.id, $0.plan) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        paceModel = PaceModel(history: usageHistory, plans: plans)
+    }
+
+    /// Ritmo de la cuenta activa en la última media hora, contando también
+    /// la lectura más reciente aunque no se haya guardado por repetida.
+    private var activeCurrentPace: PaceEstimate? {
+        guard let activeProfileID else { return nil }
+        var samples = usageHistory.samples(for: activeProfileID)
+        if let latest = usageByAccount[activeProfileID].map(UsageSample.init),
+           latest.at > (samples.last?.at ?? .distantPast) {
+            samples.append(latest)
+        }
+        return UsagePace.current(samples, now: max(monitoringDate, Date()))
+    }
+
+    private func paceContext() -> PaceContext {
+        PaceContext(
+            model: paceModel,
+            activeID: activeProfileID,
+            activePlan: activeProfile?.plan,
+            activeCurrent: activeCurrentPace
+        )
     }
 
     /// La página pública es muy ligera. Durante una incidencia se consulta
@@ -672,7 +759,19 @@ final class AppState {
         let nearLimit = (usage?.fiveHour?.utilization ?? 0) >= triggerThreshold - 15
             || (usage?.sevenDay?.utilization ?? 0) >= weeklyTriggerThreshold - 10
             || (useFableForAutoSwitch && (usage?.sevenDayOpus?.utilization ?? 0) >= fableTriggerThreshold - 10)
+            || activeTimeToFiveHourLimit.map { $0 <= paceNearLimit } ?? false
         return UsagePollingSchedule.activeInterval(nearLimit: nearLimit)
+    }
+
+    /// Al ritmo actual, la activa se agotaría en menos de esto: se mira más
+    /// a menudo para cambiar a tiempo.
+    private let paceNearLimit: TimeInterval = 45 * 60
+
+    private var activeTimeToFiveHourLimit: TimeInterval? {
+        guard let activeProfileID,
+              let active = autoSwitchStates().first(where: { $0.id == activeProfileID })
+        else { return nil }
+        return autoSwitchPolicy.timeToFiveHourLimit(active)
     }
 
     private func refreshNextScheduledAccount() async {
@@ -846,6 +945,7 @@ final class AppState {
                 lastRefreshAt = Date()
             }
             persistUsageCache()
+            recordUsageSample(for: profileID)
         case .rateLimited(let retryAfter, let source):
             let renewal = source == .renewal
             let streak = (renewal
@@ -1338,14 +1438,28 @@ final class AppState {
     ///
     /// Para la política, el uso de las cuentas compartidas se reescala a su
     /// tope personal: así el cambio salta antes y deja margen a la otra persona.
-    private func autoSwitchStates() -> [AccountUsageState] {
-        profilesList.map { profile in
-            AccountUsageState(
+    private func autoSwitchStates(context: PaceContext? = nil) -> [AccountUsageState] {
+        let context = context ?? paceContext()
+        return profilesList.map { profile in
+            let isActive = profile.id == activeProfileID
+            // Con un tope personal, cada punto real es más de un punto propio.
+            let fiveHourScale = 100 / (profile.sharedFiveHourCap ?? 100)
+            let weeklyScale = 100 / (profile.sharedWeeklyCap ?? 100)
+            return AccountUsageState(
                 id: profile.id,
                 usage: freshUsage(for: profile.id)?
                     .scaledToPersonalCaps(fiveHourCap: profile.sharedFiveHourCap, weeklyCap: profile.sharedWeeklyCap),
                 needsLogin: profile.needsLogin,
-                leftByUser: leftByUserUntil[profile.id].map { $0 > Date() } ?? false
+                leftByUser: leftByUserUntil[profile.id].map { $0 > Date() } ?? false,
+                fiveHourPace: context.expectedPace(
+                    for: profile.id, plan: profile.plan, isActive: isActive
+                ).map { $0 * fiveHourScale },
+                fiveHourPaceUpper: isActive
+                    ? context.activeCurrent.map { $0.upperPointsPerHour * fiveHourScale }
+                    : nil,
+                weeklyPerFiveHour: context.weeklyPerFiveHour(
+                    for: profile.id, plan: profile.plan
+                ).map { $0 * weeklyScale / fiveHourScale }
             )
         }
     }
@@ -1356,7 +1470,8 @@ final class AppState {
             weeklyThreshold: weeklyTriggerThreshold,
             fableThreshold: fableTriggerThreshold,
             considersFable: useFableForAutoSwitch,
-            anticipatesExpiringQuota: anticipateExpiringQuota
+            anticipatesExpiringQuota: anticipateExpiringQuota,
+            switchesByPace: switchByPace
         )
     }
 
@@ -1395,6 +1510,72 @@ final class AppState {
         guard let active = states.first(where: { $0.id == activeProfileID }) else { return nil }
         return autoSwitchCandidate(policy: autoSwitchPolicy, active: active, states: states)
     }
+
+    /// Hasta cuándo alcanza el cupo de todas las cuentas si se sigue
+    /// trabajando, con el cambio automático eligiendo la siguiente. Solo con
+    /// el cambio automático y el ritmo activados: sin ellos no describiría lo
+    /// que va a pasar.
+    var coverageForecast: CoverageForecast? {
+        _ = monitoringDate
+        guard autoSwitchEnabled, switchByPace, let activeProfileID else { return nil }
+        let context = paceContext()
+        return CoveragePlanner.forecast(
+            activeID: activeProfileID,
+            states: autoSwitchStates(context: context),
+            policy: autoSwitchPolicy,
+            basis: context.basis,
+            now: max(monitoringDate, Date())
+        )
+    }
+
+    /// Ritmos medidos, para explicarlos en la ventana de detalle.
+    struct PaceSummary {
+        var activeEmail: String?
+        /// Puntos de 5 h por hora en la cuenta activa ahora mismo.
+        var currentPace: Double?
+        var plans: [(plan: AccountPlan, pace: TypicalPace)]
+    }
+
+    var paceSummary: PaceSummary {
+        let current = activeCurrentPace.flatMap {
+            $0.pointsPerHour >= PaceContext.workingPace ? $0.pointsPerHour : nil
+        }
+        return PaceSummary(
+            activeEmail: activeProfile?.emailAddress,
+            currentPace: current,
+            plans: paceModel.byPlan
+                .map { (plan: $0.key, pace: $0.value) }
+                .sorted { $0.plan.rawValue < $1.plan.rawValue }
+        )
+    }
+
+    /// Avisa una vez, con margen, de que al ritmo actual todas las cuentas
+    /// van a llegar a su límite. Solo mientras se está trabajando: al ritmo
+    /// habitual es una hipótesis, no algo que vaya a pasar.
+    private func notifyCoverageIfNeeded() {
+        guard let forecast = coverageForecast,
+              forecast.basis == .currentPace,
+              let runsOutAt = forecast.runsOutAt else { return }
+        let now = Date()
+        let lead = runsOutAt.timeIntervalSince(now)
+        guard lead > 0, lead <= coverageNoticeLead else { return }
+        if let last = lastCoverageNotice,
+           abs(last.runsOutAt.timeIntervalSince(runsOutAt)) < 30 * 60,
+           now.timeIntervalSince(last.at) < 2 * 3_600 {
+            return
+        }
+        lastCoverageNotice = (runsOutAt, now)
+        let body = forecast.resumesAt.map {
+            L10n.tr(
+                "forecast.notification.body",
+                ResetFormatter.compact(runsOutAt),
+                ResetFormatter.absolute($0)
+            )
+        } ?? L10n.tr("forecast.notification.body_open", ResetFormatter.compact(runsOutAt))
+        Notifier.notify(title: L10n.tr("forecast.notification.title"), body: body)
+    }
+
+    private let coverageNoticeLead: TimeInterval = 45 * 60
 
     private func runAutoSwitchIfNeeded() async {
         guard autoSwitchEnabled, let active = activeProfileID else { return }
@@ -1616,6 +1797,15 @@ final class AppState {
     ) -> String {
         guard let usage = active.usage else {
             return L10n.tr("auto_switch.trigger.generic")
+        }
+        let policy = autoSwitchPolicy
+        if !policy.reachedThreshold(active),
+           let remaining = policy.timeToFiveHourLimit(active),
+           remaining <= AutoSwitchPolicy.paceRunway {
+            return L10n.tr(
+                "auto_switch.trigger.pace",
+                max(1, Int((remaining / 60).rounded()))
+            )
         }
         if useFableForAutoSwitch,
            let fable = usage.sevenDayOpus,
