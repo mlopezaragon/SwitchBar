@@ -18,6 +18,9 @@
   `surface`. SwitchBar does not pose as Claude Code to get them, so the
   detail window says they cannot be seen from SwitchBar, and they appear
   on their own if Anthropic opens the data to other apps.
+- The menu bar panel shrinks back when a notice or error goes away. Its
+  window grew to fit them but never shrank again, so the panel sat
+  centered in a taller window with empty strips above and below.
 - Validated with 155 automated tests.
 
 ## 1.2.0 — 2026-10-23

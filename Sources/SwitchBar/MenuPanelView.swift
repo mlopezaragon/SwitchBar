@@ -7,6 +7,8 @@ struct MenuPanelView: View {
     /// Altura real de las tarjetas, para que el panel se ajuste a ellas
     /// mientras quepan y se desplace cuando no.
     @State private var cardsHeight: CGFloat = 0
+    /// Altura real del panel, para ajustar la ventana cuando encoge.
+    @State private var panelHeight: CGFloat = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -78,6 +80,10 @@ struct MenuPanelView: View {
         }
         .padding(12)
         .frame(width: 360)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
+            panelHeight = $0
+        }
+        .background(PanelWindowFitter(height: panelHeight))
         .onAppear {
             state.refreshIfStale()
         }
@@ -223,4 +229,46 @@ struct MenuPanelView: View {
         }
     }
 
+}
+
+/// Encoge la ventana del panel hasta la altura del contenido. La ventana de
+/// MenuBarExtra crece cuando aparece un aviso, pero no vuelve a encoger
+/// cuando desaparece (el binario se enlaza con el SDK de macOS 14 y el
+/// sistema mantiene ese comportamiento antiguo): el panel quedaba centrado
+/// en una ventana más alta, con franjas vacías arriba y abajo.
+private struct PanelWindowFitter: NSViewRepresentable {
+    let height: CGFloat
+
+    func makeNSView(context: Context) -> FitterView {
+        FitterView()
+    }
+
+    func updateNSView(_ view: FitterView, context: Context) {
+        view.height = height
+        view.fitWindow()
+    }
+
+    final class FitterView: NSView {
+        var height: CGFloat = 0
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            fitWindow()
+        }
+
+        /// Solo encoge: crecer ya lo hace SwiftUI. El borde superior no se
+        /// mueve, para que el panel siga pegado a la barra de menús.
+        func fitWindow() {
+            guard let window, height > 0 else { return }
+            let content = window.contentRect(forFrameRect: window.frame)
+            guard content.height > height + 0.5 else { return }
+            let fitted = NSRect(
+                x: content.minX,
+                y: content.maxY - height,
+                width: content.width,
+                height: height
+            )
+            window.setFrame(window.frameRect(forContentRect: fitted), display: true)
+        }
+    }
 }
