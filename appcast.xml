@@ -4,13 +4,13 @@
     <title>SwitchBar</title>
     <link>https://github.com/mlopezaragon/SwitchBar</link>
     <item>
-      <title>SwitchBar 1.3.0</title>
-      <pubDate>Sat, 24 Oct 2026 17:51:20 +0000</pubDate>
-      <sparkle:version>22</sparkle:version>
-      <sparkle:shortVersionString>1.3.0</sparkle:shortVersionString>
+      <title>SwitchBar 1.4.0</title>
+      <pubDate>Mon, 26 Oct 2026 16:41:43 +0000</pubDate>
+      <sparkle:version>23</sparkle:version>
+      <sparkle:shortVersionString>1.4.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-      <link>https://github.com/mlopezaragon/SwitchBar/releases/tag/v1.3.0</link>
-      <enclosure url="https://github.com/mlopezaragon/SwitchBar/releases/download/v1.3.0/SwitchBar-1.3.0.dmg" sparkle:edSignature="i6EnoO3zrIdaMi4UE9e8qchOKk0aLCRAZDixT4nt2Q+N62QRWVPJbuLYdRrqDV1nBZZ4n6L+AcCzCsk4qgx3Bg==" length="3613491" type="application/octet-stream"/>
+      <link>https://github.com/mlopezaragon/SwitchBar/releases/tag/v1.4.0</link>
+      <enclosure url="https://github.com/mlopezaragon/SwitchBar/releases/download/v1.4.0/SwitchBar-1.4.0.dmg" sparkle:edSignature="+nwAEbplLvdEHhDOf+zWWMQrphEu6yc7DsXdNX9DLTON1M0WCMzIk/cxlh+AGg5NAo5QUSBciH3SIqG9/MK0Ag==" length="3642338" type="application/octet-stream"/>
     </item>
   </channel>
 </rss>
