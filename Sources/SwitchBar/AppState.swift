@@ -316,19 +316,27 @@ final class AppState {
 
     /// El usuario eligió `chosen` a mano dejando `previous`. La elegida se
     /// respeta hasta que llegue a un límite; la abandonada queda para el final
-    /// hasta su reinicio semanal (o un día, si no se conoce).
+    /// hasta su reinicio semanal (o un día, si no se conoce). Una cuenta sin
+    /// límite semanal a la vista (Team) solo puede haberse dejado por su
+    /// ventana de 5 h: queda para el final hasta que esa ventana se reinicie.
     private func recordManualChoice(_ chosen: String, leaving previous: String?) {
         preferences.manuallyChosenProfileID = chosen
         let now = Date()
         leftByUserUntil = leftByUserUntil.filter { $0.key != chosen && $0.value > now }
-        if let previous, previous != chosen {
-            let reset = usageByAccount[previous]
-                .flatMap(autoSwitchPolicy.weeklyDeadline)
-                .flatMap { $0 > now ? $0 : nil }
-            leftByUserUntil[previous] = min(
-                reset ?? now.addingTimeInterval(24 * 3_600),
-                now.addingTimeInterval(7 * 24 * 3_600)
-            )
+        if let previous, previous != chosen, let usage = usageByAccount[previous] {
+            if usage.weeklyLimitUnreported {
+                if let reset = usage.fiveHour?.resetsAt, reset > now {
+                    leftByUserUntil[previous] = reset
+                }
+            } else {
+                let reset = autoSwitchPolicy.weeklyDeadline(usage).flatMap { $0 > now ? $0 : nil }
+                leftByUserUntil[previous] = min(
+                    reset ?? now.addingTimeInterval(24 * 3_600),
+                    now.addingTimeInterval(7 * 24 * 3_600)
+                )
+            }
+        } else if let previous, previous != chosen {
+            leftByUserUntil[previous] = now.addingTimeInterval(24 * 3_600)
         }
         preferences.leftByUserTimestamps =
             leftByUserUntil.mapValues(\.timeIntervalSince1970)
@@ -1445,12 +1453,13 @@ final class AppState {
             // Con un tope personal, cada punto real es más de un punto propio.
             let fiveHourScale = 100 / (profile.sharedFiveHourCap ?? 100)
             let weeklyScale = 100 / (profile.sharedWeeklyCap ?? 100)
+            let usage = freshUsage(for: profile.id)?
+                .scaledToPersonalCaps(fiveHourCap: profile.sharedFiveHourCap, weeklyCap: profile.sharedWeeklyCap)
             return AccountUsageState(
                 id: profile.id,
-                usage: freshUsage(for: profile.id)?
-                    .scaledToPersonalCaps(fiveHourCap: profile.sharedFiveHourCap, weeklyCap: profile.sharedWeeklyCap),
+                usage: usage,
                 needsLogin: profile.needsLogin,
-                leftByUser: leftByUserUntil[profile.id].map { $0 > Date() } ?? false,
+                leftByUser: isLeftByUser(profile.id, usage: usage),
                 hasPersonalCap: profile.sharedFiveHourCap != nil || profile.sharedWeeklyCap != nil,
                 fiveHourPace: context.expectedPace(
                     for: profile.id, plan: profile.plan, isActive: isActive
@@ -1463,6 +1472,17 @@ final class AppState {
                 ).map { $0 * weeklyScale / fiveHourScale }
             )
         }
+    }
+
+    /// Ver `recordManualChoice`. En una cuenta sin límite semanal a la vista
+    /// solo cuenta mientras siga abierta una ventana de 5 h: así tampoco
+    /// pesan las marcas guardadas por versiones que la apartaban hasta el
+    /// reinicio de Fable.
+    private func isLeftByUser(_ profileID: String, usage: UsageSnapshot?) -> Bool {
+        let now = Date()
+        guard let until = leftByUserUntil[profileID], until > now else { return false }
+        guard usage?.weeklyLimitUnreported == true else { return true }
+        return usage?.fiveHour?.resetsAt.map { $0 > now } ?? false
     }
 
     private var autoSwitchPolicy: AutoSwitchPolicy {

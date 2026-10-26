@@ -6,9 +6,10 @@ public struct AccountUsageState: Sendable {
     public var usage: UsageSnapshot?
     public var needsLogin: Bool
     /// El usuario salió a mano de esta cuenta y aún no ha llegado su reinicio
-    /// semanal. Puede saber algo que la app no ve, como el límite semanal de
-    /// Team, que Anthropic no informa: la cuenta queda para el final y el
-    /// modo autónomo no vuelve a ella por su cuenta.
+    /// semanal o, si no tiene límite semanal a la vista (Team), el de la
+    /// ventana de 5 h que tenía abierta. Puede saber algo que la app no ve:
+    /// la cuenta queda para el final y el modo autónomo no vuelve a ella por
+    /// su cuenta.
     public var leftByUser: Bool
     /// Cuenta compartida con un tope personal. Su uso ya llega reescalado al
     /// tope; además, nunca se deja activa para esperar a que se recupere,

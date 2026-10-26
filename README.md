@@ -46,7 +46,8 @@ when a usage window fills up.
 - Pauses automatic switching for 15 minutes after you pick an account by
   hand with `/login` — your explicit choice wins. An account you pick by hand
   is only left when it reaches a limit, and one you leave by hand goes to the
-  back of the line until its weekly reset.
+  back of the line until its weekly reset (on Team, until its 5-hour window
+  resets).
 - Localized in 10 languages. No telemetry of any kind.
 
 ## Requirements

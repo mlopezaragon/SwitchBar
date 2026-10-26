@@ -42,7 +42,7 @@ política automática.
 - Tras un `/login` manual, el cambio automático se pausa 15 minutos: tu
   elección explícita manda. Una cuenta elegida a mano solo se abandona al
   llegar a un límite, y la que dejes a mano queda para el final hasta su
-  reinicio semanal.
+  reinicio semanal (en Team, hasta que se reinicie su ventana de 5 h).
 - Localizada en 10 idiomas. Sin telemetría de ningún tipo.
 
 ## Requisitos

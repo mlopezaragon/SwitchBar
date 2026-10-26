@@ -30,6 +30,12 @@
   minutes instead of 45, and autonomous mode moves to accounts that last at
   least 30 minutes instead of an hour: a whole Team window lasts a little
   over an hour, and stricter limits left half-spent windows unused.
+- An account you leave by hand with no visible weekly limit (Team) now goes
+  to the back of the line only until its open 5-hour window resets, instead
+  of until its Fable reset days later: its window is the only limit it
+  shows. Marks saved by earlier versions stop counting as soon as that
+  account has no open window, so Team accounts left by hand days ago are
+  used again.
 - New notifications explain each autonomous move (Team window, expiring
   window, week at risk) and the wait on the first account to recover.
 
