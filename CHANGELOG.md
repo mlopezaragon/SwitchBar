@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.4.0 — 2026-10-26
+
+- Accounts with no visible weekly limit (Team, which only reports Fable)
+  are spent before accounts with a weekly limit (Max). Their 5-hour window
+  refills five hours after it opens without costing any weekly quota, so
+  Max weeks are kept for when Team windows run out. Team accounts no longer
+  compete through their Fable reset, which says nothing about what limits
+  them.
+- A week is still never wasted: when, at the measured pace and assuming you
+  work half the remaining time, an account could not spend what is left of
+  its week before the reset, that week goes first. Each 5-hour window caps
+  how fast a week can be spent, so working faster does not change this.
+  Without a measured weekly cost, only the last day before a reset counts.
+- Order when switching: quota that would be lost (an open Team window with
+  room, or a week at risk), then Team accounts with their window unopened,
+  then the rest of the weekly accounts by weekly reset. Autonomous mode
+  moves early whenever another account with at least 15 points of room
+  comes earlier in that order, or within the same group expires at least
+  30 minutes sooner.
+- When the active account has to switch and no account has room left,
+  SwitchBar leaves active the account that recovers first (the 5-hour window
+  that resets soonest), at least 15 minutes earlier than the current one.
+  Claude Code moves to the active account when its own runs out and waits
+  there, so it resumes as soon as possible. Only accounts blocked by their
+  5-hour window qualify, never one with a personal cap or one you left by
+  hand, so no week or shared quota is spent waiting.
+- With "Use your usage pace", a destination is a last resort under 30
+  minutes instead of 45, and autonomous mode moves to accounts that last at
+  least 30 minutes instead of an hour: a whole Team window lasts a little
+  over an hour, and stricter limits left half-spent windows unused.
+- New notifications explain each autonomous move (Team window, expiring
+  window, week at risk) and the wait on the first account to recover.
+
 ## 1.3.0 — 2026-10-24
 
 - Each account's card shows the limit resets Anthropic has granted it, for

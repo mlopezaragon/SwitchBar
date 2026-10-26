@@ -275,12 +275,12 @@ private let agotada = cuenta("a", fiveHour: 95, sevenDay: 40, semanaEn: 120)
     #expect(decision == "b")
 }
 
-@Test func unaHoraDeDiferenciaEnElReinicioYaDecide() {
-    // El caso del usuario: una Team al 0 % que se reinicia en 3 h frente a
-    // otra cuenta que se reinicia en 4 h. Gana la de 3 h.
+@Test func unaSemanaDeMaxQueSeVaAPerderGanaAUnaTeam() {
+    // La Max se reinicia en 4 h con el 75 % de su semana por gastar: no da
+    // tiempo, y lo que quede se pierde. La Team sin abrir puede esperar.
     let team = cuenta("b", fiveHour: 0, sevenDay: nil, opus: 0, fableEn: 3, semanaNoInformada: true)
-    let otra = cuenta("c", fiveHour: 0, sevenDay: 20, semanaEn: 4)
-    #expect(politica.decision(active: agotada, all: [otra, team]) == "b")
+    let max = cuenta("c", fiveHour: 0, sevenDay: 20, semanaEn: 4)
+    #expect(politica.decision(active: agotada, all: [team, max], now: ahora) == "c")
 }
 
 @Test func elMismoReinicioSeDesempataPorElUsoDeCincoHoras() {
@@ -344,10 +344,13 @@ private let agotada = cuenta("a", fiveHour: 95, sevenDay: 40, semanaEn: 120)
     #expect(decision == "c")
 }
 
-@Test func enTeamElReinicioDeFableEstimaElDeLaSemana() {
-    let team = cuenta("b", fiveHour: 30, sevenDay: nil, opus: 0, fableEn: 20, semanaNoInformada: true)
+@Test func unaTeamVaAntesQueUnaMaxCuyaSemanaNoCorrePeligro() {
+    // La semana de la Max puede esperar: se guarda para cuando haga falta.
+    // Que el reinicio de Fable de la Team llegue después no cuenta: lo que
+    // limita a la Team es su ventana de 5 h.
+    let team = cuenta("b", fiveHour: 30, sevenDay: nil, opus: 0, fableEn: 200, semanaNoInformada: true)
     let max = cuenta("c", fiveHour: 0, sevenDay: 20, semanaEn: 100)
-    #expect(politica.decision(active: agotada, all: [team, max]) == "b")
+    #expect(politica.decision(active: agotada, all: [max, team], now: ahora) == "b")
 }
 
 // MARK: - Gestión autónoma
@@ -365,13 +368,20 @@ private let activaHolgada = cuenta("a", fiveHour: 30, sevenDay: 40, semanaEn: 10
     #expect(politica.expiringQuotaTarget(active: activaHolgada, all: [caduca], now: ahora) == nil)
 }
 
-@Test func enModoAutonomoTresHorasGananACuatro() {
-    // Activa: se reinicia en 4 h. Una Team al 0 % se reinicia en 3 h.
-    let activa = cuenta("a", fiveHour: 20, sevenDay: 50, semanaEn: 4)
+@Test func enModoAutonomoUnaMaxCedeAnteUnaTeamConMargen() {
+    let max = cuenta("a", fiveHour: 20, sevenDay: 50, semanaEn: 100)
+    let team = cuenta("b", fiveHour: 0, sevenDay: nil, opus: 0, fableEn: 150, semanaNoInformada: true)
+    #expect(autonoma.expiringQuotaTarget(active: max, all: [max, team], now: ahora) == "b")
+    // Y desde la Team no se vuelve a la Max mientras la Team tenga margen.
+    #expect(autonoma.expiringQuotaTarget(active: team, all: [max, team], now: ahora) == nil)
+}
+
+@Test func enModoAutonomoUnaSemanaQueSeVaAPerderGanaAUnaTeam() {
+    // La Max se reinicia en 4 h con media semana por gastar.
+    let max = cuenta("a", fiveHour: 20, sevenDay: 50, semanaEn: 4)
     let team = cuenta("b", fiveHour: 0, sevenDay: nil, opus: 0, fableEn: 3, semanaNoInformada: true)
-    #expect(autonoma.expiringQuotaTarget(active: activa, all: [activa, team], now: ahora) == "b")
-    // Y desde la Team no se vuelve a la de 4 h mientras la Team aguante.
-    #expect(autonoma.expiringQuotaTarget(active: team, all: [activa, team], now: ahora) == nil)
+    #expect(autonoma.expiringQuotaTarget(active: max, all: [max, team], now: ahora) == nil)
+    #expect(autonoma.expiringQuotaTarget(active: team, all: [max, team], now: ahora) == "a")
 }
 
 @Test func noSeAdelantaPorUnReinicioCasiSimultaneo() {
@@ -524,9 +534,10 @@ private func medida(
     let abierta = medida("b", fiveHour: 30, cincoEn: 2, opus: 0, fableEn: 70)
     let sinEstrenar = medida("c", fiveHour: nil, opus: 0, fableEn: 20)
     #expect(politica.decision(active: agotada, all: [sinEstrenar, abierta], now: ahora) == "b")
-    // Sin margen útil en esa ventana, no hay nada que rescatar.
+    // Sin margen útil en esa ventana, no hay nada que rescatar; y en Team
+    // la semana de Fable no cuenta como cupo que caduca.
     let casiLlena = medida("d", fiveHour: 86, cincoEn: 2, opus: 0, fableEn: 70)
-    #expect(politica.expiryDeadline(casiLlena, now: ahora) == horas(70))
+    #expect(politica.expiryDeadline(casiLlena, now: ahora) == nil)
 }
 
 @Test func lasVentanasAbiertasSeGastanPorOrdenDeReinicio() {
@@ -565,4 +576,99 @@ private func medida(
     #expect(autonomaConRitmo.expiringQuotaTarget(active: activa, all: [activa, corta], now: ahora) == nil)
     let holgada = medida("c", fiveHour: 0, sevenDay: 30, semanaEn: 10, ritmo: 30)
     #expect(autonomaConRitmo.expiringQuotaTarget(active: activa, all: [activa, corta, holgada], now: ahora) == "c")
+}
+
+// MARK: - Cuentas sin límite semanal a la vista
+
+@Test func primeroLoQueCaducaDespuesTeamYLasMaxAlFinal() {
+    let teamAbierta = medida("b", fiveHour: 40, cincoEn: 3)
+    let teamSinAbrir = medida("c", fiveHour: nil)
+    let maxHolgada = medida("d", fiveHour: 0, sevenDay: 20, semanaEn: 100, ritmo: 20, semanaPorPunto: 0.25)
+    #expect(politica.urgency(teamAbierta, now: ahora) == .expiring)
+    #expect(politica.urgency(teamSinAbrir, now: ahora) == .renewable)
+    #expect(politica.urgency(maxHolgada, now: ahora) == .reserve)
+    #expect(politica.decision(active: agotada, all: [maxHolgada, teamSinAbrir, teamAbierta], now: ahora) == "b")
+    #expect(politica.decision(active: agotada, all: [maxHolgada, teamSinAbrir], now: ahora) == "c")
+    #expect(politica.decision(active: agotada, all: [maxHolgada], now: ahora) == "d")
+}
+
+@Test func unaSemanaSeDaPorPerdidaSiNoDaTiempoAGastarla() {
+    // 55 puntos de semana a 0,25 por punto de 5 h y 20 puntos/h: 11 horas
+    // de trabajo, que trabajando la mitad del tiempo piden 22 horas.
+    let lejos = medida("a", fiveHour: 0, sevenDay: 40, semanaEn: 30, ritmo: 20, semanaPorPunto: 0.25)
+    let cerca = medida("b", fiveHour: 0, sevenDay: 40, semanaEn: 20, ritmo: 20, semanaPorPunto: 0.25)
+    #expect(!politica.weeklyQuotaAtRisk(lejos, now: ahora))
+    #expect(politica.weeklyQuotaAtRisk(cerca, now: ahora))
+    // Gastar más deprisa no ayuda: la ventana de 5 h no da más de un cupo
+    // entero cada cinco horas.
+    let deprisa = medida("c", fiveHour: 0, sevenDay: 40, semanaEn: 30, ritmo: 80, semanaPorPunto: 0.25)
+    #expect(!politica.weeklyQuotaAtRisk(deprisa, now: ahora))
+    // Sin medir lo que cuesta la semana, solo cuenta el último día.
+    #expect(politica.weeklyQuotaAtRisk(medida("d", fiveHour: 0, sevenDay: 40, semanaEn: 23), now: ahora))
+    #expect(!politica.weeklyQuotaAtRisk(medida("e", fiveHour: 0, sevenDay: 40, semanaEn: 25), now: ahora))
+    // Sin margen no hay nada que perder.
+    #expect(!politica.weeklyQuotaAtRisk(medida("f", fiveHour: 0, sevenDay: 92, semanaEn: 5), now: ahora))
+}
+
+@Test func enModoAutonomoSeAprovechaLaVentanaAbiertaQueAntesCaduca() {
+    let activa = medida("a", fiveHour: 30, cincoEn: 4)
+    let caducaAntes = medida("b", fiveHour: 40, cincoEn: 1)
+    #expect(autonoma.expiringQuotaTarget(active: activa, all: [activa, caducaAntes], now: ahora) == "b")
+    #expect(autonoma.expiringQuotaTarget(active: caducaAntes, all: [activa, caducaAntes], now: ahora) == nil)
+    // Una Team sin abrir no saca de una ventana abierta: no caduca.
+    #expect(autonoma.expiringQuotaTarget(active: activa, all: [medida("c", fiveHour: nil)], now: ahora) == nil)
+}
+
+// MARK: - Sin margen en ninguna cuenta
+
+@Test func sinMargenEnNingunaSeEsperaEnLaPrimeraQueSeRecupera() {
+    let activa = medida("a", fiveHour: 95, cincoEn: 4)
+    let pronto = medida("b", fiveHour: 100, cincoEn: 0.5)
+    let despues = medida("c", fiveHour: 92, cincoEn: 1)
+    #expect(politica.decision(active: activa, all: [activa, pronto, despues], now: ahora) == nil)
+    #expect(politica.recoveryTarget(active: activa, all: [activa, despues, pronto], now: ahora) == "b")
+    // Si alguna tiene margen, manda el cambio ordinario.
+    let libre = medida("d", fiveHour: 10, cincoEn: 2)
+    #expect(politica.recoveryTarget(active: activa, all: [pronto, libre], now: ahora) == nil)
+    // Mientras la activa no tenga que cambiar, no se toca.
+    let holgada = medida("e", fiveHour: 50, cincoEn: 4)
+    #expect(politica.recoveryTarget(active: holgada, all: [pronto], now: ahora) == nil)
+}
+
+@Test func alRitmoActualTambienSeEsperaEnLaPrimeraQueSeRecupera() {
+    // Aún al 75 %, pero a 90 puntos/h se agota en menos de 20 minutos.
+    let deprisa = medida("a", fiveHour: 75, cincoEn: 4, ritmoAlto: 90)
+    let pronto = medida("b", fiveHour: 100, cincoEn: 0.25)
+    #expect(conRitmo.recoveryTarget(active: deprisa, all: [deprisa, pronto], now: ahora) == "b")
+}
+
+@Test func unaActivaSinSemanaEsperaEnUnaQueVuelvaAntes() {
+    let activa = medida("a", fiveHour: 10, cincoEn: 3, sevenDay: 97, semanaEn: 50)
+    let team = medida("b", fiveHour: 100, cincoEn: 1)
+    #expect(politica.recoveryTarget(active: activa, all: [activa, team], now: ahora) == "b")
+}
+
+@Test func nuncaSeEsperaEnUnaCuentaConTopePersonal() {
+    let activa = medida("a", fiveHour: 95, cincoEn: 4)
+    var compartida = medida("b", fiveHour: 100, cincoEn: 0.5)
+    compartida.hasPersonalCap = true
+    let propia = medida("c", fiveHour: 92, cincoEn: 1)
+    #expect(politica.recoveryTarget(active: activa, all: [compartida, propia], now: ahora) == "c")
+    #expect(politica.recoveryTarget(active: activa, all: [compartida], now: ahora) == nil)
+}
+
+@Test func soloSeEsperaEnCuentasQueBloqueaSuVentanaDeCincoHoras() {
+    let activa = medida("a", fiveHour: 95, cincoEn: 4)
+    // Su ventana se reinicia enseguida, pero su semana está agotada.
+    let semanaAgotada = medida("b", fiveHour: 95, cincoEn: 0.5, sevenDay: 97, semanaEn: 50)
+    #expect(politica.recoveryTarget(active: activa, all: [semanaAgotada], now: ahora) == nil)
+    var abandonada = medida("c", fiveHour: 100, cincoEn: 0.5)
+    abandonada.leftByUser = true
+    #expect(politica.recoveryTarget(active: activa, all: [abandonada], now: ahora) == nil)
+}
+
+@Test func noSeCambiaParaEsperarCasiLoMismo() {
+    let activa = medida("a", fiveHour: 95, cincoEn: 1)
+    let casiIgual = medida("b", fiveHour: 100, cincoEn: 0.9)
+    #expect(politica.recoveryTarget(active: activa, all: [casiIgual], now: ahora) == nil)
 }

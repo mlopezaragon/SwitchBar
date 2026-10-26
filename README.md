@@ -24,12 +24,15 @@ when a usage window fills up.
 - Limit resets granted by Anthropic, per account, with their deadline.
 - One-click switching of the active Claude Code account, with undo.
 - Automatic switching with independent, configurable thresholds per window.
-  It picks the account that would lose quota first — an already open 5-hour
-  window with room left, or the week that resets first, even by minutes —
-  because quota left unused at a reset is lost, and it never picks an account
-  at a threshold or at its personal cap. In autonomous mode (on by default) it
-  keeps that account active on its own, without waiting for a limit. The
-  panel marks the next account.
+  It spends first whatever would be lost if unused — an already open 5-hour
+  window with room left, or a week that could not be spent before its reset —
+  then accounts with no visible weekly limit (Team), which only spend their
+  5-hour window, and keeps accounts with a weekly limit (Max) for when they
+  are needed. It never picks an account at a threshold or at its personal cap
+  to work on, and when no account has room it leaves active the one that
+  recovers first, so Claude Code resumes as soon as possible. In autonomous
+  mode (on by default) it keeps the right account active on its own, without
+  waiting for a limit. The panel marks the next account.
 - Usage pace (on by default): SwitchBar measures how fast each account is
   spent, switches before the threshold when the active account would run out
   within 20 minutes, avoids destinations that would last only minutes, and

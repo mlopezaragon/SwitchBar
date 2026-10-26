@@ -1451,6 +1451,7 @@ final class AppState {
                     .scaledToPersonalCaps(fiveHourCap: profile.sharedFiveHourCap, weeklyCap: profile.sharedWeeklyCap),
                 needsLogin: profile.needsLogin,
                 leftByUser: leftByUserUntil[profile.id].map { $0 > Date() } ?? false,
+                hasPersonalCap: profile.sharedFiveHourCap != nil || profile.sharedWeeklyCap != nil,
                 fiveHourPace: context.expectedPace(
                     for: profile.id, plan: profile.plan, isActive: isActive
                 ).map { $0 * fiveHourScale },
@@ -1625,6 +1626,9 @@ final class AppState {
         }
         let triggerDescription = autoSwitchTriggerDescription(activeState)
         guard let target else {
+            if await waitOnFirstRecoveryIfNeeded(policy: policy, active: activeState, states: states) {
+                return
+            }
             notifyNoCandidate(policy: policy, states: states, active: active)
             return
         }
@@ -1661,16 +1665,64 @@ final class AppState {
         guard await verifyDestination(target, from: active.id, isValid: { activeState, _, states in
             policy.expiringQuotaTarget(active: activeState, all: states) == target
         }) else { return }
-        guard let resetsAt = usageByAccount[target].flatMap(policy.weeklyDeadline) else { return }
+        guard let targetState = autoSwitchStates().first(where: { $0.id == target }),
+              let body = anticipationReason(policy: policy, target: targetState)
+        else { return }
+        await switchAutomatically(to: target, body: body)
+    }
+
+    /// Por qué el modo autónomo se adelanta a esta cuenta, según lo que
+    /// perdería si no se usara.
+    private func anticipationReason(policy: AutoSwitchPolicy, target: AccountUsageState) -> String? {
+        let now = Date()
         let f = RelativeDateTimeFormatter()
         f.locale = L10n.locale
+        func relative(_ date: Date) -> String { f.localizedString(for: date, relativeTo: now) }
+        switch policy.urgency(target, now: now) {
+        case .renewable:
+            return L10n.tr("auto_switch.weekly_free.body")
+        case .expiring where !policy.hasWeeklyLimit(target):
+            return policy.openWindowReset(target, now: now).map {
+                L10n.tr("auto_switch.open_window.body", relative($0))
+            }
+        case .expiring:
+            return target.usage?.sevenDay?.resetsAt.map {
+                L10n.tr("auto_switch.weekly_at_risk.body", relative($0))
+            }
+        case .reserve:
+            return target.usage.flatMap(policy.weeklyDeadline).map {
+                L10n.tr("auto_switch.expiring.body", relative($0))
+            }
+        }
+    }
+
+    /// Ninguna cuenta tiene margen: deja activa la que antes se recupera,
+    /// para que Claude Code, que sigue con la cuenta activa al agotar la
+    /// suya, espere lo menos posible. Devuelve `true` si ha cambiado.
+    private func waitOnFirstRecoveryIfNeeded(
+        policy: AutoSwitchPolicy,
+        active: AccountUsageState,
+        states: [AccountUsageState]
+    ) async -> Bool {
+        guard let target = policy.recoveryTarget(
+            active: active, all: verifiableStates(states)
+        ) else { return false }
+        guard await verifyDestination(target, from: active.id, isValid: { activeState, _, states in
+            policy.recoveryTarget(active: activeState, all: states) == target
+        }) else { return false }
+        guard let recoversAt = usageByAccount[target]?.fiveHour?.resetsAt else { return false }
+        let f = RelativeDateTimeFormatter()
+        f.locale = L10n.locale
+        // Este cambio ya avisa de que no queda margen.
+        lastNoCandidateNotice = (.allAtLimit, Date())
         await switchAutomatically(
             to: target,
             body: L10n.tr(
-                "auto_switch.expiring.body",
-                f.localizedString(for: resetsAt, relativeTo: Date())
+                "auto_switch.recovery.body",
+                f.localizedString(for: recoversAt, relativeTo: Date())
             )
         )
+        return true
     }
 
     /// A standby account may have kept consuming in an older terminal.
