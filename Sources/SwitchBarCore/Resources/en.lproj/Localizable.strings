@@ -117,7 +117,7 @@
 "auto_switch.weekly_at_risk.body" = "Its week resets %@ and there would not be time to spend what is left: it is used now so it is not lost. Open sessions remain on the previous account.";
 "auto_switch.recovery.body" = "No account has room left. The one that recovers first (%@) stays active, so Claude Code resumes as soon as possible.";
 "auto_switch.pace" = "Use your usage pace: switch earlier when needed";
-"auto_switch.pace.explanation" = "SwitchBar measures how fast you use each account. If, at the current pace, the active account would run out of its 5-hour window in under 20 minutes, it switches before the threshold, so a new session does not start on an account about to cut off. It does not pick a destination that would run out in under 30 minutes when a better one exists, and among the rest it prefers the one that lasts longest. Open sessions stay on their account until they end or renew their session.";
+"auto_switch.pace.explanation" = "SwitchBar measures how fast you use each account. If, at the current pace, the active account would run out of its 5-hour window in under 20 minutes, it switches before the threshold, so a new session does not start on an account about to cut off. A destination it would have to leave within 5 minutes is a last resort, and within each group it prefers accounts that would stay active for at least 30. Open sessions stay on their account until they end or renew their session.";
 "auto_switch.trigger.pace" = "At the current pace, the 5-hour window would run out in %d min.";
 "forecast.title" = "Quota forecast";
 "forecast.until.current" = "At the current pace, uninterrupted quota for %1$@ (until %2$@).";

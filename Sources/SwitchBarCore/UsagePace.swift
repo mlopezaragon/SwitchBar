@@ -34,6 +34,11 @@ public enum UsagePace {
     public static let currentWindow: TimeInterval = 30 * 60
     /// Por debajo, dos lecturas no dicen nada fiable de un ritmo.
     public static let minimumCurrentSpan: TimeInterval = 8 * 60
+    /// Con un gasto grande, un par de minutos ya dan un ritmo fiable: el
+    /// redondeo del servidor (un punto) apenas pesa. Una ventana de Team con
+    /// varias sesiones se agota en diez minutos y no da tiempo a esperar ocho.
+    public static let minimumFastSpan: TimeInterval = 2 * 60
+    public static let minimumFastPoints: Double = 10
     /// Un ritmo habitual medido durante menos tiempo no se usa.
     public static let minimumTypicalMeasure: TimeInterval = 20 * 60
     /// Entre dos lecturas más separadas no se sabe qué pasó.
@@ -44,6 +49,10 @@ public enum UsagePace {
     static let minimumRunPoints: Double = 2
     /// Lo que puede variar la hora de reinicio de una misma ventana.
     static let resetTolerance: TimeInterval = 5 * 60
+    /// El servidor redondea hacia abajo la hora de reinicio de la ventana de
+    /// 5 h (a la decena de minutos): la apertura que se deduce de ella puede
+    /// caer unos minutos antes de la real, incluso antes de la lectura previa.
+    static let resetRounding: TimeInterval = 30 * 60
 
     /// Ritmo de la última media hora dentro de la ventana de 5 h actual, o
     /// `nil` si no hay lecturas suficientes y recientes.
@@ -61,7 +70,9 @@ public enum UsagePace {
             earliest = older
         }
         let span = last.at.timeIntervalSince(earliest.at)
-        guard span >= minimumCurrentSpan else { return nil }
+        guard span >= minimumCurrentSpan
+                || (span >= minimumFastSpan && points >= minimumFastPoints)
+        else { return nil }
         return PaceEstimate(
             pointsPerHour: points / span * 3_600,
             upperPointsPerHour: (points + 1) / span * 3_600,
@@ -154,7 +165,7 @@ public enum UsagePace {
             return delta >= 0 ? delta : nil
         case (nil, let reset?):
             // La ventana se abrió entre las dos lecturas.
-            guard reset.addingTimeInterval(-5 * 3_600) >= older.at.addingTimeInterval(-60) else {
+            guard reset.addingTimeInterval(-5 * 3_600) >= older.at.addingTimeInterval(-resetRounding) else {
                 return nil
             }
             return newer.fiveHour ?? 0

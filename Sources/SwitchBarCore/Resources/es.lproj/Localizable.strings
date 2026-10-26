@@ -117,7 +117,7 @@
 "auto_switch.weekly_at_risk.body" = "Su semana se reinicia %@ y no daría tiempo a gastar lo que le queda: se usa ya para que no se pierda. Las sesiones abiertas siguen con la cuenta anterior.";
 "auto_switch.recovery.body" = "Ninguna cuenta tiene margen. Queda activa la primera que se recupera (lo hace %@), para que Claude Code siga cuanto antes.";
 "auto_switch.pace" = "Usar el ritmo de uso: cambiar antes si hace falta";
-"auto_switch.pace.explanation" = "SwitchBar mide a qué ritmo gastas cada cuenta. Si al ritmo actual la activa va a agotar su ventana de 5 h en menos de 20 minutos, cambia aunque no haya llegado al umbral, para que una sesión nueva no empiece en una cuenta a punto de cortarse. No elige como destino una cuenta que se agotaría en menos de 30 minutos si hay otra mejor y, entre las demás, prefiere la que más aguanta. Las sesiones abiertas siguen con su cuenta hasta que terminan o renuevan su sesión.";
+"auto_switch.pace.explanation" = "SwitchBar mide a qué ritmo gastas cada cuenta. Si al ritmo actual la activa va a agotar su ventana de 5 h en menos de 20 minutos, cambia aunque no haya llegado al umbral, para que una sesión nueva no empiece en una cuenta a punto de cortarse. Deja como último recurso una cuenta que tendría que abandonar en menos de 5 minutos y, dentro de cada grupo, prefiere las que seguirían activas al menos 30. Las sesiones abiertas siguen con su cuenta hasta que terminan o renuevan su sesión.";
 "auto_switch.trigger.pace" = "Al ritmo actual, la ventana de 5 h se agotaría en %d min.";
 "forecast.title" = "Previsión de cupo";
 "forecast.until.current" = "Al ritmo actual, cupo continuo durante %1$@ (hasta %2$@).";

@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.4.1 — 2026-10-26
+
+- Automatic switches no longer wait for the destination's turn in the
+  polling rotation. SwitchBar re-reads the destination before switching,
+  but the poller had just used the request slot (requests are 30 seconds
+  apart), so that read was dropped and the switch was put off until the
+  destination's next scheduled read: minutes with nine accounts, enough for
+  a Team window to go from the threshold to 100 %. Every automatic switch in
+  the log happened in the same second the destination was polled. It now
+  waits for the slot, at most 30 seconds.
+- The usage pace is measured after two minutes when at least 10 points were
+  spent, instead of always waiting eight: a Team window used by several
+  sessions is gone in about ten minutes.
+- The first reading of a freshly opened 5-hour window counts toward the
+  pace. The server rounds its reset time down to ten minutes, which placed
+  the window's opening before the previous reading, and the reading was
+  discarded.
+- Destinations are ranked by how long they would stay active before the
+  threshold or the pace switch moves on, not by how long they would take to
+  reach 100 %. Only a destination it would leave within 5 minutes is a last
+  resort; a short-lived one keeps its group, so under heavy load a fresh
+  Team still goes before a Max. Autonomous mode moves to accounts that stay
+  active for at least 8 minutes.
+
 ## 1.4.0 — 2026-10-26
 
 - Accounts with no visible weekly limit (Team, which only reports Fable)

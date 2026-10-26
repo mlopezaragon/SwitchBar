@@ -117,7 +117,7 @@
 "auto_switch.weekly_at_risk.body" = "La sua settimana si azzera %@ e non ci sarebbe tempo di esaurire ciò che resta: si usa subito per non perderla. Le sessioni aperte rimangono sull’account precedente.";
 "auto_switch.recovery.body" = "Nessun account ha più margine. Resta attivo quello che si ripristina per primo (%@), così Claude Code riprende il prima possibile.";
 "auto_switch.pace" = "Usa il ritmo di utilizzo: cambia prima se serve";
-"auto_switch.pace.explanation" = "SwitchBar misura a che ritmo usi ogni account. Se al ritmo attuale l’account attivo esaurirà la sua finestra di 5 ore entro 20 minuti, cambia prima di raggiungere la soglia, così una nuova sessione non parte su un account che sta per interrompersi. Non sceglie come destinazione un account che si esaurirebbe in meno di 30 minuti se ce n’è uno migliore e, tra gli altri, preferisce quello che dura di più. Le sessioni aperte restano sul loro account finché non terminano o rinnovano la sessione.";
+"auto_switch.pace.explanation" = "SwitchBar misura a che ritmo usi ogni account. Se al ritmo attuale l’account attivo esaurirà la sua finestra di 5 ore entro 20 minuti, cambia prima di raggiungere la soglia, così una nuova sessione non parte su un account che sta per interrompersi. Un account che dovrebbe lasciare entro 5 minuti è solo l’ultima risorsa e, in ogni gruppo, preferisce quelli che resterebbero attivi almeno 30 minuti. Le sessioni aperte restano sul loro account finché non terminano o rinnovano la sessione.";
 "auto_switch.trigger.pace" = "Al ritmo attuale, la finestra di 5 ore si esaurirebbe tra %d min.";
 "forecast.title" = "Previsione della quota";
 "forecast.until.current" = "Al ritmo attuale, quota senza interruzioni per %1$@ (fino a %2$@).";

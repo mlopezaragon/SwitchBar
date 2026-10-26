@@ -3,7 +3,7 @@
 APP = SwitchBar.app
 INSTALLED = /Applications/$(APP)
 
-VERSION = 1.4.0
+VERSION = 1.4.1
 
 .PHONY: build test app install run stop clean dmg notarize stats
 

@@ -672,3 +672,26 @@ private func medida(
     let casiIgual = medida("b", fiveHour: 100, cincoEn: 0.9)
     #expect(politica.recoveryTarget(active: activa, all: [casiIgual], now: ahora) == nil)
 }
+
+@Test func conUmbralDel86UnaTeamQueVuelaCambiaEnCuantoSeMideSuRitmo() {
+    // 59 % gastando 480 puntos/h: se agotaría en cinco minutos.
+    let politica86 = AutoSwitchPolicy(triggerThreshold: 86, switchesByPace: true)
+    #expect(politica86.shouldSwitch(active: medida("a", fiveHour: 59, cincoEn: 4.8, ritmoAlto: 480)))
+    // Al 86 % cambia siempre, con ritmo o sin él.
+    let sinRitmo = AutoSwitchPolicy(triggerThreshold: 86)
+    #expect(sinRitmo.shouldSwitch(active: medida("b", fiveHour: 86, cincoEn: 4)))
+    #expect(!sinRitmo.shouldSwitch(active: medida("c", fiveHour: 85, cincoEn: 4)))
+}
+
+@Test func conMuchaCargaUnaTeamSigueYendoAntesQueUnaMax() {
+    // Varias sesiones a la vez: 340 puntos/h en Team y 72 en Max. La Team
+    // nueva solo dará unos diez minutos antes de que el ritmo la deje, pero
+    // gastar la semana de la Max sería peor.
+    let team = medida("b", fiveHour: nil, ritmo: 340)
+    let max = medida("c", fiveHour: 0, sevenDay: 30, semanaEn: 100, ritmo: 72, semanaPorPunto: 0.25)
+    #expect(conRitmo.serviceTime(team, now: ahora).map { abs($0 - 60 / 340 * 3_600) < 1 } == true)
+    #expect(conRitmo.decision(active: agotada, all: [max, team], now: ahora) == "b")
+    let autonomaConRitmo = AutoSwitchPolicy(anticipatesExpiringQuota: true, switchesByPace: true)
+    let activaMax = medida("a", fiveHour: 20, cincoEn: 4, sevenDay: 30, semanaEn: 100, ritmo: 72, semanaPorPunto: 0.25)
+    #expect(autonomaConRitmo.expiringQuotaTarget(active: activaMax, all: [activaMax, team], now: ahora) == "b")
+}

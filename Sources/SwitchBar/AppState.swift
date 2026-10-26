@@ -1747,7 +1747,9 @@ final class AppState {
 
     /// A standby account may have kept consuming in an older terminal.
     /// Verify the destination before writing credentials, using the same
-    /// admission gate; a blocked request leaves the decision pending.
+    /// admission gate: it waits for the spacing between requests, and a
+    /// request blocked otherwise (budget, server pause) leaves the decision
+    /// pending.
     private func verifyDestination(
         _ target: String,
         from active: String,
@@ -1758,6 +1760,14 @@ final class AppState {
         ) -> Bool
     ) async -> Bool {
         if !isRecentlyVerified(target) {
+            // El sondeo acaba de gastar el turno leyendo la activa. Sin esperar
+            // a que el espaciado lo permita, esta consulta se descartaba y el
+            // cambio quedaba para cuando al destino le tocara su turno: con
+            // varias cuentas, minutos en los que una Team se agota entera.
+            let wait = usagePollingSchedule.delayBeforeStart(now: Date())
+            if wait > 0 {
+                try? await Task.sleep(for: .seconds(wait + 0.2))
+            }
             guard await performUsageRefresh(target) == .attempted,
                   isRecentlyVerified(target)
             else { return false }

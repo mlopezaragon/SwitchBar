@@ -89,13 +89,14 @@ public enum QuotaUrgency: Int, Sendable, Comparable {
 /// nunca es destino, por mucho cupo que le vaya a caducar.
 /// Elección, por este orden:
 /// 0. Las que el usuario no ha abandonado a mano (`leftByUser`) van antes.
-/// 1. Las que tienen margen útil (`minimumUsefulRoom`) en todas sus ventanas,
-///    y al ritmo medido aguantan al menos `comfortableRunway`, van antes que
-///    las que obligarían a cambiar otra vez enseguida.
+/// 1. Las que tienen margen útil (`minimumUsefulRoom`) en todas sus ventanas
+///    y no se dejarían en cuanto empezaran a usarse (`minimumServiceTime`)
+///    van antes que las que obligarían a cambiar otra vez enseguida.
 /// 2. Lo que se perdería si no se usa (`QuotaUrgency`): primero el cupo que
 ///    caduca, después las cuentas sin límite semanal a la vista (Team), que
 ///    solo gastan su ventana de 5 h, y por último las de límite semanal (Max),
-///    que se guardan para cuando haga falta.
+///    que se guardan para cuando haga falta. Dentro de cada grupo, las que
+///    seguirían activas al menos `comfortableRunway` van antes.
 /// 3. Dentro de cada grupo, la que antes perdería cupo: el reinicio de una
 ///    ventana de 5 h ya abierta con margen o el de su semana, aunque sea por
 ///    minutos. Una ventana sin abrir no caduca y se guarda para después.
@@ -135,11 +136,18 @@ public struct AutoSwitchPolicy: Sendable {
     /// El cambio por ritmo solo actúa a esta distancia del umbral, para que
     /// una ráfaga de trabajo no saque al usuario de una cuenta casi vacía.
     public static let paceTriggerMargin: Double = 30
-    /// Tiempo mínimo que debe aguantar un destino al ritmo medido para no ser
-    /// solo un último recurso, y también para adelantar un cambio. Una
-    /// ventana de Team entera dura poco más de una hora: exigir más dejaría
-    /// sin usar sus ventanas a medio gastar.
+    /// Tiempo que debe seguir activo un destino, al ritmo medido, para ir
+    /// antes que las demás de su grupo. Con poco trabajo una ventana de Team
+    /// entera dura poco más de una hora.
     public static let comfortableRunway: TimeInterval = 30 * 60
+    /// Por debajo de este tiempo activa, un destino solo es último recurso:
+    /// el umbral o el cambio por ritmo lo dejarían casi en cuanto se eligiera.
+    public static let minimumServiceTime: TimeInterval = 5 * 60
+    /// Tiempo activo que debe dar la cuenta a la que se adelanta un cambio.
+    /// Con varias sesiones a la vez una Team nueva da unos diez minutos antes
+    /// de que el cambio por ritmo la deje, y aun así conviene usarla antes
+    /// que gastar la semana de una Max.
+    public static let anticipationMinimumService: TimeInterval = 8 * 60
     /// Hasta dónde se mira la autonomía de una cuenta.
     public static let runwayHorizon: TimeInterval = 12 * 3_600
     /// Fracción del tiempo que se supone que se trabaja al estimar si una
@@ -352,6 +360,33 @@ public struct AutoSwitchPolicy: Sendable {
         return min(runway, Self.runwayHorizon)
     }
 
+    /// Cuánto tiempo seguiría activa la cuenta, al ritmo medido, antes de que
+    /// el umbral o el cambio por ritmo la dejaran, o `nil` sin ritmo.
+    ///
+    /// Es lo que sirve de verdad como destino: a 340 puntos/h una Team nueva
+    /// tarda 18 minutos en llegar al 100 %, pero el cambio por ritmo la deja
+    /// al 60 %, a los 10. Si la ventana se reinicia antes, la cuenta sigue con
+    /// una ventana nueva y vale su autonomía.
+    public func serviceTime(_ account: AccountUsageState, now: Date = Date()) -> TimeInterval? {
+        guard let runway = runway(account, now: now),
+              let pace = account.fiveHourPace, pace > 0 else { return nil }
+        let paceLevel = 100 - pace * Self.paceRunway / 3_600
+        let leaveAt = min(triggerThreshold, max(triggerThreshold - Self.paceTriggerMargin, paceLevel))
+        let toLeave = max(0, leaveAt - fiveHourUtilization(account)) / pace * 3_600
+        if let reset = account.usage?.fiveHour?.resetsAt, reset > now,
+           reset.timeIntervalSince(now) < toLeave {
+            return runway
+        }
+        return min(toLeave, runway)
+    }
+
+    /// Como destino no serviría: está casi en su umbral o, al ritmo medido,
+    /// se dejaría casi en cuanto empezara a usarse.
+    func wouldLeaveRightAway(_ account: AccountUsageState, service: TimeInterval?) -> Bool {
+        usefulRoom(account) < Self.minimumUsefulRoom
+            || (service.map { $0 < Self.minimumServiceTime } ?? false)
+    }
+
     /// Primer momento en que la cuenta perdería cupo si no se usa: el
     /// reinicio de una ventana de 5 h ya abierta y con margen útil, o el de
     /// su semana general. Una ventana de 5 h sin abrir no caduca: empieza a
@@ -381,13 +416,13 @@ public struct AutoSwitchPolicy: Sendable {
         now: Date
     ) -> (Int, Int, Double, Double, Double, Double) {
         let runway = runway(account, now: now)
-        let cramped = usefulRoom(account) < Self.minimumUsefulRoom
-            || (runway.map { $0 < Self.comfortableRunway } ?? false)
+        let service = serviceTime(account, now: now)
+        let short = service.map { $0 < Self.comfortableRunway } ?? false
         let urgency = urgency(account, now: now)
         let deadline = deadline(account, urgency: urgency, now: now)?.timeIntervalSince1970 ?? .infinity
         return (
-            (account.leftByUser ? 2 : 0) + (cramped ? 1 : 0),
-            urgency.rawValue,
+            (account.leftByUser ? 2 : 0) + (wouldLeaveRightAway(account, service: service) ? 1 : 0),
+            urgency.rawValue * 2 + (short ? 1 : 0),
             deadline,
             -(runway ?? 0),
             fiveHourUtilization(account),
@@ -423,8 +458,8 @@ public struct AutoSwitchPolicy: Sendable {
     /// caduca al menos `anticipationMargin` antes. Así una cuenta Max cede
     /// ante una Team con margen, y nadie deja caducar cupo en un reinicio.
     /// El destino necesita un margen holgado (`anticipationMinimumRoom`) y,
-    /// con ritmo medido, aguantar al menos `comfortableRunway`: un cambio
-    /// para unos minutos no compensa. Los umbrales se respetan igual que en
+    /// con ritmo medido, seguir activo al menos `anticipationMinimumService`:
+    /// un cambio para unos minutos no compensa. Los umbrales se respetan igual que en
     /// cualquier cambio.
     public func expiringQuotaTarget(
         active: AccountUsageState,
@@ -441,7 +476,7 @@ public struct AutoSwitchPolicy: Sendable {
                   !account.leftByUser,
                   isCandidate(account),
                   usefulRoom(account) >= Self.anticipationMinimumRoom,
-                  runway(account, now: now).map({ $0 >= Self.comfortableRunway }) ?? true
+                  serviceTime(account, now: now).map({ $0 >= Self.anticipationMinimumService }) ?? true
             else { return false }
             let urgency = urgency(account, now: now)
             if urgency != activeUrgency { return urgency < activeUrgency }

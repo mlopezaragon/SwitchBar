@@ -117,7 +117,7 @@
 "auto_switch.weekly_at_risk.body" = "A semana dela será redefinida %@ e não daria tempo de gastar o que resta: ela é usada já para não ser perdida. As sessões abertas permanecem na conta anterior.";
 "auto_switch.recovery.body" = "Nenhuma conta tem margem. Fica ativa a que se recupera primeiro (%@), para que o Claude Code continue o quanto antes.";
 "auto_switch.pace" = "Usar o ritmo de uso: trocar antes se for preciso";
-"auto_switch.pace.explanation" = "O SwitchBar mede em que ritmo você usa cada conta. Se, no ritmo atual, a conta ativa esgotar sua janela de 5 horas em menos de 20 minutos, ele troca antes do limite configurado, para que uma nova sessão não comece numa conta prestes a ser cortada. Ele não escolhe como destino uma conta que se esgotaria em menos de 30 minutos se houver outra melhor e, entre as demais, prefere a que dura mais. As sessões abertas continuam na conta delas até terminarem ou renovarem a sessão.";
+"auto_switch.pace.explanation" = "O SwitchBar mede em que ritmo você usa cada conta. Se, no ritmo atual, a conta ativa esgotar sua janela de 5 horas em menos de 20 minutos, ele troca antes do limite configurado, para que uma nova sessão não comece numa conta prestes a ser cortada. Uma conta que ele teria de deixar em menos de 5 minutos é só último recurso e, em cada grupo, ele prefere as que ficariam ativas pelo menos 30 minutos. As sessões abertas continuam na conta delas até terminarem ou renovarem a sessão.";
 "auto_switch.trigger.pace" = "No ritmo atual, a janela de 5 horas se esgotaria em %d min.";
 "forecast.title" = "Previsão de cota";
 "forecast.until.current" = "No ritmo atual, cota contínua por %1$@ (até %2$@).";

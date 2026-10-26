@@ -19,6 +19,11 @@ public struct UsagePollingSchedule: Sendable {
         lastAttempt.map { now.timeIntervalSince($0) >= Self.minimumSpacing } ?? true
     }
 
+    /// Cuánto falta para que el espaciado permita otra consulta.
+    public func delayBeforeStart(now: Date) -> TimeInterval {
+        lastAttempt.map { max(0, Self.minimumSpacing - now.timeIntervalSince($0)) } ?? 0
+    }
+
     public func hasBudget(for account: String, now: Date) -> Bool {
         budget.canSpend(account, now: now)
     }

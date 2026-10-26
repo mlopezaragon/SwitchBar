@@ -271,3 +271,24 @@ private func ahoraMismo(_ puntosPorHora: Double) -> PaceEstimate {
     #expect(modelo.byPlan[.team]?.pointsPerHour == 30)
     #expect(modelo.typical(for: "t1", plan: .team)?.pointsPerHour == 30)
 }
+
+// MARK: - Ventanas que se agotan en minutos
+
+@Test func unGastoGrandeDaRitmoEnPocosMinutos() {
+    // 20 puntos en dos minutos y medio: una Team con varias sesiones.
+    let ritmo = UsagePace.current([lectura(0, 59), lectura(2.5, 79)], now: minuto(2.5))
+    #expect(ritmo.map { abs($0.pointsPerHour - 480) < 0.01 } == true)
+    // Dos puntos en el mismo tiempo no bastan: el redondeo pesaría demasiado.
+    #expect(UsagePace.current([lectura(0, 59), lectura(2.5, 61)], now: minuto(2.5)) == nil)
+    // Y en menos de dos minutos tampoco.
+    #expect(UsagePace.current([lectura(0, 59), lectura(1.5, 79)], now: minuto(1.5)) == nil)
+}
+
+@Test func elReinicioRedondeadoNoOcultaLaVentanaQueSeAcabaDeAbrir() {
+    // El caso real: sin ventana a las 16:38:45 y al 59 % a las 16:41:25, con
+    // un reinicio a las 21:30 que sitúa la apertura a las 16:30.
+    let cerrada = UsageSample(at: minuto(8.75), fiveHour: nil)
+    let abierta = UsageSample(at: minuto(11.4), fiveHour: 59, fiveHourResetsAt: minuto(300))
+    #expect(UsagePace.fiveHourDelta(from: cerrada, to: abierta) == 59)
+    #expect(UsagePace.current([cerrada, abierta], now: minuto(11.4)) != nil)
+}

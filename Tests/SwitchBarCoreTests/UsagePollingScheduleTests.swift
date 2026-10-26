@@ -216,3 +216,11 @@ private func simulate(
         activeInterval: 60, inactiveInterval: 300, prioritized: ["new"], now: pollingEpoch.addingTimeInterval(30)
     ) == "new")
 }
+
+@Test func theSpacingTellsHowLongUntilTheNextRequest() {
+    var schedule = UsagePollingSchedule()
+    #expect(schedule.delayBeforeStart(now: pollingEpoch) == 0)
+    schedule.recordAttempt("a", now: pollingEpoch)
+    #expect(schedule.delayBeforeStart(now: pollingEpoch.addingTimeInterval(10)) == 20)
+    #expect(schedule.delayBeforeStart(now: pollingEpoch.addingTimeInterval(45)) == 0)
+}
