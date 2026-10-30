@@ -29,8 +29,10 @@ when a usage window fills up.
 - One-click switching of the active Claude Code account, with undo.
 - Automatic switching with independent, configurable thresholds per window.
   Accounts with no visible weekly limit (Team), which only spend their
-  5-hour window, always go first: an already open window with room left
-  before an unopened one. Accounts with a weekly limit (Max and Ultra) are
+  5-hour window, always go first: an open window whose room would otherwise
+  be lost, then a window not yet open (its 5 hours only start counting when
+  it is used, so it is opened as soon as it is available), then open windows
+  that can still wait. Accounts with a weekly limit (Max and Ultra) are
   used only when no Team account has room, starting with a week that could
   not be spent before its reset, and SwitchBar goes back to a Team account as
   soon as one has room again. A verified Ultra account is only limited by its

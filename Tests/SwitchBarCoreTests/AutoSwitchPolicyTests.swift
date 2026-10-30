@@ -538,12 +538,15 @@ private func medida(
     #expect(cerca(conRitmo.runway(max, now: ahora), 2 * 3_600))
 }
 
-@Test func unaVentanaAbiertaConMargenSeGastaAntesQueEstrenarOtra() {
-    // b ya tiene la ventana abierta y se reinicia en 2 h; c está sin
-    // estrenar y su semana (Fable en Team) se reinicia antes que la de b.
+@Test func unaVentanaSinAbrirSeEstrenaAntesQueGastarOtraQuePuedeEsperar() {
+    // b ya tiene la ventana abierta y se reinicia en 2 h: da tiempo a
+    // gastarla. Las 5 h de c no empiezan a contar hasta que se usa.
     let abierta = medida("b", fiveHour: 30, cincoEn: 2, opus: 0, fableEn: 70)
     let sinEstrenar = medida("c", fiveHour: nil, opus: 0, fableEn: 20)
-    #expect(politica.decision(active: agotada, all: [sinEstrenar, abierta], now: ahora) == "b")
+    #expect(politica.decision(active: agotada, all: [sinEstrenar, abierta], now: ahora) == "c")
+    // Si su reinicio está tan cerca que su margen se perdería, va antes.
+    let apurada = medida("b", fiveHour: 30, cincoEn: 0.75, opus: 0, fableEn: 70)
+    #expect(politica.decision(active: agotada, all: [sinEstrenar, apurada], now: ahora) == "b")
     // Sin margen útil en esa ventana, no hay nada que rescatar; y en Team
     // la semana de Fable no cuenta como cupo que caduca.
     let casiLlena = medida("d", fiveHour: 86, cincoEn: 2, opus: 0, fableEn: 70)
@@ -565,7 +568,7 @@ private func medida(
 
 @Test func unDestinoQueSeAgotariaEnMinutosEsUltimoRecurso() {
     // b caduca antes, pero al ritmo medido aguantaría 20 minutos.
-    let corta = medida("b", fiveHour: 80, cincoEn: 3, opus: 0, fableEn: 10, ritmo: 60)
+    let corta = medida("b", fiveHour: 80, cincoEn: 0.25, opus: 0, fableEn: 10, ritmo: 60)
     let larga = medida("c", fiveHour: 0, opus: 0, fableEn: 90, ritmo: 60)
     #expect(conRitmo.decision(active: agotada, all: [corta, larga], now: ahora) == "c")
     #expect(conRitmo.decision(active: agotada, all: [corta], now: ahora) == "b")
@@ -592,15 +595,43 @@ private func medida(
 // MARK: - Cuentas sin límite semanal a la vista
 
 @Test func primeroLoQueCaducaDespuesTeamYLasMaxAlFinal() {
+    let teamApurada = medida("a2", fiveHour: 40, cincoEn: 0.5)
     let teamAbierta = medida("b", fiveHour: 40, cincoEn: 3)
     let teamSinAbrir = medida("c", fiveHour: nil)
     let maxHolgada = medida("d", fiveHour: 0, sevenDay: 20, semanaEn: 100, ritmo: 20, semanaPorPunto: 0.25)
-    #expect(politica.urgency(teamAbierta, now: ahora) == .expiring)
+    #expect(politica.urgency(teamApurada, now: ahora) == .expiring)
     #expect(politica.urgency(teamSinAbrir, now: ahora) == .renewable)
+    #expect(politica.urgency(teamAbierta, now: ahora) == .open)
     #expect(politica.urgency(maxHolgada, now: ahora) == .reserve)
-    #expect(politica.decision(active: agotada, all: [maxHolgada, teamSinAbrir, teamAbierta], now: ahora) == "b")
-    #expect(politica.decision(active: agotada, all: [maxHolgada, teamSinAbrir], now: ahora) == "c")
+    let todas = [maxHolgada, teamAbierta, teamSinAbrir, teamApurada]
+    #expect(politica.decision(active: agotada, all: todas, now: ahora) == "a2")
+    #expect(politica.decision(active: agotada, all: [maxHolgada, teamAbierta, teamSinAbrir], now: ahora) == "c")
+    #expect(politica.decision(active: agotada, all: [maxHolgada, teamAbierta], now: ahora) == "b")
     #expect(politica.decision(active: agotada, all: [maxHolgada], now: ahora) == "d")
+}
+
+@Test func unaVentanaTeamSinAbrirSeAbreEnCuantoEstaDisponible() {
+    // El caso del 30 de octubre de 2026: backend con su ventana abierta
+    // hasta dentro de 4 h y mlopara recién reiniciada. Las 5 h de mlopara no
+    // empiezan a contar hasta que se usa: va primero, y backend después,
+    // antes de su reinicio.
+    let backend = medida("b", fiveHour: 40, cincoEn: 4, opus: 0, fableEn: 100, ritmo: 85)
+    let mlopara = medida("m", fiveHour: 0, opus: 0, fableEn: 150, ritmo: 85)
+    #expect(conRitmo.urgency(backend, now: ahora) == .open)
+    #expect(conRitmo.urgency(mlopara, now: ahora) == .renewable)
+    #expect(conRitmo.decision(active: agotada, all: [backend, mlopara], now: ahora) == "m")
+    // El modo autónomo deja la ventana abierta que puede esperar para
+    // estrenar la otra...
+    let autonomaConRitmo = AutoSwitchPolicy(anticipatesExpiringQuota: true, switchesByPace: true)
+    #expect(autonomaConRitmo.expiringQuotaTarget(active: backend, all: [backend, mlopara], now: ahora) == "m")
+    // ...y, ya abiertas las dos, no salta de una a otra mientras den tiempo
+    // a gastarse.
+    let mloparaAbierta = medida("m", fiveHour: 10, cincoEn: 4.9, opus: 0, fableEn: 150, ritmo: 85)
+    #expect(autonomaConRitmo.expiringQuotaTarget(active: mloparaAbierta, all: [backend, mloparaAbierta], now: ahora) == nil)
+    // Cuando el margen de backend ya no daría tiempo a gastarse, vuelve a ella.
+    let backendApurada = medida("b", fiveHour: 40, cincoEn: 0.5, opus: 0, fableEn: 100, ritmo: 85)
+    #expect(conRitmo.urgency(backendApurada, now: ahora) == .expiring)
+    #expect(autonomaConRitmo.expiringQuotaTarget(active: mloparaAbierta, all: [backendApurada, mloparaAbierta], now: ahora) == "b")
 }
 
 @Test func unaSemanaSeDaPorPerdidaSiNoDaTiempoAGastarla() {
@@ -626,8 +657,11 @@ private func medida(
     let caducaAntes = medida("b", fiveHour: 40, cincoEn: 1)
     #expect(autonoma.expiringQuotaTarget(active: activa, all: [activa, caducaAntes], now: ahora) == "b")
     #expect(autonoma.expiringQuotaTarget(active: caducaAntes, all: [activa, caducaAntes], now: ahora) == nil)
-    // Una Team sin abrir no saca de una ventana abierta: no caduca.
-    #expect(autonoma.expiringQuotaTarget(active: activa, all: [medida("c", fiveHour: nil)], now: ahora) == nil)
+    // Una Team sin abrir sí saca de una ventana abierta que puede esperar:
+    // sus 5 h no empiezan a contar hasta que se usa.
+    #expect(autonoma.expiringQuotaTarget(active: activa, all: [medida("c", fiveHour: nil)], now: ahora) == "c")
+    // Pero no de una cuyo margen se perdería.
+    #expect(autonoma.expiringQuotaTarget(active: caducaAntes, all: [medida("c", fiveHour: nil)], now: ahora) == nil)
 }
 
 // MARK: - Sin margen en ninguna cuenta

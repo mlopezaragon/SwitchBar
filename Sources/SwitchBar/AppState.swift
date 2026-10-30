@@ -1728,6 +1728,8 @@ final class AppState {
         func relative(_ date: Date) -> String { f.localizedString(for: date, relativeTo: now) }
         switch policy.urgency(target, now: now) {
         case .renewable:
+            return L10n.tr("auto_switch.unopened_window.body")
+        case .open:
             return L10n.tr("auto_switch.weekly_free.body")
         case .expiring:
             return policy.openWindowReset(target, now: now).map {

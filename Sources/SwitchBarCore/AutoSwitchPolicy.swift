@@ -72,14 +72,23 @@ public enum CandidateRejection: Sendable, Equatable {
 /// sin gastar semana, así que cuanto más se usen, más cupo queda. Las de
 /// límite semanal solo se usan cuando ninguna Team tiene margen, y se deja
 /// de usarlas en cuanto una lo recupera.
+///
+/// Entre las Team, una ventana sin abrir va antes que una abierta que aún
+/// da tiempo a gastar: sus cinco horas no empiezan a contar hasta que se
+/// usa, y cada minuto que espera retrasa su siguiente recarga.
 public enum QuotaUrgency: Int, Sendable, Comparable {
     /// Cuenta sin límite semanal a la vista (Team) con su ventana de 5 h ya
-    /// abierta y con margen: lo que no se gaste antes de su reinicio se pierde.
+    /// abierta y un margen que, al ritmo medido, no daría tiempo a gastar
+    /// antes de su reinicio: si no se usa ya, se pierde.
     case expiring
     /// Cuenta sin límite semanal a la vista (Team) con su ventana de 5 h sin
-    /// abrir: usarla no gasta cupo semanal, y su ventana vuelve a llenarse
-    /// cinco horas después de abrirla.
+    /// abrir: no empieza a contar hasta que se usa, así que se abre cuanto
+    /// antes para que vuelva a llenarse cuanto antes. No gasta cupo semanal.
     case renewable
+    /// Cuenta sin límite semanal a la vista (Team) con su ventana de 5 h
+    /// abierta y tiempo de sobra para gastar su margen antes del reinicio:
+    /// puede esperar, y entre ellas va antes la que antes se reinicia.
+    case open
     /// Cuenta con límite semanal (Max, Ultra) cuya semana no daría tiempo a
     /// gastar antes de su reinicio: es la primera de ellas cuando ninguna
     /// Team tiene margen.
@@ -109,10 +118,12 @@ public enum QuotaUrgency: Int, Sendable, Comparable {
 ///    van antes que las que obligarían a cambiar otra vez enseguida.
 /// 2. Lo que se perdería si no se usa (`QuotaUrgency`): siempre primero las
 ///    cuentas sin límite semanal a la vista (Team), que solo gastan su
-///    ventana de 5 h (antes la que ya la tiene abierta con margen), y solo
-///    después las de límite semanal (Max, Ultra), empezando por la que no
-///    daría tiempo a gastar su semana. Dentro de cada grupo, las que
-///    seguirían activas al menos `comfortableRunway` van antes.
+///    ventana de 5 h: la abierta cuyo margen se perdería, después la que
+///    está sin abrir, para que empiece a contar, y después las abiertas que
+///    pueden esperar. Solo después las de límite semanal (Max, Ultra),
+///    empezando por la que no daría tiempo a gastar su semana. Dentro de
+///    cada grupo, las que seguirían activas al menos `comfortableRunway` van
+///    antes.
 /// 3. Dentro de cada grupo, la que antes perdería cupo: el reinicio de una
 ///    ventana de 5 h ya abierta con margen o el de su semana, aunque sea por
 ///    minutos. Una ventana sin abrir no caduca y se guarda para después.
@@ -173,6 +184,10 @@ public struct AutoSwitchPolicy: Sendable {
     /// Sin saber cuánta semana cuesta cada punto de 5 h, se da por perdida la
     /// semana que se reinicia antes de este plazo.
     public static let unmeasuredWeeklyRisk: TimeInterval = 24 * 3_600
+    /// Sin ritmo medido, se da por perdido el margen de una ventana de 5 h
+    /// abierta que se reinicia antes de este plazo: una ventana entera de
+    /// Team dura algo más de una hora de trabajo.
+    public static let unmeasuredWindowRisk: TimeInterval = 60 * 60
     /// Puntos de 5 h por hora que se pueden gastar de media como mucho: una
     /// ventana entera cada cinco horas.
     static let sustainablePace: Double = 20
@@ -322,6 +337,20 @@ public struct AutoSwitchPolicy: Sendable {
         return reset
     }
 
+    /// El margen de la ventana de 5 h abierta no daría tiempo a gastarse
+    /// antes de su reinicio aunque se usara desde ahora la parte del tiempo
+    /// que se suele trabajar (`assumedWorkShare`): o se usa ya, o se pierde.
+    /// Sin ritmo medido, la que se reinicia antes de `unmeasuredWindowRisk`.
+    public func openWindowAtRisk(_ account: AccountUsageState, now: Date = Date()) -> Bool {
+        guard let reset = openWindowReset(account, now: now) else { return false }
+        let remaining = reset.timeIntervalSince(now)
+        guard let pace = account.fiveHourPace, pace > 0 else {
+            return remaining <= Self.unmeasuredWindowRisk
+        }
+        let room = triggerThreshold - fiveHourUtilization(account)
+        return remaining * Self.assumedWorkShare <= room / pace * 3_600
+    }
+
     /// La semana de la cuenta se reiniciaría con cupo sin gastar aunque se
     /// usara desde ahora todo lo que se suele trabajar.
     ///
@@ -357,7 +386,8 @@ public struct AutoSwitchPolicy: Sendable {
         if hasWeeklyLimit(account) {
             return weeklyQuotaAtRisk(account, now: now) ? .weekAtRisk : .reserve
         }
-        return openWindowReset(account, now: now) != nil ? .expiring : .renewable
+        guard let reset = account.usage?.fiveHour?.resetsAt, reset > now else { return .renewable }
+        return openWindowAtRisk(account, now: now) ? .expiring : .open
     }
 
     /// Cuánto tiempo seguido podría usarse la cuenta desde ahora sin que una
@@ -457,7 +487,7 @@ public struct AutoSwitchPolicy: Sendable {
     /// su ventana de 5 h no pierde nada, porque su semana sigue intacta.
     func deadline(_ account: AccountUsageState, urgency: QuotaUrgency, now: Date) -> Date? {
         switch urgency {
-        case .expiring, .weekAtRisk: expiryDeadline(account, now: now)
+        case .expiring, .open, .weekAtRisk: expiryDeadline(account, now: now)
         case .renewable: nil
         case .reserve: account.usage?.sevenDay?.resetsAt
         }
@@ -511,7 +541,9 @@ public struct AutoSwitchPolicy: Sendable {
     /// de un grupo más urgente (`QuotaUrgency`), o del mismo grupo cuyo cupo
     /// caduca al menos `anticipationMargin` antes. Así, en cuanto una Team
     /// recupera margen en su ventana de 5 h, una Max o Ultra le cede el
-    /// sitio, y nadie deja caducar cupo en un reinicio.
+    /// sitio; una ventana Team sin abrir se abre aunque otra abierta tenga
+    /// margen, y nadie deja caducar cupo en un reinicio. Entre dos ventanas
+    /// abiertas que dan tiempo a gastarse no se cambia: no aprovecha nada.
     /// El destino necesita un margen holgado (`anticipationMinimumRoom`) y,
     /// con ritmo medido, seguir activo al menos `anticipationMinimumService`:
     /// un cambio para unos minutos no compensa. Los umbrales se respetan igual que en
@@ -535,7 +567,8 @@ public struct AutoSwitchPolicy: Sendable {
             else { return false }
             let urgency = urgency(account, now: now)
             if urgency != activeUrgency { return urgency < activeUrgency }
-            guard let deadline = deadline(account, urgency: urgency, now: now),
+            guard urgency != .open,
+                  let deadline = deadline(account, urgency: urgency, now: now),
                   deadline > now else { return false }
             guard let activeDeadline else { return true }
             return deadline.addingTimeInterval(Self.anticipationMargin) <= activeDeadline

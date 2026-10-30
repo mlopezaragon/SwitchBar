@@ -12,6 +12,15 @@
   goes first among accounts with a weekly limit. Under a load so heavy that
   a fresh Team window would be left within minutes, a verified Ultra, which
   has no 5-hour window, stays active.
+- Among Team accounts, a window that is not open yet goes before an open one
+  that can still wait: its 5 hours only start counting when it is used, so
+  every minute it waits delays its next refill. An open window goes first
+  only when, at the measured pace and assuming you work half the remaining
+  time, its room could not be spent before its reset (without a measured
+  pace, when it resets within the hour). Autonomous mode now opens a Team
+  window as soon as it is available, even from another Team whose open
+  window can wait, goes back to an open window before its room is lost, and
+  no longer moves between two open windows that can both still be spent.
 - A standby account whose window reset since it was last read is read in
   the next free request slot instead of after its regular interval (up to
   10 minutes), so the switch back to a Team account happens about a minute

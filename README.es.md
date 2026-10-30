@@ -25,8 +25,10 @@ política automática.
 - Cambio de cuenta activa con un clic, con deshacer.
 - Cambio automático con umbrales independientes y configurables. Van
   siempre primero las cuentas sin límite semanal a la vista (Team), que solo
-  gastan su ventana de 5 h: antes una ventana ya abierta con margen que una
-  sin abrir. Las que tienen límite semanal (Max y Ultra) solo se usan cuando
+  gastan su ventana de 5 h: una ventana abierta cuyo margen se perdería,
+  después una sin abrir (sus 5 horas no empiezan a contar hasta que se usa,
+  así que se abre en cuanto está disponible) y después las abiertas que aún
+  pueden esperar. Las que tienen límite semanal (Max y Ultra) solo se usan cuando
   ninguna Team tiene margen, empezando por una semana que no daría tiempo a
   gastar antes de su reinicio, y SwitchBar vuelve a una Team en cuanto alguna
   recupera margen. Una Ultra verificada solo la limita su semana, medida a su
