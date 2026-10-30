@@ -16,6 +16,10 @@ política automática.
 
 - Barras de uso por cuenta: ventana de 5 horas, semana general y el cupo
   semanal independiente de Fable, con su hora de reinicio.
+- El plan real de cada cuenta: Max o Ultra (los antiguos Max 5x y Max 20x),
+  Team o Enterprise. Una cuenta Ultra verificada no tiene límite de 5 horas:
+  su barra de 5 h desaparece, su etiqueta lleva un sello y SwitchBar avisa
+  con una notificación en cuanto Anthropic la verifica.
 - Restablecimientos de límite concedidos por Anthropic, por cuenta y con
   su fecha límite.
 - Cambio de cuenta activa con un clic, con deshacer.
@@ -23,8 +27,9 @@ política automática.
   primero lo que se perdería si no se usa —una ventana de 5 h ya abierta con
   margen, o una semana que no daría tiempo a gastar antes de su reinicio—,
   después las cuentas sin límite semanal a la vista (Team), que solo gastan
-  su ventana de 5 h, y guarda las que tienen límite semanal (Max) para cuando
-  hagan falta. Nunca elige para trabajar una cuenta que esté en un umbral o en
+  su ventana de 5 h, y guarda las que tienen límite semanal (Max y Ultra)
+  para cuando hagan falta. Una Ultra verificada solo la limita su semana,
+  medida a su propio ritmo semanal. Nunca elige para trabajar una cuenta que esté en un umbral o en
   su tope personal, y si ninguna tiene margen deja activa la que antes se
   recupera, para que Claude Code siga cuanto antes. En modo autónomo
   (activado por omisión) mantiene activa la cuenta adecuada por sí sola, sin
@@ -49,7 +54,7 @@ política automática.
 
 - macOS 14 (Sonoma) o posterior, Apple Silicon o Intel (binario universal).
 - [Claude Code](https://code.claude.com) con una o más cuentas de
-  suscripción (Pro/Max).
+  suscripción (Pro, Max o Ultra).
 
 ## Instalación
 

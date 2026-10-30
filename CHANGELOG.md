@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.5.0 — 2026-10-30
+
+- Anthropic renamed its Max plans on 2026-10-30: Max 5x is now Max and
+  Max 20x is now Ultra. The server still calls both `claude_max`, so
+  SwitchBar tells them apart by the organization's rate-limit tier
+  (`default_claude_max_20x` is Ultra) and shows the real name on every
+  badge, in notifications and in the pace per plan. A type or tier that
+  already says `ultra` is accepted too. Accounts added from SwitchBar now
+  keep that tier from the profile endpoint.
+- Verified Ultra accounts have no 5-hour limit. Like claude.ai, which hides
+  the "Current session" bar for them, SwitchBar detects it from the usage
+  endpoint: weekly limits are reported and the 5-hour one is not (an
+  unopened window still arrives at 0 %). The 5-hour bar and ring disappear,
+  the Ultra badge gets a seal with an explanation, the personal 5-hour cap
+  of a shared account is hidden but kept, and the menu bar icon shows the
+  week of such an account. A notification says when Anthropic verifies an
+  account; the change is also logged.
+- Automatic switching measures a verified Ultra by its week: how long it
+  lasts, whether its week could be spent before the reset, and how long it
+  would stay active before the weekly threshold use its weekly pace, with no
+  5-hour window capping how fast a week can be spent. That pace is measured
+  from the weekly readings and, until there are enough, derived from the
+  5-hour pace measured before verification. Ultra keeps its place as a
+  reserve after Team windows, and is never chosen to wait for a 5-hour
+  recovery it does not have. The coverage forecast spends only its week.
+
 ## 1.4.1 — 2026-10-26
 
 - Automatic switches no longer wait for the destination's turn in the

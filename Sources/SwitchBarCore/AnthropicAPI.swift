@@ -296,6 +296,10 @@ public final class AnthropicAPI: Sendable {
         if let organizationType = string(organization, ["organization_type", "organizationType"]) {
             block["organizationType"] = organizationType
         }
+        // Separa Max de Ultra, que el servidor llama `claude_max` por igual.
+        if let tier = string(organization, ["rate_limit_tier", "organizationRateLimitTier"]) {
+            block["organizationRateLimitTier"] = tier
+        }
         if let role = string(organization, ["role", "organizationRole"]) {
             block["organizationRole"] = role
         }

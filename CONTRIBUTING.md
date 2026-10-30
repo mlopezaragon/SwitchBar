@@ -46,5 +46,5 @@ Thank you for helping. A few ground rules keep the project safe to use.
 ## Reporting bugs
 
 Use the issue template. Always include the macOS version, whether the
-account is Pro or Max, and what Claude Code version is installed. Never
+account is Pro, Max, Ultra or Team, and what Claude Code version is installed. Never
 paste tokens, Keychain dumps, or the contents of `~/.claude.json`.

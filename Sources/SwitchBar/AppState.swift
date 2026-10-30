@@ -667,6 +667,25 @@ final class AppState {
         }
     }
 
+    /// Guarda la lectura recién traída. Cuando una cuenta pierde el límite
+    /// de 5 h avisa una vez: así se sabe que Anthropic ha verificado una
+    /// cuenta Ultra sin depender de su correo.
+    private func storeFetchedUsage(_ usage: UsageSnapshot, for profile: AccountProfile) {
+        let previous = usageByAccount[profile.id]
+        usageByAccount[profile.id] = usage
+        logLimitResets(usage, for: profile.id)
+        guard let previous, previous.fiveHourLimitRemoved != usage.fiveHourLimitRemoved else { return }
+        Diagnostics.usage.log(
+            "\(Diagnostics.tag(profile.id), privacy: .public) límite de 5 h: \(usage.fiveHourLimitRemoved ? "retirado" : "de vuelta", privacy: .public)"
+        )
+        if usage.fiveHourLimitRemoved {
+            Notifier.notify(
+                title: L10n.tr("five_hour_removed.notification.title"),
+                body: L10n.tr("five_hour_removed.notification.body", profile.emailAddress)
+            )
+        }
+    }
+
     /// Anota si el servidor informó de restablecimientos: el bloque no está
     /// documentado y así se ve enseguida si deja de llegar. Sin secretos.
     private func logLimitResets(_ usage: UsageSnapshot, for profileID: String) {
@@ -1060,8 +1079,7 @@ final class AppState {
                 let usage = try await api.fetchUsage(
                     accessToken: creds.accessToken
                 )
-                usageByAccount[profile.id] = usage
-                logLimitResets(usage, for: profile.id)
+                storeFetchedUsage(usage, for: profile)
                 return .updated
             } catch AnthropicAPIError.httpError(401) {
                 // El servidor rechazó un token que parecía vigente: renovar la
@@ -1075,8 +1093,7 @@ final class AppState {
                     let usage = try await api.fetchUsage(
                         accessToken: renewed.accessToken
                     )
-                    usageByAccount[profile.id] = usage
-                    logLimitResets(usage, for: profile.id)
+                    storeFetchedUsage(usage, for: profile)
                     return .updated
                 case .failure(let outcome):
                     return outcome
@@ -1455,21 +1472,27 @@ final class AppState {
             let weeklyScale = 100 / (profile.sharedWeeklyCap ?? 100)
             let usage = freshUsage(for: profile.id)?
                 .scaledToPersonalCaps(fiveHourCap: profile.sharedFiveHourCap, weeklyCap: profile.sharedWeeklyCap)
+            // Una Ultra verificada no tiene ventana de 5 h: su ritmo es el
+            // de la semana.
+            let fiveHourLimitRemoved = usage?.fiveHourLimitRemoved == true
             return AccountUsageState(
                 id: profile.id,
                 usage: usage,
                 needsLogin: profile.needsLogin,
                 leftByUser: isLeftByUser(profile.id, usage: usage),
                 hasPersonalCap: profile.sharedFiveHourCap != nil || profile.sharedWeeklyCap != nil,
-                fiveHourPace: context.expectedPace(
+                fiveHourPace: fiveHourLimitRemoved ? nil : context.expectedPace(
                     for: profile.id, plan: profile.plan, isActive: isActive
                 ).map { $0 * fiveHourScale },
-                fiveHourPaceUpper: isActive
+                fiveHourPaceUpper: isActive && !fiveHourLimitRemoved
                     ? context.activeCurrent.map { $0.upperPointsPerHour * fiveHourScale }
                     : nil,
                 weeklyPerFiveHour: context.weeklyPerFiveHour(
                     for: profile.id, plan: profile.plan
-                ).map { $0 * weeklyScale / fiveHourScale }
+                ).map { $0 * weeklyScale / fiveHourScale },
+                weeklyPace: fiveHourLimitRemoved
+                    ? context.expectedWeeklyPace(for: profile.id, plan: profile.plan).map { $0 * weeklyScale }
+                    : nil
             )
         }
     }
@@ -1656,11 +1679,16 @@ final class AppState {
             policy.shouldSwitch(active: activeState) && policy.isCandidate(targetState)
         }) else { return }
         lastNoCandidateNotice = nil
-        let pct = usageByAccount[target]?.fiveHour.map { Int($0.utilization) } ?? 0
-        await switchAutomatically(
-            to: target,
-            body: L10n.tr("auto_switch.changed.body", triggerDescription, pct)
-        )
+        let targetUsage = usageByAccount[target]
+        let body: String
+        if targetUsage?.fiveHourLimitRemoved == true {
+            let weekly = targetUsage?.sevenDay.map { Int($0.utilization) } ?? 0
+            body = L10n.tr("auto_switch.changed.body.no_five_hour", triggerDescription, weekly)
+        } else {
+            let pct = targetUsage?.fiveHour.map { Int($0.utilization) } ?? 0
+            body = L10n.tr("auto_switch.changed.body", triggerDescription, pct)
+        }
+        await switchAutomatically(to: target, body: body)
     }
 
     /// Gestión autónoma: cambia sin esperar a un límite a la cuenta cuyo cupo
@@ -2418,10 +2446,13 @@ final class AppState {
         profilesList.first { $0.id == activeProfileID }
     }
 
-    /// Uso de 5 h de la cuenta activa (0–1) para el icono de la barra.
-    var activeFiveHourFraction: Double? {
-        guard let uuid = activeProfileID,
-              let u = usageByAccount[uuid]?.fiveHour?.utilization else { return nil }
+    /// Uso de 5 h de la cuenta activa (0–1) para el icono de la barra. En
+    /// una cuenta sin límite de 5 h (Ultra verificada), el de la semana, que
+    /// es lo único que la limita.
+    var activeUsageFraction: Double? {
+        guard let uuid = activeProfileID, let usage = usageByAccount[uuid] else { return nil }
+        let window = usage.fiveHourLimitRemoved ? usage.sevenDay : usage.fiveHour
+        guard let u = window?.utilization else { return nil }
         return min(max(u / 100, 0), 1)
     }
 }

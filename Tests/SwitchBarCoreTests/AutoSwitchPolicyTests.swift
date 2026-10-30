@@ -695,3 +695,65 @@ private func medida(
     let activaMax = medida("a", fiveHour: 20, cincoEn: 4, sevenDay: 30, semanaEn: 100, ritmo: 72, semanaPorPunto: 0.25)
     #expect(autonomaConRitmo.expiringQuotaTarget(active: activaMax, all: [activaMax, team], now: ahora) == "b")
 }
+
+// MARK: - Ultra verificada: sin ventana de 5 h
+
+/// Cuenta sin límite de 5 h: solo su semana y el ritmo al que la gasta.
+private func ultraVerificada(
+    _ uuid: String,
+    sevenDay: Double,
+    semanaEn: Double,
+    ritmoSemanal: Double? = nil
+) -> AccountUsageState {
+    AccountUsageState(
+        id: uuid,
+        usage: UsageSnapshot(
+            fiveHour: nil,
+            sevenDay: UsageWindow(utilization: sevenDay, resetsAt: horas(semanaEn)),
+            sevenDayOpus: nil,
+            fetchedAt: ahora,
+            fiveHourLimitRemoved: true
+        ),
+        needsLogin: false,
+        weeklyPace: ritmoSemanal
+    )
+}
+
+@Test func unaUltraVerificadaSoloSeAgotaPorSuSemana() {
+    let ultra = ultraVerificada("u", sevenDay: 70, semanaEn: 100, ritmoSemanal: 5)
+    #expect(!conRitmo.hasFiveHourLimit(ultra))
+    #expect(conRitmo.hasFiveHourLimit(medida("m", fiveHour: 0)))
+    #expect(conRitmo.isCandidate(ultra))
+    #expect(!conRitmo.shouldSwitch(active: ultra))
+    // 30 puntos hasta el 100 % a 5 por hora: 6 horas; el umbral semanal
+    // (95 %) la deja a las 5.
+    #expect(cerca(conRitmo.runway(ultra, now: ahora), 6 * 3_600))
+    #expect(cerca(conRitmo.serviceTime(ultra, now: ahora), 5 * 3_600))
+    // Si su semana se reinicia antes, sigue con una nueva.
+    let reinicia = ultraVerificada("v", sevenDay: 70, semanaEn: 2, ritmoSemanal: 5)
+    #expect(cerca(conRitmo.runway(reinicia, now: ahora), AutoSwitchPolicy.runwayHorizon))
+    // En su umbral semanal dispara el cambio, y no es una cuenta en la que
+    // esperar a que se recupere: no tiene ventana de 5 h que se reinicie.
+    let llena = ultraVerificada("w", sevenDay: 96, semanaEn: 50)
+    #expect(politica.shouldSwitch(active: llena))
+    #expect(politica.fiveHourRecovery(llena, now: ahora) == nil)
+}
+
+@Test func laSemanaDeUnaUltraVerificadaSeMideSinElFrenoDeLaVentana() {
+    // 55 puntos a 5 por hora: 11 horas de trabajo, 22 trabajando la mitad.
+    #expect(!politica.weeklyQuotaAtRisk(ultraVerificada("a", sevenDay: 40, semanaEn: 30, ritmoSemanal: 5), now: ahora))
+    #expect(politica.weeklyQuotaAtRisk(ultraVerificada("b", sevenDay: 40, semanaEn: 20, ritmoSemanal: 5), now: ahora))
+    // Gastando más deprisa sí da tiempo: ya no hay ventana que lo impida.
+    #expect(!politica.weeklyQuotaAtRisk(ultraVerificada("c", sevenDay: 40, semanaEn: 20, ritmoSemanal: 20), now: ahora))
+    // Sin ritmo medido, solo el último día.
+    #expect(politica.weeklyQuotaAtRisk(ultraVerificada("d", sevenDay: 40, semanaEn: 23), now: ahora))
+    #expect(!politica.weeklyQuotaAtRisk(ultraVerificada("e", sevenDay: 40, semanaEn: 25), now: ahora))
+}
+
+@Test func unaUltraVerificadaSeGuardaParaCuandoHagaFalta() {
+    let ultra = ultraVerificada("u", sevenDay: 30, semanaEn: 120, ritmoSemanal: 5)
+    let team = medida("t", fiveHour: 20, cincoEn: 3)
+    #expect(politica.urgency(ultra, now: ahora) == .reserve)
+    #expect(politica.decision(active: agotada, all: [ultra, team], now: ahora) == "t")
+    #expect(politica.decision(active: agotada, all: [ultra], now: ahora) == "u")
+}

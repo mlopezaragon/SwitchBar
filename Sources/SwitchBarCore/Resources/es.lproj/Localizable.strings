@@ -18,6 +18,8 @@
 "account.plan.personal" = "Cuenta personal";
 "account.plan.organization" = "Cuenta de una organización";
 "account.plan.organization_named" = "Cuenta de la organización «%@»";
+"account.plan.ultra_verified" = "Cuenta personal Ultra verificada: no tiene límite de 5 horas, solo los semanales.";
+"account.plan.ultra_unverified" = "Cuenta personal Ultra aún sin verificar: tiene un límite temporal de 5 horas que Anthropic retira al verificarla.";
 
 "add_account.title.add" = "Vincular cuenta de Claude Code";
 "add_account.title.reconnect" = "Iniciar sesión de nuevo";
@@ -102,15 +104,16 @@
 "auto_switch.unverified.body" = "No se ha podido comprobar el uso del resto de cuentas, así que ninguna puede elegirse con seguridad. Se reintentará automáticamente.";
 "auto_switch.changed.title" = "Cambiado a %@";
 "auto_switch.changed.body" = "%1$@ La nueva cuenta tiene la ventana de 5 h al %2$d %%. Las sesiones abiertas siguen con la cuenta anterior.";
+"auto_switch.changed.body.no_five_hour" = "%1$@ La nueva cuenta no tiene límite de 5 horas y lleva la semana al %2$d %%. Las sesiones abiertas siguen con la cuenta anterior.";
 "auto_switch.error" = "El cambio automático falló: %@";
 "auto_switch.trigger.generic" = "Se alcanzó un límite configurado.";
 "auto_switch.trigger.fable" = "Fable alcanzó el %d %%.";
 "auto_switch.trigger.weekly" = "La semana general alcanzó el %d %%.";
 "auto_switch.trigger.five_hour" = "La ventana de 5 h alcanzó el %d %%.";
 "auto_switch.next_reset" = "El primer reseteo llega %@.";
-"auto_switch.choice_explanation" = "Al cambiar se gasta primero el cupo que se perdería si no se usa: una ventana de 5 h ya abierta y con margen en una cuenta sin límite semanal a la vista (Team), o la semana de una cuenta que, al ritmo medido, no daría tiempo a gastar antes de su reinicio. Después van las cuentas sin límite semanal a la vista, que solo gastan su ventana de 5 h, y por último las que tienen límite semanal (Max), que se guardan para cuando hagan falta, por orden de reinicio semanal. Nunca se elige para trabajar una cuenta que haya llegado a un umbral o a su tope personal. Si ninguna tiene margen, queda activa la que antes se recupera (nunca una con tope personal), para que Claude Code siga cuanto antes.";
+"auto_switch.choice_explanation" = "Al cambiar se gasta primero el cupo que se perdería si no se usa: una ventana de 5 h ya abierta y con margen en una cuenta sin límite semanal a la vista (Team), o la semana de una cuenta que, al ritmo medido, no daría tiempo a gastar antes de su reinicio. Después van las cuentas sin límite semanal a la vista, que solo gastan su ventana de 5 h, y por último las que tienen límite semanal (Max y Ultra), que se guardan para cuando hagan falta, por orden de reinicio semanal. Nunca se elige para trabajar una cuenta que haya llegado a un umbral o a su tope personal. Si ninguna tiene margen, queda activa la que antes se recupera (nunca una con tope personal), para que Claude Code siga cuanto antes.";
 "auto_switch.expiring_quota" = "Gestión autónoma: usar primero el cupo que caduca antes";
-"auto_switch.expiring_quota.explanation" = "SwitchBar cambia sin esperar a un límite en cuanto otra cuenta con al menos 15 puntos de margen va antes en ese orden: las cuentas Team se usan antes que las Max, y el cupo que va a caducar antes que el que puede esperar. Una cuenta que elijas a mano se respeta hasta que llegue a un límite. Si dejas una cuenta a mano, queda para el final hasta su reinicio semanal, o hasta que se reinicie su ventana de 5 h si no tiene límite semanal a la vista: quizá sepas algo que la app no ve.";
+"auto_switch.expiring_quota.explanation" = "SwitchBar cambia sin esperar a un límite en cuanto otra cuenta con al menos 15 puntos de margen va antes en ese orden: las cuentas Team se usan antes que las Max y Ultra, y el cupo que va a caducar antes que el que puede esperar. Una cuenta que elijas a mano se respeta hasta que llegue a un límite. Si dejas una cuenta a mano, queda para el final hasta su reinicio semanal, o hasta que se reinicie su ventana de 5 h si no tiene límite semanal a la vista: quizá sepas algo que la app no ve.";
 "auto_switch.expiring.body" = "Su semana se reinicia %@, antes que la de la cuenta anterior: se gasta primero su cupo para que no se pierda. Las sesiones abiertas siguen con la cuenta anterior.";
 "auto_switch.weekly_free.body" = "Esta cuenta no tiene límite semanal a la vista: se gasta su ventana de 5 h y el cupo semanal de las demás queda para cuando haga falta. Las sesiones abiertas siguen con la cuenta anterior.";
 "auto_switch.open_window.body" = "Su ventana de 5 h se reinicia %@ con margen sin gastar: se aprovecha antes de que se pierda. Las sesiones abiertas siguen con la cuenta anterior.";
@@ -131,6 +134,8 @@
 "forecast.notification.title" = "Te vas a quedar sin cupo";
 "forecast.notification.body" = "Al ritmo actual, todas las cuentas llegarán a su límite dentro de %1$@. Vuelve a haber cupo %2$@.";
 "forecast.notification.body_open" = "Al ritmo actual, todas las cuentas llegarán a su límite dentro de %@.";
+"five_hour_removed.notification.title" = "Sin límite de 5 horas";
+"five_hour_removed.notification.body" = "Anthropic ha verificado %@ y le ha quitado el límite de 5 horas. Desde ahora solo cuentan sus límites semanales.";
 "forecast.explanation" = "Supone que trabajas sin parar, que cada sesión sigue con su cuenta hasta agotarla y que el cambio automático elige la siguiente. Usa el ritmo medido de cada cuenta; las que aún no tienen medidas usan el de su plan o, si no lo hay, el de la cuenta activa. Las cuentas sin datos recientes no cuentan.";
 "pace.current" = "Ritmo actual en %1$@: %2$d puntos de 5 h por hora.";
 "pace.plan" = "%1$@: %2$d puntos de 5 h por hora de trabajo (medido durante %3$@).";

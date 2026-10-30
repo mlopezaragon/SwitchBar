@@ -86,3 +86,30 @@ private func prevision(_ cuentas: [AccountUsageState], activa: String = "a") -> 
     #expect(abs(seAcaba.timeIntervalSince(horas(50.0 / 60))) <= 120)
     #expect(resultado.resumesAt == nil)
 }
+
+@Test func unaUltraVerificadaGastaSoloSuSemana() throws {
+    // La activa está agotada hasta dentro de 6 horas. La Ultra, al 90 % de
+    // su semana a 5 puntos por hora, aguanta 2 horas hasta el 100 %.
+    let ultra = AccountUsageState(
+        id: "u",
+        usage: UsageSnapshot(
+            fiveHour: nil,
+            sevenDay: UsageWindow(utilization: 90, resetsAt: horas(100)),
+            sevenDayOpus: nil,
+            fetchedAt: ahora,
+            fiveHourLimitRemoved: true
+        ),
+        needsLogin: false,
+        weeklyPace: 5
+    )
+    let forecast = try #require(prevision([cuenta("a", fiveHour: 100, cincoEn: 6, ritmo: 20), ultra]))
+    let runsOut = try #require(forecast.runsOutAt)
+    #expect(abs(runsOut.timeIntervalSince(horas(2))) <= 120)
+    let resumes = try #require(forecast.resumesAt)
+    #expect(abs(resumes.timeIntervalSince(horas(6))) <= 120)
+    // Sin ritmo semanal no se puede simular: la previsión prefiere quedarse corta.
+    var sinRitmo = ultra
+    sinRitmo.weeklyPace = nil
+    let corta = try #require(prevision([cuenta("a", fiveHour: 100, cincoEn: 6, ritmo: 20), sinRitmo]))
+    #expect(corta.runsOutAt == ahora)
+}

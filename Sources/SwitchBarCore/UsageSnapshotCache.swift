@@ -62,6 +62,7 @@ public final class UsageSnapshotCache: @unchecked Sendable {
                 sevenDayOpus: window("sevenDayOpus"),
                 fetchedAt: Date(timeIntervalSince1970: fetchedAt),
                 weeklyLimitUnreported: raw["weeklyLimitUnreported"] as? Bool ?? false,
+                fiveHourLimitRemoved: raw["fiveHourLimitRemoved"] as? Bool ?? false,
                 limitResets: decodeLimitResets(raw["limitResets"])
             )
         }
@@ -87,6 +88,7 @@ public final class UsageSnapshotCache: @unchecked Sendable {
             raw["sevenDay"] = encode(snapshot.sevenDay)
             raw["sevenDayOpus"] = encode(snapshot.sevenDayOpus)
             if snapshot.weeklyLimitUnreported { raw["weeklyLimitUnreported"] = true }
+            if snapshot.fiveHourLimitRemoved { raw["fiveHourLimitRemoved"] = true }
             raw["limitResets"] = snapshot.limitResets.map(encodeLimitResets)
             dict[account] = raw
         }

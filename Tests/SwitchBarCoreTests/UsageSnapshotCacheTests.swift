@@ -99,3 +99,24 @@ func unaCacheCorruptaOInexistenteDevuelveVacio() throws {
     )
     #expect(cache.load().isEmpty)
 }
+
+@Test
+func laCacheRecuerdaQueNoHayLimiteDeCincoHoras() throws {
+    let directory = temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let cache = UsageSnapshotCache(directoryURL: directory)
+    let snapshot = UsageSnapshot(
+        fiveHour: nil,
+        sevenDay: UsageWindow(utilization: 40, resetsAt: nil),
+        sevenDayOpus: nil,
+        fetchedAt: Date(timeIntervalSince1970: 1_700_000_000),
+        fiveHourLimitRemoved: true
+    )
+    try cache.save(["ultra": snapshot, "max": UsageSnapshot(
+        fiveHour: UsageWindow(utilization: 10, resetsAt: nil),
+        sevenDay: nil, sevenDayOpus: nil, fetchedAt: Date(timeIntervalSince1970: 1_700_000_000)
+    )])
+    let reloaded = UsageSnapshotCache(directoryURL: directory).load()
+    #expect(reloaded["ultra"]?.fiveHourLimitRemoved == true)
+    #expect(reloaded["max"]?.fiveHourLimitRemoved == false)
+}

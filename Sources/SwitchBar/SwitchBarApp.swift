@@ -52,13 +52,14 @@ struct SwitchBarApp: App {
         MenuBarExtra {
             MenuPanelView(state: state)
         } label: {
-            Image(nsImage: MenuBarIconRenderer.image(fraction: state.activeFiveHourFraction))
+            Image(nsImage: MenuBarIconRenderer.image(fraction: state.activeUsageFraction))
         }
         .menuBarExtraStyle(.window)
     }
 }
 
-/// Icono de la barra: anillo con el uso de 5 h de la cuenta activa, renderizado
+/// Icono de la barra: anillo con el uso de 5 h de la cuenta activa (o de su
+/// semana, si no tiene límite de 5 h), renderizado
 /// como imagen de plantilla (las vistas con formas no siempre se dibujan en la
 /// barra de menús; una NSImage template funciona siempre y se adapta al tema).
 enum MenuBarIconRenderer {

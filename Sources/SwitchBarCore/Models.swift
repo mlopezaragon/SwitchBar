@@ -73,17 +73,25 @@ public struct UsageSnapshot: Sendable, Equatable {
     /// interfaz lo dice en lugar de mostrar «—», y el cambio automático no
     /// puede reaccionar a ese límite.
     public var weeklyLimitUnreported: Bool
+    /// La cuenta no tiene límite de 5 h: el servidor informa de sus límites
+    /// semanales y no de esa ventana. Es lo que distingue a una cuenta Ultra
+    /// verificada, igual que la ausencia de la barra «Current session» en
+    /// Ajustes › Uso de claude.ai. Una ventana sin abrir no cuenta: llega
+    /// como 0 % sin hora de reinicio.
+    public var fiveHourLimitRemoved: Bool
     /// Restablecimientos de límite concedidos a la cuenta; `nil` si el
     /// servidor no informa de ellos.
     public var limitResets: LimitResets?
 
     public init(fiveHour: UsageWindow?, sevenDay: UsageWindow?, sevenDayOpus: UsageWindow?, fetchedAt: Date,
-                weeklyLimitUnreported: Bool = false, limitResets: LimitResets? = nil) {
+                weeklyLimitUnreported: Bool = false, fiveHourLimitRemoved: Bool = false,
+                limitResets: LimitResets? = nil) {
         self.fiveHour = fiveHour
         self.sevenDay = sevenDay
         self.sevenDayOpus = sevenDayOpus
         self.fetchedAt = fetchedAt
         self.weeklyLimitUnreported = weeklyLimitUnreported
+        self.fiveHourLimitRemoved = fiveHourLimitRemoved
         self.limitResets = limitResets
     }
 
@@ -102,6 +110,7 @@ public struct UsageSnapshot: Sendable, Equatable {
             sevenDayOpus: scale(sevenDayOpus, cap: weeklyCap),
             fetchedAt: fetchedAt,
             weeklyLimitUnreported: weeklyLimitUnreported,
+            fiveHourLimitRemoved: fiveHourLimitRemoved,
             limitResets: limitResets
         )
     }
@@ -134,15 +143,19 @@ public struct UsageSnapshot: Sendable, Equatable {
                 byKind[kind] = window
             }
         }
+        let fiveHour = byKind["session"] ?? UsageWindow.from(dict["five_hour"])
         let sevenDay = byKind["weekly_all"] ?? UsageWindow.from(dict["seven_day"])
         return UsageSnapshot(
-            fiveHour: byKind["session"] ?? UsageWindow.from(dict["five_hour"]),
+            fiveHour: fiveHour,
             sevenDay: sevenDay,
             sevenDayOpus: byKind["weekly_scoped"] ?? UsageWindow.from(dict["seven_day_opus"]),
             fetchedAt: fetchedAt,
             // Con otro límite semanal en la lista (el de Fable), la ausencia
             // del general no es una ventana aún sin abrir: no se informa.
             weeklyLimitUnreported: sevenDay == nil && reportsWeeklyLimits,
+            // Lo mismo con la ventana de 5 h: sin abrir llega al 0 %, así que
+            // si falta junto a unos límites semanales, la cuenta no la tiene.
+            fiveHourLimitRemoved: fiveHour == nil && reportsWeeklyLimits,
             limitResets: LimitResets.parse(dict["cedar_ember"])
         )
     }
@@ -316,9 +329,10 @@ public struct AccountIdentity: Sendable, Equatable, Identifiable {
 
 /// Plan de Claude al que pertenece una cuenta.
 public enum AccountPlan: String, Sendable, Equatable, CaseIterable {
-    case pro, max, team, enterprise
+    case pro, max, ultra, team, enterprise
 
-    /// Team y Enterprise son cuentas de una organización; Pro y Max, personales.
+    /// Team y Enterprise son cuentas de una organización; Pro, Max y Ultra,
+    /// personales.
     public var isOrganization: Bool {
         self == .team || self == .enterprise
     }
@@ -330,12 +344,23 @@ public enum AccountPlan: String, Sendable, Equatable, CaseIterable {
 
     /// Acepta tanto `organizationType` (`claude_team`) como `subscriptionType`
     /// (`team`). Un valor desconocido no se asimila a ningún plan.
-    init?(rawType: String?) {
+    ///
+    /// Desde el 30 de octubre de 2026 el antiguo Max 5x se llama Max y el
+    /// Max 20x, Ultra, pero el servidor sigue diciendo `claude_max` para los
+    /// dos: los distingue el nivel de límites (`default_claude_max_20x`).
+    /// También se acepta un tipo o un nivel que ya digan `ultra`.
+    init?(rawType: String?, rateLimitTier: String? = nil) {
         guard var type = rawType?.lowercased() else { return nil }
         if type.hasPrefix("claude_") {
             type = String(type.dropFirst("claude_".count))
         }
-        self.init(rawValue: type)
+        guard let plan = AccountPlan(rawValue: type) else { return nil }
+        let tier = rateLimitTier?.lowercased() ?? ""
+        if plan == .max, tier.contains("max_20x") || tier.contains("ultra") {
+            self = .ultra
+        } else {
+            self = plan
+        }
     }
 }
 
@@ -376,10 +401,12 @@ public struct AccountProfile: Codable, Identifiable, Sendable, Equatable {
 
     /// Plan de la cuenta. La fuente es `organizationType` del bloque de
     /// identidad: en las cuentas Team el Llavero deja `subscriptionType`
-    /// vacío, así que ese campo solo sirve de respaldo.
+    /// vacío, así que ese campo solo sirve de respaldo. El nivel de límites
+    /// de la organización separa Max de Ultra.
     public var plan: AccountPlan? {
-        AccountPlan(rawType: identityField("organizationType"))
-            ?? AccountPlan(rawType: subscriptionType)
+        let tier = identityField("organizationRateLimitTier")
+        return AccountPlan(rawType: identityField("organizationType"), rateLimitTier: tier)
+            ?? AccountPlan(rawType: subscriptionType, rateLimitTier: tier)
     }
 
     /// Nombre de la organización. En las cuentas personales es uno genérico

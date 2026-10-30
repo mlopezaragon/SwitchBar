@@ -45,6 +45,9 @@ public enum UsagePace {
     static let maximumGap: TimeInterval = 20 * 60
     /// Una pausa así de larga cierra un tramo de uso.
     static let idleBreak: TimeInterval = 15 * 60
+    /// Lo mismo midiendo con la semana general: un punto semanal cuesta
+    /// varios de 5 h y tarda más en moverse aunque se esté trabajando.
+    static let weeklyIdleBreak: TimeInterval = 30 * 60
     static let minimumRunSpan: TimeInterval = 10 * 60
     static let minimumRunPoints: Double = 2
     /// Lo que puede variar la hora de reinicio de una misma ventana.
@@ -107,6 +110,21 @@ public enum UsagePace {
         )
     }
 
+    /// Puntos de la semana general por hora de uso en las lecturas sin
+    /// ventana de 5 h (Ultra verificada), o `nil` sin medida suficiente.
+    public static func typicalWeekly(pooling accounts: [[UsageSample]]) -> Double? {
+        var points = 0.0
+        var measured: TimeInterval = 0
+        for samples in accounts {
+            for run in weeklyRuns(samples) {
+                points += run.points
+                measured += run.duration
+            }
+        }
+        guard measured >= minimumTypicalMeasure, points > 0 else { return nil }
+        return points / measured * 3_600
+    }
+
     struct Run: Equatable {
         var points = 0.0
         var duration: TimeInterval = 0
@@ -120,6 +138,29 @@ public enum UsagePace {
     /// consumo y sin pausas largas. Las pausas cortas cuentan como parte del
     /// trabajo; la final no.
     static func runs(_ samples: [UsageSample]) -> [Run] {
+        runs(samples, idleBreak: idleBreak) { older, newer in
+            fiveHourDelta(from: older, to: newer).map { delta in
+                (delta, weeklyDelta(from: older, to: newer))
+            }
+        }
+    }
+
+    /// Tramos de uso de una cuenta sin ventana de 5 h, medidos con su semana
+    /// general: es lo único que dice cuánto se gasta.
+    static func weeklyRuns(_ samples: [UsageSample]) -> [Run] {
+        runs(samples, idleBreak: weeklyIdleBreak) { older, newer in
+            guard older.fiveHour == nil, newer.fiveHour == nil else { return nil }
+            return weeklyDelta(from: older, to: newer).map { ($0, $0) }
+        }
+    }
+
+    /// `delta` da los puntos gastados entre dos lecturas y, si se sabe, los
+    /// de la semana general, o `nil` si entre ellas no se puede medir.
+    private static func runs(
+        _ samples: [UsageSample],
+        idleBreak: TimeInterval,
+        delta: (UsageSample, UsageSample) -> (points: Double, weekly: Double?)?
+    ) -> [Run] {
         var result: [Run] = []
         var current = Run()
         var idle: TimeInterval = 0
@@ -133,21 +174,21 @@ public enum UsagePace {
         for (older, newer) in zip(samples, samples.dropFirst()) {
             let gap = newer.at.timeIntervalSince(older.at)
             guard gap > 0, gap <= maximumGap,
-                  let delta = fiveHourDelta(from: older, to: newer) else {
+                  let step = delta(older, newer) else {
                 close()
                 continue
             }
-            if delta <= 0 {
+            if step.points <= 0 {
                 idle += gap
                 if idle > idleBreak { close() }
                 continue
             }
-            current.points += delta
+            current.points += step.points
             current.duration += idle + gap
             idle = 0
-            if let weeklyDelta = weeklyDelta(from: older, to: newer) {
-                current.weeklyPoints += weeklyDelta
-                current.weeklyBase += delta
+            if let weekly = step.weekly {
+                current.weeklyPoints += weekly
+                current.weeklyBase += step.points
             }
         }
         close()
@@ -192,32 +233,65 @@ public enum UsagePace {
 public struct PaceModel: Sendable, Equatable {
     public var byAccount: [String: TypicalPace]
     public var byPlan: [AccountPlan: TypicalPace]
+    /// Puntos de la semana general por hora de uso medidos sin ventana de
+    /// 5 h (Ultra verificada), por cuenta y por plan.
+    public var weeklyByAccount: [String: Double]
+    public var weeklyByPlan: [AccountPlan: Double]
 
-    public init(byAccount: [String: TypicalPace] = [:], byPlan: [AccountPlan: TypicalPace] = [:]) {
+    public init(
+        byAccount: [String: TypicalPace] = [:],
+        byPlan: [AccountPlan: TypicalPace] = [:],
+        weeklyByAccount: [String: Double] = [:],
+        weeklyByPlan: [AccountPlan: Double] = [:]
+    ) {
         self.byAccount = byAccount
         self.byPlan = byPlan
+        self.weeklyByAccount = weeklyByAccount
+        self.weeklyByPlan = weeklyByPlan
     }
 
     /// `plans` asigna a cada cuenta su plan; las que no lo tienen solo
     /// cuentan para sí mismas.
     public init(history: UsageHistory, plans: [String: AccountPlan?]) {
         var byAccount: [String: TypicalPace] = [:]
+        var weeklyByAccount: [String: Double] = [:]
         var samplesByPlan: [AccountPlan: [[UsageSample]]] = [:]
         for (account, plan) in plans {
             let samples = history.samples(for: account)
             if let typical = UsagePace.typical(samples) {
                 byAccount[account] = typical
             }
+            if let weekly = UsagePace.typicalWeekly(pooling: [samples]) {
+                weeklyByAccount[account] = weekly
+            }
             if let plan { samplesByPlan[plan, default: []].append(samples) }
         }
         self.init(
             byAccount: byAccount,
-            byPlan: samplesByPlan.compactMapValues { UsagePace.typical(pooling: $0) }
+            byPlan: samplesByPlan.compactMapValues { UsagePace.typical(pooling: $0) },
+            weeklyByAccount: weeklyByAccount,
+            weeklyByPlan: samplesByPlan.compactMapValues { UsagePace.typicalWeekly(pooling: $0) }
         )
     }
 
     public func typical(for account: String, plan: AccountPlan?) -> TypicalPace? {
         byAccount[account] ?? plan.flatMap { byPlan[$0] }
+    }
+
+    /// Puntos de la semana general por hora de uso: los medidos sin ventana
+    /// de 5 h o, a falta de ellos, el ritmo de 5 h por lo que cuesta cada
+    /// punto. Quitar la ventana no cambia cuánta semana gasta una hora de
+    /// trabajo, así que lo medido antes de la verificación sigue valiendo.
+    public func weeklyPace(for account: String, plan: AccountPlan?) -> Double? {
+        func derived(_ pace: TypicalPace?) -> Double? {
+            guard let pace, let ratio = pace.weeklyPerFiveHour else { return nil }
+            return pace.pointsPerHour * ratio
+        }
+        if let pace = weeklyByAccount[account] ?? derived(byAccount[account]) {
+            return pace
+        }
+        guard let plan else { return nil }
+        return weeklyByPlan[plan] ?? derived(byPlan[plan])
     }
 }
 
@@ -279,5 +353,11 @@ public struct PaceContext: Sendable, Equatable {
     public func weeklyPerFiveHour(for account: String, plan: AccountPlan?) -> Double? {
         model.byAccount[account]?.weeklyPerFiveHour
             ?? plan.flatMap { model.byPlan[$0]?.weeklyPerFiveHour }
+    }
+
+    /// Puntos de la semana general por hora que gastaría una cuenta sin
+    /// ventana de 5 h, o `nil` si no hay ninguna medida con la que estimarlo.
+    public func expectedWeeklyPace(for account: String, plan: AccountPlan?) -> Double? {
+        model.weeklyPace(for: account, plan: plan).map { $0 * intensity }
     }
 }

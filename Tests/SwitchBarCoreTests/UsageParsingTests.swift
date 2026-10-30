@@ -174,3 +174,57 @@ private let respuestaTeam = """
     let sinRotar = try creds.updating(accessToken: "a2", refreshToken: nil, expiresAt: 99)
     #expect(sinRotar.refreshTokenExpiresAt == 1000)
 }
+
+// MARK: - Ultra verificada: sin límite de 5 h
+
+/// Forma real del endpoint (30 de octubre de 2026): `five_hour` repite la
+/// fila `session` de `limits`.
+private func respuestaConLimites(sesion: String?) -> Data {
+    let filaSesion = sesion.map {
+        #"{"kind": "session", "group": "session", "percent": 0, "severity": "normal", "resets_at": \#($0), "scope": null, "is_active": false},"#
+    } ?? ""
+    let cincoHoras = sesion.map { #"{"utilization": 0.0, "resets_at": \#($0)}"# } ?? "null"
+    return Data("""
+    {
+      "five_hour": \(cincoHoras),
+      "seven_day": {"utilization": 33.0, "resets_at": "2026-11-05T15:00:00+00:00"},
+      "limits": [
+        \(filaSesion)
+        {"kind": "weekly_all", "group": "weekly", "percent": 33, "severity": "normal", "resets_at": "2026-11-05T15:00:00+00:00", "scope": null, "is_active": true},
+        {"kind": "weekly_scoped", "group": "weekly", "percent": 0, "severity": "normal", "resets_at": "2026-11-05T15:00:00+00:00", "scope": {"model": {"id": null, "display_name": "Fable"}, "surface": null}, "is_active": false}
+      ]
+    }
+    """.utf8)
+}
+
+@Test func sinFilaDeSesionLaCuentaNoTieneLimiteDeCincoHoras() throws {
+    // Lo que muestra claude.ai a una Ultra verificada: sin barra
+    // «Current session», solo las semanales.
+    let s = try UsageSnapshot.parse(respuestaConLimites(sesion: nil), fetchedAt: Date())
+    #expect(s.fiveHour == nil)
+    #expect(s.fiveHourLimitRemoved)
+    #expect(s.sevenDay?.utilization == 33)
+    #expect(!s.weeklyLimitUnreported)
+}
+
+@Test func unaVentanaSinAbrirSigueSiendoUnLimite() throws {
+    // Llega al 0 % sin hora de reinicio: la cuenta tiene límite de 5 h.
+    let s = try UsageSnapshot.parse(respuestaConLimites(sesion: "null"), fetchedAt: Date())
+    #expect(s.fiveHour?.utilization == 0)
+    #expect(s.fiveHour?.resetsAt == nil)
+    #expect(!s.fiveHourLimitRemoved)
+}
+
+@Test func sinNingunLimiteNoSeDaPorRetiradaLaVentana() throws {
+    // Una respuesta vacía no dice nada: no se puede afirmar que no haya límite.
+    let s = try UsageSnapshot.parse(Data(#"{"five_hour": null, "limits": []}"#.utf8), fetchedAt: Date())
+    #expect(s.fiveHour == nil)
+    #expect(!s.fiveHourLimitRemoved)
+}
+
+@Test func elTopePersonalConservaQueNoHayLimiteDeCincoHoras() throws {
+    let s = try UsageSnapshot.parse(respuestaConLimites(sesion: nil), fetchedAt: Date())
+        .scaledToPersonalCaps(fiveHourCap: 60, weeklyCap: 60)
+    #expect(s.fiveHourLimitRemoved)
+    #expect(s.fiveHour == nil)
+}

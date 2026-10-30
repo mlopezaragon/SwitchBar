@@ -18,6 +18,8 @@
 "account.plan.personal" = "Persönlicher Account";
 "account.plan.organization" = "Organisations-Account";
 "account.plan.organization_named" = "Account der Organisation „%@“";
+"account.plan.ultra_verified" = "Verifizierter persönlicher Ultra-Account: kein 5-Stunden-Limit, nur die Wochenlimits.";
+"account.plan.ultra_unverified" = "Persönlicher Ultra-Account, noch nicht verifiziert: Er hat ein vorübergehendes 5-Stunden-Limit, das Anthropic nach der Verifizierung entfernt.";
 
 "add_account.title.add" = "Claude Code-Account verknüpfen";
 "add_account.title.reconnect" = "Erneut anmelden";
@@ -102,15 +104,16 @@
 "auto_switch.unverified.body" = "Die Auslastung der übrigen Accounts konnte nicht geprüft werden, daher lässt sich keiner sicher auswählen. Es wird automatisch erneut versucht.";
 "auto_switch.changed.title" = "Zu %@ gewechselt";
 "auto_switch.changed.body" = "%1$@ Das 5-Stunden-Fenster des neuen Accounts liegt bei %2$d %%. Offene Sitzungen bleiben beim vorherigen Account.";
+"auto_switch.changed.body.no_five_hour" = "%1$@ Der neue Account hat kein 5-Stunden-Limit, seine Woche liegt bei %2$d %%. Offene Sitzungen bleiben beim vorherigen Account.";
 "auto_switch.error" = "Automatischer Wechsel fehlgeschlagen: %@";
 "auto_switch.trigger.generic" = "Ein konfiguriertes Limit wurde erreicht.";
 "auto_switch.trigger.fable" = "Fable hat %d %% erreicht.";
 "auto_switch.trigger.weekly" = "Die allgemeine Wochennutzung hat %d %% erreicht.";
 "auto_switch.trigger.five_hour" = "Das 5-Stunden-Fenster hat %d %% erreicht.";
 "auto_switch.next_reset" = "Die erste Zurücksetzung erfolgt %@.";
-"auto_switch.choice_explanation" = "Beim Wechsel wird zuerst das Kontingent genutzt, das sonst verfallen würde: ein bereits geöffnetes 5-Stunden-Fenster mit Restkontingent bei einem Account ohne sichtbares Wochenlimit (Team) oder die Woche eines Accounts, die sich beim gemessenen Tempo vor ihrer Zurücksetzung nicht mehr aufbrauchen ließe. Danach folgen Accounts ohne sichtbares Wochenlimit, die nur ihr 5-Stunden-Fenster verbrauchen, und zuletzt Accounts mit Wochenlimit (Max), die nach ihrer wöchentlichen Zurücksetzung geordnet für den Bedarfsfall aufgehoben werden. Ein Account, der einen Schwellenwert oder sein persönliches Limit erreicht hat, wird nie zum Arbeiten gewählt. Hat kein Account Spielraum, bleibt der aktiv, der sich als Erstes erholt (nie einer mit persönlichem Limit), damit Claude Code so bald wie möglich weitermacht.";
+"auto_switch.choice_explanation" = "Beim Wechsel wird zuerst das Kontingent genutzt, das sonst verfallen würde: ein bereits geöffnetes 5-Stunden-Fenster mit Restkontingent bei einem Account ohne sichtbares Wochenlimit (Team) oder die Woche eines Accounts, die sich beim gemessenen Tempo vor ihrer Zurücksetzung nicht mehr aufbrauchen ließe. Danach folgen Accounts ohne sichtbares Wochenlimit, die nur ihr 5-Stunden-Fenster verbrauchen, und zuletzt Accounts mit Wochenlimit (Max und Ultra), die nach ihrer wöchentlichen Zurücksetzung geordnet für den Bedarfsfall aufgehoben werden. Ein Account, der einen Schwellenwert oder sein persönliches Limit erreicht hat, wird nie zum Arbeiten gewählt. Hat kein Account Spielraum, bleibt der aktiv, der sich als Erstes erholt (nie einer mit persönlichem Limit), damit Claude Code so bald wie möglich weitermacht.";
 "auto_switch.expiring_quota" = "Autonomer Modus: zuerst das Kontingent nutzen, das zuerst verfällt";
-"auto_switch.expiring_quota.explanation" = "SwitchBar wechselt, ohne auf ein Limit zu warten, sobald ein anderer Account mit mindestens 15 Punkten Spielraum in dieser Reihenfolge vorne liegt: Team-Accounts werden vor Max-Accounts genutzt, und Kontingent, das bald verfällt, vor Kontingent, das warten kann. Ein von Hand gewählter Account bleibt, bis er ein Limit erreicht. Ein von Hand verlassener Account kommt bis zu seiner wöchentlichen Zurücksetzung zuletzt dran, ohne sichtbares Wochenlimit bis zur Zurücksetzung seines 5-Stunden-Fensters: Vielleicht wissen Sie etwas, das die App nicht sieht.";
+"auto_switch.expiring_quota.explanation" = "SwitchBar wechselt, ohne auf ein Limit zu warten, sobald ein anderer Account mit mindestens 15 Punkten Spielraum in dieser Reihenfolge vorne liegt: Team-Accounts werden vor Max- und Ultra-Accounts genutzt, und Kontingent, das bald verfällt, vor Kontingent, das warten kann. Ein von Hand gewählter Account bleibt, bis er ein Limit erreicht. Ein von Hand verlassener Account kommt bis zu seiner wöchentlichen Zurücksetzung zuletzt dran, ohne sichtbares Wochenlimit bis zur Zurücksetzung seines 5-Stunden-Fensters: Vielleicht wissen Sie etwas, das die App nicht sieht.";
 "auto_switch.expiring.body" = "Seine Woche wird %@ zurückgesetzt, vor der des vorherigen Accounts: Sein Kontingent wird zuerst genutzt, damit es nicht verfällt. Offene Sitzungen bleiben beim vorherigen Account.";
 "auto_switch.weekly_free.body" = "Dieser Account hat kein sichtbares Wochenlimit: Sein 5-Stunden-Fenster wird genutzt, und das Wochenkontingent der anderen bleibt für den Bedarfsfall. Offene Sitzungen bleiben beim vorherigen Account.";
 "auto_switch.open_window.body" = "Sein 5-Stunden-Fenster wird %@ mit ungenutztem Restkontingent zurückgesetzt: Es wird genutzt, bevor es verfällt. Offene Sitzungen bleiben beim vorherigen Account.";
@@ -131,6 +134,8 @@
 "forecast.notification.title" = "Dein Kontingent geht bald aus";
 "forecast.notification.body" = "Beim aktuellen Tempo erreichen alle Accounts in %1$@ ihr Limit. Wieder verfügbar %2$@.";
 "forecast.notification.body_open" = "Beim aktuellen Tempo erreichen alle Accounts in %@ ihr Limit.";
+"five_hour_removed.notification.title" = "Kein 5-Stunden-Limit mehr";
+"five_hour_removed.notification.body" = "Anthropic hat %@ verifiziert und das 5-Stunden-Limit entfernt. Ab jetzt zählen nur noch die Wochenlimits.";
 "forecast.explanation" = "Geht davon aus, dass du ohne Pause arbeitest, dass jede Sitzung bei ihrem Account bleibt, bis er aufgebraucht ist, und dass der automatische Wechsel den nächsten wählt. Verwendet das gemessene Tempo jedes Accounts; noch nicht gemessene nutzen das ihres Tarifs oder, falls keines vorliegt, das des aktiven Accounts. Accounts ohne aktuelle Daten zählen nicht.";
 "pace.current" = "Aktuelles Tempo bei %1$@: %2$d Punkte des 5-Stunden-Fensters pro Stunde.";
 "pace.plan" = "%1$@: %2$d Punkte des 5-Stunden-Fensters pro Arbeitsstunde (gemessen über %3$@).";

@@ -18,6 +18,8 @@
 "account.plan.personal" = "Conta pessoal";
 "account.plan.organization" = "Conta de organização";
 "account.plan.organization_named" = "Conta da organização “%@”";
+"account.plan.ultra_verified" = "Conta pessoal Ultra verificada: sem limite de 5 horas, só os semanais.";
+"account.plan.ultra_unverified" = "Conta pessoal Ultra ainda não verificada: tem um limite temporário de 5 horas que a Anthropic remove ao verificá-la.";
 
 "add_account.title.add" = "Vincular uma conta do Claude Code";
 "add_account.title.reconnect" = "Iniciar sessão novamente";
@@ -102,15 +104,16 @@
 "auto_switch.unverified.body" = "Não foi possível verificar o uso das outras contas, então nenhuma pode ser escolhida com segurança. A tentativa será repetida automaticamente.";
 "auto_switch.changed.title" = "Trocado para %@";
 "auto_switch.changed.body" = "%1$@ A janela de 5 horas da nova conta está em %2$d%%. As sessões abertas permanecem na conta anterior.";
+"auto_switch.changed.body.no_five_hour" = "%1$@ A nova conta não tem limite de 5 horas e está com a semana em %2$d%%. As sessões abertas permanecem na conta anterior.";
 "auto_switch.error" = "Falha na troca automática: %@";
 "auto_switch.trigger.generic" = "Um limite configurado foi atingido.";
 "auto_switch.trigger.fable" = "O Fable atingiu %d%%.";
 "auto_switch.trigger.weekly" = "O uso semanal geral atingiu %d%%.";
 "auto_switch.trigger.five_hour" = "A janela de 5 horas atingiu %d%%.";
 "auto_switch.next_reset" = "A primeira redefinição será %@.";
-"auto_switch.choice_explanation" = "Na troca, primeiro se usa a cota que seria perdida sem uso: uma janela de 5 horas já aberta com margem numa conta sem limite semanal visível (Team), ou a semana de uma conta que, no ritmo medido, não daria tempo de gastar antes da redefinição. Depois vêm as contas sem limite semanal visível, que só gastam a janela de 5 horas, e por último as que têm limite semanal (Max), guardadas para quando forem necessárias, por ordem de redefinição semanal. Uma conta que atingiu um limite configurado ou seu limite pessoal nunca é escolhida para trabalhar. Se nenhuma conta tiver margem, fica ativa a que se recupera primeiro (nunca uma com limite pessoal), para que o Claude Code continue o quanto antes.";
+"auto_switch.choice_explanation" = "Na troca, primeiro se usa a cota que seria perdida sem uso: uma janela de 5 horas já aberta com margem numa conta sem limite semanal visível (Team), ou a semana de uma conta que, no ritmo medido, não daria tempo de gastar antes da redefinição. Depois vêm as contas sem limite semanal visível, que só gastam a janela de 5 horas, e por último as que têm limite semanal (Max e Ultra), guardadas para quando forem necessárias, por ordem de redefinição semanal. Uma conta que atingiu um limite configurado ou seu limite pessoal nunca é escolhida para trabalhar. Se nenhuma conta tiver margem, fica ativa a que se recupera primeiro (nunca uma com limite pessoal), para que o Claude Code continue o quanto antes.";
 "auto_switch.expiring_quota" = "Modo autônomo: usar primeiro a cota que expira antes";
-"auto_switch.expiring_quota.explanation" = "O SwitchBar troca sem esperar um limite assim que outra conta com pelo menos 15 pontos de margem vier antes nessa ordem: contas Team são usadas antes das Max, e a cota prestes a expirar antes da que pode esperar. Uma conta escolhida manualmente é mantida até atingir um limite. Uma conta que você deixar manualmente vai para o fim da fila até a redefinição semanal, ou até a redefinição da janela de 5 horas se não tiver limite semanal visível: talvez você saiba algo que o app não vê.";
+"auto_switch.expiring_quota.explanation" = "O SwitchBar troca sem esperar um limite assim que outra conta com pelo menos 15 pontos de margem vier antes nessa ordem: contas Team são usadas antes das Max e Ultra, e a cota prestes a expirar antes da que pode esperar. Uma conta escolhida manualmente é mantida até atingir um limite. Uma conta que você deixar manualmente vai para o fim da fila até a redefinição semanal, ou até a redefinição da janela de 5 horas se não tiver limite semanal visível: talvez você saiba algo que o app não vê.";
 "auto_switch.expiring.body" = "A semana dela será redefinida %@, antes da conta anterior: a cota dela é usada primeiro para não ser perdida. As sessões abertas permanecem na conta anterior.";
 "auto_switch.weekly_free.body" = "Esta conta não tem limite semanal visível: a janela de 5 horas dela é usada e a cota semanal das outras fica para quando for necessária. As sessões abertas permanecem na conta anterior.";
 "auto_switch.open_window.body" = "A janela de 5 horas dela será redefinida %@ com margem não usada: ela é aproveitada antes de ser perdida. As sessões abertas permanecem na conta anterior.";
@@ -131,6 +134,8 @@
 "forecast.notification.title" = "Você vai ficar sem cota";
 "forecast.notification.body" = "No ritmo atual, todas as contas vão atingir o limite em %1$@. A cota volta %2$@.";
 "forecast.notification.body_open" = "No ritmo atual, todas as contas vão atingir o limite em %@.";
+"five_hour_removed.notification.title" = "Sem limite de 5 horas";
+"five_hour_removed.notification.body" = "A Anthropic verificou %@ e removeu o limite de 5 horas. A partir de agora só contam os limites semanais.";
 "forecast.explanation" = "Supõe que você trabalha sem parar, que cada sessão continua na sua conta até esgotá-la e que a troca automática escolhe a próxima. Usa o ritmo medido de cada conta; as que ainda não foram medidas usam o do seu plano ou, na falta dele, o da conta ativa. Contas sem dados recentes são ignoradas.";
 "pace.current" = "Ritmo atual em %1$@: %2$d pontos da janela de 5 horas por hora.";
 "pace.plan" = "%1$@: %2$d pontos da janela de 5 horas por hora de trabalho (medido ao longo de %3$@).";

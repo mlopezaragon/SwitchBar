@@ -18,6 +18,8 @@
 "account.plan.personal" = "Personal account";
 "account.plan.organization" = "Organisation account";
 "account.plan.organization_named" = "Account in the “%@” organisation";
+"account.plan.ultra_verified" = "Verified Ultra personal account: no 5-hour limit, only the weekly ones.";
+"account.plan.ultra_unverified" = "Ultra personal account not yet verified: it has a temporary 5-hour limit that Anthropic removes once it is verified.";
 
 "add_account.title.add" = "Link a Claude Code account";
 "add_account.title.reconnect" = "Sign in again";
@@ -102,15 +104,16 @@
 "auto_switch.unverified.body" = "The usage of the other accounts could not be checked, so none can be chosen safely. It will be retried automatically.";
 "auto_switch.changed.title" = "Switched to %@";
 "auto_switch.changed.body" = "%1$@ The new account's 5-hour window is at %2$d%%. Open sessions remain on the previous account.";
+"auto_switch.changed.body.no_five_hour" = "%1$@ The new account has no 5-hour limit and its week is at %2$d%%. Open sessions remain on the previous account.";
 "auto_switch.error" = "Automatic switching failed: %@";
 "auto_switch.trigger.generic" = "A configured limit was reached.";
 "auto_switch.trigger.fable" = "Fable reached %d%%.";
 "auto_switch.trigger.weekly" = "General weekly usage reached %d%%.";
 "auto_switch.trigger.five_hour" = "The 5-hour window reached %d%%.";
 "auto_switch.next_reset" = "The first reset is %@.";
-"auto_switch.choice_explanation" = "When switching, the quota that would be lost if unused goes first: an already open 5-hour window with room left on an account with no visible weekly limit (Team), or the week of an account that, at the measured pace, could not be spent before its reset. Accounts with no visible weekly limit come next, since they only spend their 5-hour window, and accounts with a weekly limit (Max) go last, kept for when they are needed, in order of weekly reset. An account that has reached a threshold or its personal cap is never chosen to work on. If no account has room, the one that recovers first stays active (never one with a personal cap), so Claude Code resumes as soon as possible.";
+"auto_switch.choice_explanation" = "When switching, the quota that would be lost if unused goes first: an already open 5-hour window with room left on an account with no visible weekly limit (Team), or the week of an account that, at the measured pace, could not be spent before its reset. Accounts with no visible weekly limit come next, since they only spend their 5-hour window, and accounts with a weekly limit (Max and Ultra) go last, kept for when they are needed, in order of weekly reset. An account that has reached a threshold or its personal cap is never chosen to work on. If no account has room, the one that recovers first stays active (never one with a personal cap), so Claude Code resumes as soon as possible.";
 "auto_switch.expiring_quota" = "Autonomous mode: use the quota that expires first";
-"auto_switch.expiring_quota.explanation" = "SwitchBar switches without waiting for a limit as soon as another account with at least 15 points of room comes earlier in that order: Team accounts are used before Max ones, and quota about to expire before quota that can wait. An account you pick by hand is kept until it reaches a limit. An account you leave by hand goes to the back of the line until its weekly reset, or until its 5-hour window resets if it has no visible weekly limit: you may know something the app cannot see.";
+"auto_switch.expiring_quota.explanation" = "SwitchBar switches without waiting for a limit as soon as another account with at least 15 points of room comes earlier in that order: Team accounts are used before Max and Ultra ones, and quota about to expire before quota that can wait. An account you pick by hand is kept until it reaches a limit. An account you leave by hand goes to the back of the line until its weekly reset, or until its 5-hour window resets if it has no visible weekly limit: you may know something the app cannot see.";
 "auto_switch.expiring.body" = "Its week resets %@, before the previous account's: its quota is used first so it is not lost. Open sessions remain on the previous account.";
 "auto_switch.weekly_free.body" = "This account has no visible weekly limit: its 5-hour window is spent and the other accounts' weekly quota is kept for when it is needed. Open sessions remain on the previous account.";
 "auto_switch.open_window.body" = "Its 5-hour window resets %@ with room left: it is used before that room is lost. Open sessions remain on the previous account.";
@@ -131,6 +134,8 @@
 "forecast.notification.title" = "You are about to run out of quota";
 "forecast.notification.body" = "At the current pace, every account will reach its limit in %1$@. Quota returns %2$@.";
 "forecast.notification.body_open" = "At the current pace, every account will reach its limit in %@.";
+"five_hour_removed.notification.title" = "No 5-hour limit";
+"five_hour_removed.notification.body" = "Anthropic has verified %@ and removed its 5-hour limit. From now on only its weekly limits count.";
 "forecast.explanation" = "Assumes you work nonstop, that each session stays on its account until it runs out, and that automatic switching picks the next one. It uses each account's measured pace; accounts not yet measured use their plan's pace or, failing that, the active account's. Accounts without recent data are left out.";
 "pace.current" = "Current pace on %1$@: %2$d points of the 5-hour window per hour.";
 "pace.plan" = "%1$@: %2$d points of the 5-hour window per hour of work (measured over %3$@).";

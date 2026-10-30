@@ -21,14 +21,19 @@ when a usage window fills up.
 
 - Usage bars per account: 5-hour window, weekly window, and the separate
   Fable weekly quota, each with its reset time.
+- The real plan of each account: Max or Ultra (formerly Max 5x and Max 20x),
+  Team or Enterprise. A verified Ultra account has no 5-hour limit: its
+  5-hour bar disappears, its badge gets a seal, and SwitchBar sends a
+  notification the moment Anthropic verifies it.
 - Limit resets granted by Anthropic, per account, with their deadline.
 - One-click switching of the active Claude Code account, with undo.
 - Automatic switching with independent, configurable thresholds per window.
   It spends first whatever would be lost if unused — an already open 5-hour
   window with room left, or a week that could not be spent before its reset —
   then accounts with no visible weekly limit (Team), which only spend their
-  5-hour window, and keeps accounts with a weekly limit (Max) for when they
-  are needed. It never picks an account at a threshold or at its personal cap
+  5-hour window, and keeps accounts with a weekly limit (Max and Ultra) for
+  when they are needed. A verified Ultra account is only limited by its
+  week, measured at its own weekly pace. It never picks an account at a threshold or at its personal cap
   to work on, and when no account has room it leaves active the one that
   recovers first, so Claude Code resumes as soon as possible. In autonomous
   mode (on by default) it keeps the right account active on its own, without
@@ -54,7 +59,7 @@ when a usage window fills up.
 
 - macOS 14 (Sonoma) or later, Apple Silicon or Intel (universal binary).
 - [Claude Code](https://code.claude.com) with one or more Claude
-  subscription accounts (Pro/Max).
+  subscription accounts (Pro, Max or Ultra).
 
 ## Install
 

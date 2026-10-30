@@ -107,7 +107,11 @@ struct DetailView: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                 if let plan = profile.plan {
-                    PlanBadge(plan: plan, organizationName: profile.organizationName)
+                    PlanBadge(
+                        plan: plan,
+                        organizationName: profile.organizationName,
+                        fiveHourLimitRemoved: usage?.fiveHourLimitRemoved
+                    )
                 }
 
                 Spacer(minLength: 12)
@@ -165,7 +169,9 @@ struct DetailView: View {
             }
 
             HStack(spacing: 24) {
-                UsageRing(label: L10n.tr("usage.five_hours"), window: usage?.fiveHour)
+                if usage?.fiveHourLimitRemoved != true {
+                    UsageRing(label: L10n.tr("usage.five_hours"), window: usage?.fiveHour)
+                }
                 UsageRing(label: L10n.tr("usage.week"), window: usage?.sevenDay,
                           unreported: usage?.weeklyLimitUnreported == true)
                 UsageRing(label: L10n.tr("usage.fable"), window: usage?.sevenDayOpus)
@@ -186,7 +192,11 @@ struct DetailView: View {
                 .help(L10n.tr("limit_resets.help"))
             }
 
-            SharedAccountControls(profile: profile, state: state)
+            SharedAccountControls(
+                profile: profile,
+                state: state,
+                hasFiveHourLimit: usage?.fiveHourLimitRemoved != true
+            )
 
             if let fetched = usage?.fetchedAt {
                 Text(
@@ -412,6 +422,9 @@ struct DetailView: View {
 private struct SharedAccountControls: View {
     let profile: AccountProfile
     let state: AppState
+    /// Sin límite de 5 h (Ultra verificada) su tope no se ofrece, aunque se
+    /// conserva por si el límite volviera.
+    let hasFiveHourLimit: Bool
 
     @State private var shared: Bool
     @State private var fiveHourCap: Double
@@ -419,9 +432,10 @@ private struct SharedAccountControls: View {
     /// Los ajustes quedan plegados una vez configurados; se despliegan al pulsar.
     @State private var expanded: Bool
 
-    init(profile: AccountProfile, state: AppState) {
+    init(profile: AccountProfile, state: AppState, hasFiveHourLimit: Bool) {
         self.profile = profile
         self.state = state
+        self.hasFiveHourLimit = hasFiveHourLimit
         let isShared = profile.sharedFiveHourCap != nil || profile.sharedWeeklyCap != nil
         _shared = State(initialValue: isShared)
         _fiveHourCap = State(initialValue: profile.sharedFiveHourCap ?? 60)
@@ -469,7 +483,9 @@ private struct SharedAccountControls: View {
                     .onChange(of: shared) { apply() }
 
                 if shared {
-                    capSlider(L10n.tr("shared.five_hour_cap"), value: $fiveHourCap)
+                    if hasFiveHourLimit {
+                        capSlider(L10n.tr("shared.five_hour_cap"), value: $fiveHourCap)
+                    }
                     capSlider(L10n.tr("shared.weekly_cap"), value: $weeklyCap)
                     Text(L10n.tr("shared.explanation"))
                         .font(.caption2)

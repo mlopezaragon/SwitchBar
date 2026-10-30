@@ -62,6 +62,12 @@ public enum CoveragePlanner {
         }
 
         mutating func consume(for interval: TimeInterval, startingAt now: Date) {
+            if state.usage?.fiveHourLimitRemoved == true {
+                // Sin ventana de 5 h solo se gasta la semana.
+                guard let pace = state.weeklyPace, pace > 0, let weekly = sevenDay else { return }
+                sevenDay = weekly + pace * interval / 3_600
+                return
+            }
             guard let pace = state.fiveHourPace, pace > 0 else { return }
             if fiveHourResetsAt == nil {
                 fiveHourResetsAt = now.addingTimeInterval(CoveragePlanner.fiveHourWindow)
@@ -87,9 +93,20 @@ public enum CoveragePlanner {
                 sevenDay: sevenDay.map { UsageWindow(utilization: $0, resetsAt: sevenDayResetsAt) },
                 sevenDayOpus: opus,
                 fetchedAt: now,
-                weeklyLimitUnreported: usage.weeklyLimitUnreported
+                weeklyLimitUnreported: usage.weeklyLimitUnreported,
+                fiveHourLimitRemoved: usage.fiveHourLimitRemoved
             )
             return copy
+        }
+
+        /// Hay con qué simular su gasto. Una cuenta sin ventana de 5 h solo
+        /// se agota por su semana, así que hace falta verla y saber su ritmo.
+        var isSimulable: Bool {
+            guard let usage = state.usage, !state.needsLogin else { return false }
+            if usage.fiveHourLimitRemoved {
+                return usage.sevenDay != nil && (state.weeklyPace ?? 0) > 0
+            }
+            return (state.fiveHourPace ?? 0) > 0
         }
     }
 
@@ -102,8 +119,8 @@ public enum CoveragePlanner {
         horizon: TimeInterval = CoveragePlanner.horizon
     ) -> CoverageForecast? {
         var accounts = states
-            .filter { $0.usage != nil && !$0.needsLogin && ($0.fiveHourPace ?? 0) > 0 }
             .map(Simulated.init)
+            .filter(\.isSimulable)
         guard let start = accounts.firstIndex(where: { $0.state.id == activeID }) else {
             return nil
         }

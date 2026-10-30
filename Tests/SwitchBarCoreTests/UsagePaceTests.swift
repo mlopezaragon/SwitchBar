@@ -292,3 +292,34 @@ private func ahoraMismo(_ puntosPorHora: Double) -> PaceEstimate {
     #expect(UsagePace.fiveHourDelta(from: cerrada, to: abierta) == 59)
     #expect(UsagePace.current([cerrada, abierta], now: minuto(11.4)) != nil)
 }
+
+// MARK: - Sin ventana de 5 h (Ultra verificada)
+
+@Test func sinVentanaDeCincoHorasElRitmoSeMideConLaSemana() throws {
+    // La semana sube un punto cada 12 minutos durante una hora.
+    let semanaEn = minuto(10_000)
+    let lecturas = (0...5).map { i in
+        UsageSample(at: minuto(Double(i) * 12), fiveHour: nil, sevenDay: 40 + Double(i), sevenDayResetsAt: semanaEn)
+    }
+    let ritmo = try #require(UsagePace.typicalWeekly(pooling: [lecturas]))
+    #expect(abs(ritmo - 5) < 0.01)
+    // La ventana de 5 h no mide nada en esas lecturas.
+    #expect(UsagePace.typical(lecturas) == nil)
+    // Con ventana de 5 h, la semana no se mide por esta vía.
+    let conVentana = lecturas.map {
+        UsageSample(at: $0.at, fiveHour: 10, fiveHourResetsAt: reinicio, sevenDay: $0.sevenDay, sevenDayResetsAt: semanaEn)
+    }
+    #expect(UsagePace.typicalWeekly(pooling: [conVentana]) == nil)
+}
+
+@Test func elRitmoSemanalSeDeduceDelDeCincoHorasMientrasNoHayMedida() {
+    let antes = TypicalPace(pointsPerHour: 20, measured: 3_600, weeklyPerFiveHour: 0.25)
+    #expect(PaceModel(byAccount: ["u": antes]).weeklyPace(for: "u", plan: .ultra) == 5)
+    // Lo medido sin ventana manda.
+    #expect(PaceModel(byAccount: ["u": antes], weeklyByAccount: ["u": 8]).weeklyPace(for: "u", plan: .ultra) == 8)
+    // Una cuenta sin medidas propias usa las de su plan.
+    let porPlan = PaceModel(byPlan: [.ultra: TypicalPace(pointsPerHour: 20, measured: 3_600, weeklyPerFiveHour: 0.5)])
+    #expect(porPlan.weeklyPace(for: "nueva", plan: .ultra) == 10)
+    #expect(porPlan.weeklyPace(for: "nueva", plan: .max) == nil)
+    #expect(PaceModel(weeklyByPlan: [.ultra: 6]).weeklyPace(for: "nueva", plan: .ultra) == 6)
+}

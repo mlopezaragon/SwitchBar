@@ -21,8 +21,12 @@ public struct AccountUsageState: Sendable {
     /// Cota alta del ritmo medido ahora mismo en esta cuenta. Solo la tiene
     /// la cuenta que se está usando; es la que decide un cambio por ritmo.
     public var fiveHourPaceUpper: Double?
-    /// Puntos de la semana general que cuesta cada punto de 5 h (Max).
+    /// Puntos de la semana general que cuesta cada punto de 5 h (Max, Ultra).
     public var weeklyPerFiveHour: Double?
+    /// Puntos de la semana general por hora que gastaría si se usara ahora,
+    /// en una cuenta sin límite de 5 h (Ultra verificada), que no tiene
+    /// ventana con la que medir. `nil` si todavía no se sabe.
+    public var weeklyPace: Double?
 
     public init(
         id: String,
@@ -32,7 +36,8 @@ public struct AccountUsageState: Sendable {
         hasPersonalCap: Bool = false,
         fiveHourPace: Double? = nil,
         fiveHourPaceUpper: Double? = nil,
-        weeklyPerFiveHour: Double? = nil
+        weeklyPerFiveHour: Double? = nil,
+        weeklyPace: Double? = nil
     ) {
         self.id = id
         self.usage = usage
@@ -42,6 +47,7 @@ public struct AccountUsageState: Sendable {
         self.fiveHourPace = fiveHourPace
         self.fiveHourPaceUpper = fiveHourPaceUpper
         self.weeklyPerFiveHour = weeklyPerFiveHour
+        self.weeklyPace = weeklyPace
     }
 }
 
@@ -69,8 +75,8 @@ public enum QuotaUrgency: Int, Sendable, Comparable {
     /// abrir: usarla no gasta cupo semanal, y su ventana vuelve a llenarse
     /// cinco horas después de abrirla.
     case renewable
-    /// Cuenta con límite semanal que no corre peligro de perderse (Max): se
-    /// reserva para cuando las demás no lleguen.
+    /// Cuenta con límite semanal que no corre peligro de perderse (Max,
+    /// Ultra): se reserva para cuando las demás no lleguen.
     case reserve
 
     public static func < (lhs: QuotaUrgency, rhs: QuotaUrgency) -> Bool {
@@ -94,8 +100,8 @@ public enum QuotaUrgency: Int, Sendable, Comparable {
 ///    van antes que las que obligarían a cambiar otra vez enseguida.
 /// 2. Lo que se perdería si no se usa (`QuotaUrgency`): primero el cupo que
 ///    caduca, después las cuentas sin límite semanal a la vista (Team), que
-///    solo gastan su ventana de 5 h, y por último las de límite semanal (Max),
-///    que se guardan para cuando haga falta. Dentro de cada grupo, las que
+///    solo gastan su ventana de 5 h, y por último las de límite semanal (Max,
+///    Ultra), que se guardan para cuando haga falta. Dentro de cada grupo, las que
 ///    seguirían activas al menos `comfortableRunway` van antes.
 /// 3. Dentro de cada grupo, la que antes perdería cupo: el reinicio de una
 ///    ventana de 5 h ya abierta con margen o el de su semana, aunque sea por
@@ -290,6 +296,12 @@ public struct AutoSwitchPolicy: Sendable {
         !(account.usage?.weeklyLimitUnreported ?? false)
     }
 
+    /// La cuenta tiene ventana de 5 h. Una Ultra verificada no: solo la
+    /// limitan sus semanas, y su ritmo se mide con `weeklyPace`.
+    public func hasFiveHourLimit(_ account: AccountUsageState) -> Bool {
+        !(account.usage?.fiveHourLimitRemoved ?? false)
+    }
+
     /// Reinicio de la ventana de 5 h si ya está abierta y le queda margen
     /// útil: lo que no se gaste antes de esa hora se pierde.
     public func openWindowReset(_ account: AccountUsageState, now: Date = Date()) -> Date? {
@@ -305,15 +317,22 @@ public struct AutoSwitchPolicy: Sendable {
     ///
     /// Su ventana de 5 h no deja gastar más de un cupo entero cada cinco
     /// horas, y cada punto de 5 h cuesta `weeklyPerFiveHour` de la semana.
-    /// Como no se trabaja sin parar, se cuenta con `assumedWorkShare` del
-    /// tiempo que falta. Sin esa medida, se da por perdida la semana que se
-    /// reinicia antes de `unmeasuredWeeklyRisk`.
+    /// Sin ventana de 5 h (Ultra verificada) no hay ese freno y cuenta el
+    /// ritmo semanal medido. Como no se trabaja sin parar, se cuenta con
+    /// `assumedWorkShare` del tiempo que falta. Sin esa medida, se da por
+    /// perdida la semana que se reinicia antes de `unmeasuredWeeklyRisk`.
     public func weeklyQuotaAtRisk(_ account: AccountUsageState, now: Date = Date()) -> Bool {
         guard let weekly = account.usage?.sevenDay,
               let reset = weekly.resetsAt, reset > now else { return false }
         let room = weeklyThreshold - weekly.utilization
         guard room >= Self.minimumUsefulRoom else { return false }
         let remaining = reset.timeIntervalSince(now)
+        guard hasFiveHourLimit(account) else {
+            guard let pace = account.weeklyPace, pace > 0 else {
+                return remaining <= Self.unmeasuredWeeklyRisk
+            }
+            return remaining * Self.assumedWorkShare <= room / pace * 3_600
+        }
         guard let ratio = account.weeklyPerFiveHour, ratio > 0 else {
             return remaining <= Self.unmeasuredWeeklyRisk
         }
@@ -339,6 +358,7 @@ public struct AutoSwitchPolicy: Sendable {
     /// una ventana nueva: por eso una ventana a punto de reiniciarse aguanta
     /// mucho más de lo que sugiere su porcentaje.
     public func runway(_ account: AccountUsageState, now: Date = Date()) -> TimeInterval? {
+        guard hasFiveHourLimit(account) else { return weeklyRunway(account, now: now) }
         guard switchesByPace,
               let pace = account.fiveHourPace, pace > 0,
               let usage = account.usage else { return nil }
@@ -360,16 +380,40 @@ public struct AutoSwitchPolicy: Sendable {
         return min(runway, Self.runwayHorizon)
     }
 
+    /// Autonomía de una cuenta sin ventana de 5 h: hasta agotar su semana al
+    /// ritmo semanal medido, salvo que antes se reinicie.
+    func weeklyRunway(_ account: AccountUsageState, now: Date) -> TimeInterval? {
+        guard switchesByPace,
+              let pace = account.weeklyPace, pace > 0,
+              let usage = account.usage else { return nil }
+        guard let weekly = usage.sevenDay else { return Self.runwayHorizon }
+        let toLimit = max(0, 100 - weekly.utilization) / pace * 3_600
+        if let reset = weekly.resetsAt, reset > now, reset.timeIntervalSince(now) < toLimit {
+            return Self.runwayHorizon
+        }
+        return min(toLimit, Self.runwayHorizon)
+    }
+
     /// Cuánto tiempo seguiría activa la cuenta, al ritmo medido, antes de que
     /// el umbral o el cambio por ritmo la dejaran, o `nil` sin ritmo.
     ///
     /// Es lo que sirve de verdad como destino: a 340 puntos/h una Team nueva
     /// tarda 18 minutos en llegar al 100 %, pero el cambio por ritmo la deja
     /// al 60 %, a los 10. Si la ventana se reinicia antes, la cuenta sigue con
-    /// una ventana nueva y vale su autonomía.
+    /// una ventana nueva y vale su autonomía. Sin ventana de 5 h, la deja el
+    /// umbral semanal.
     public func serviceTime(_ account: AccountUsageState, now: Date = Date()) -> TimeInterval? {
-        guard let runway = runway(account, now: now),
-              let pace = account.fiveHourPace, pace > 0 else { return nil }
+        guard let runway = runway(account, now: now) else { return nil }
+        guard hasFiveHourLimit(account) else {
+            guard let pace = account.weeklyPace, pace > 0,
+                  let weekly = account.usage?.sevenDay else { return runway }
+            let toLeave = max(0, weeklyThreshold - weekly.utilization) / pace * 3_600
+            if let reset = weekly.resetsAt, reset > now, reset.timeIntervalSince(now) < toLeave {
+                return runway
+            }
+            return min(toLeave, runway)
+        }
+        guard let pace = account.fiveHourPace, pace > 0 else { return nil }
         let paceLevel = 100 - pace * Self.paceRunway / 3_600
         let leaveAt = min(triggerThreshold, max(triggerThreshold - Self.paceTriggerMargin, paceLevel))
         let toLeave = max(0, leaveAt - fiveHourUtilization(account)) / pace * 3_600

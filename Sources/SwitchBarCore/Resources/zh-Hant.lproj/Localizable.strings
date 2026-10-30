@@ -18,6 +18,8 @@
 "account.plan.personal" = "個人帳號";
 "account.plan.organization" = "組織帳號";
 "account.plan.organization_named" = "組織「%@」的帳號";
+"account.plan.ultra_verified" = "已驗證的 Ultra 個人帳號：沒有 5 小時上限，只有每週上限。";
+"account.plan.ultra_unverified" = "尚未驗證的 Ultra 個人帳號：在驗證完成前有暫時的 5 小時上限。";
 
 "add_account.title.add" = "連結 Claude Code 帳號";
 "add_account.title.reconnect" = "重新登入";
@@ -102,15 +104,16 @@
 "auto_switch.unverified.body" = "無法確認其他帳號的用量，因此無法安全地選出帳號。稍後會自動重試。";
 "auto_switch.changed.title" = "已切換到 %@";
 "auto_switch.changed.body" = "%1$@ 新帳號的 5 小時用量為 %2$d%%。已開啟的工作階段仍保留在原帳號。";
+"auto_switch.changed.body.no_five_hour" = "%1$@ 新帳號沒有 5 小時上限，本週用量為 %2$d%%。已開啟的工作階段仍保留在原帳號。";
 "auto_switch.error" = "自動切換失敗：%@";
 "auto_switch.trigger.generic" = "已達到設定的用量限制。";
 "auto_switch.trigger.fable" = "Fable 已達到 %d%%。";
 "auto_switch.trigger.weekly" = "每週一般用量已達到 %d%%。";
 "auto_switch.trigger.five_hour" = "5 小時時段已達到 %d%%。";
 "auto_switch.next_reset" = "最早重設時間為 %@。";
-"auto_switch.choice_explanation" = "切換時優先用掉不用就會失效的額度：沒有可見每週上限的帳號（Team）中已開啟且仍有餘量的 5 小時時段，或依測得的速度在重設前來不及用完的每週額度。其次是只消耗 5 小時時段、沒有可見每週上限的帳號，最後才是有每週上限的帳號（Max），依每週重設順序留到需要時再用。已達到門檻或個人上限的帳號絕不會被選來工作。如果所有帳號都沒有餘量，會讓最先恢復的帳號（不包括設有個人上限的帳號）保持為目前帳號，讓 Claude Code 盡快繼續。";
+"auto_switch.choice_explanation" = "切換時優先用掉不用就會失效的額度：沒有可見每週上限的帳號（Team）中已開啟且仍有餘量的 5 小時時段，或依測得的速度在重設前來不及用完的每週額度。其次是只消耗 5 小時時段、沒有可見每週上限的帳號，最後才是有每週上限的帳號（Max、Ultra），依每週重設順序留到需要時再用。已達到門檻或個人上限的帳號絕不會被選來工作。如果所有帳號都沒有餘量，會讓最先恢復的帳號（不包括設有個人上限的帳號）保持為目前帳號，讓 Claude Code 盡快繼續。";
 "auto_switch.expiring_quota" = "自主模式：優先使用最先到期的額度";
-"auto_switch.expiring_quota.explanation" = "只要另一個至少有 15 個百分點餘量的帳號在這個順序中排在前面，SwitchBar 就會直接切換，不必等到達到上限：Team 帳號先於 Max 帳號使用，即將失效的額度先於可以等待的額度使用。手動選擇的帳號會一直保留，直到達到上限。手動離開的帳號會排到最後，直到其每週重設（沒有可見每週上限的帳號則直到其 5 小時時段重設）：你可能知道應用程式看不到的情況。";
+"auto_switch.expiring_quota.explanation" = "只要另一個至少有 15 個百分點餘量的帳號在這個順序中排在前面，SwitchBar 就會直接切換，不必等到達到上限：Team 帳號先於 Max 和 Ultra 帳號使用，即將失效的額度先於可以等待的額度使用。手動選擇的帳號會一直保留，直到達到上限。手動離開的帳號會排到最後，直到其每週重設（沒有可見每週上限的帳號則直到其 5 小時時段重設）：你可能知道應用程式看不到的情況。";
 "auto_switch.expiring.body" = "其每週額度將於%@重設，早於原帳號：先用掉這部分額度以免失效。已開啟的工作階段仍保留在原帳號。";
 "auto_switch.weekly_free.body" = "此帳號沒有可見的每週上限：先用它的 5 小時時段，其他帳號的每週額度留到需要時再用。已開啟的工作階段仍保留在原帳號。";
 "auto_switch.open_window.body" = "其 5 小時時段將於%@重設，仍有未用完的餘量：在失效前先用掉。已開啟的工作階段仍保留在原帳號。";
@@ -131,6 +134,8 @@
 "forecast.notification.title" = "額度即將用完";
 "forecast.notification.body" = "依目前速度，所有帳號將在 %1$@ 後達到上限。額度將於 %2$@ 恢復。";
 "forecast.notification.body_open" = "依目前速度，所有帳號將在 %@ 後達到上限。";
+"five_hour_removed.notification.title" = "已取消 5 小時上限";
+"five_hour_removed.notification.body" = "Anthropic 已驗證 %@ 並取消了它的 5 小時上限。今後只計算每週上限。";
 "forecast.explanation" = "假設你不間斷地工作、每個工作階段一直使用同一帳號直到用完，並由自動切換選擇下一個帳號。使用每個帳號實測的速度；尚未測量的帳號使用其方案的速度，沒有時使用使用中帳號的速度。沒有近期資料的帳號不計入。";
 "pace.current" = "%1$@ 的目前速度：每小時 %2$d 點 5 小時時段額度。";
 "pace.plan" = "%1$@：每工作小時 %2$d 點 5 小時時段額度（測量時長 %3$@）。";

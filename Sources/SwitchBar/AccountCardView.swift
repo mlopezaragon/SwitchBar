@@ -46,7 +46,11 @@ struct AccountCardView: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                     if let plan = profile.plan {
-                        PlanBadge(plan: plan, organizationName: profile.organizationName)
+                        PlanBadge(
+                            plan: plan,
+                            organizationName: profile.organizationName,
+                            fiveHourLimitRemoved: usage?.fiveHourLimitRemoved
+                        )
                     }
                     Spacer()
                     if isActive {
@@ -73,7 +77,11 @@ struct AccountCardView: View {
                 }
 
                 VStack(spacing: 5) {
-                    UsageBar(label: L10n.tr("usage.five_hours"), window: usage?.fiveHour, cap: profile.sharedFiveHourCap)
+                    // Una Ultra verificada no tiene límite de 5 h: no hay
+                    // barra que enseñar, igual que en claude.ai.
+                    if usage?.fiveHourLimitRemoved != true {
+                        UsageBar(label: L10n.tr("usage.five_hours"), window: usage?.fiveHour, cap: profile.sharedFiveHourCap)
+                    }
                     UsageBar(label: L10n.tr("usage.week"), window: usage?.sevenDay, cap: profile.sharedWeeklyCap,
                              unreported: usage?.weeklyLimitUnreported == true)
                     UsageBar(label: L10n.tr("usage.fable"), window: usage?.sevenDayOpus, cap: profile.sharedWeeklyCap)
