@@ -224,3 +224,27 @@ private func simulate(
     #expect(schedule.delayBeforeStart(now: pollingEpoch.addingTimeInterval(10)) == 20)
     #expect(schedule.delayBeforeStart(now: pollingEpoch.addingTimeInterval(45)) == 0)
 }
+
+@Test func aStandbyWhoseWindowJustResetIsReadInTheNextFreeSlot() throws {
+    // A Team account read at 95 % whose 5-hour window resets at 400 s. Its
+    // regular interval would wait until 600 s; the automatic switch wants to
+    // know right away that it has room again.
+    let reset = pollingEpoch.addingTimeInterval(400)
+    let team = UsageSnapshot(
+        fiveHour: UsageWindow(utilization: 95, resetsAt: reset),
+        sevenDay: nil, sevenDayOpus: nil, fetchedAt: pollingEpoch.addingTimeInterval(300)
+    )
+    var schedule = UsagePollingSchedule()
+    schedule.recordAttempt("team", now: pollingEpoch.addingTimeInterval(300))
+    let checks = simulate(
+        &schedule, accounts: ["active", "team"], active: "active",
+        activeInterval: 150, snapshots: ["team": team], from: 305, seconds: 290
+    )
+    let first = try #require(checks["team"]?.first)
+    #expect((460...495).contains(first))
+    // Only once: afterwards it follows its regular interval again.
+    #expect(checks["team"]?.count == 1)
+    #expect(UsagePollingSchedule.resetSinceLastCheck(team, lastCheck: reset, now: reset.addingTimeInterval(59)) == false)
+    #expect(UsagePollingSchedule.resetSinceLastCheck(team, lastCheck: reset, now: reset.addingTimeInterval(60)))
+    #expect(UsagePollingSchedule.resetSinceLastCheck(team, lastCheck: reset.addingTimeInterval(60), now: reset.addingTimeInterval(120)) == false)
+}

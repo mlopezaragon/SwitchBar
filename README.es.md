@@ -23,15 +23,16 @@ política automática.
 - Restablecimientos de límite concedidos por Anthropic, por cuenta y con
   su fecha límite.
 - Cambio de cuenta activa con un clic, con deshacer.
-- Cambio automático con umbrales independientes y configurables. Gasta
-  primero lo que se perdería si no se usa —una ventana de 5 h ya abierta con
-  margen, o una semana que no daría tiempo a gastar antes de su reinicio—,
-  después las cuentas sin límite semanal a la vista (Team), que solo gastan
-  su ventana de 5 h, y guarda las que tienen límite semanal (Max y Ultra)
-  para cuando hagan falta. Una Ultra verificada solo la limita su semana,
-  medida a su propio ritmo semanal. Nunca elige para trabajar una cuenta que esté en un umbral o en
-  su tope personal, y si ninguna tiene margen deja activa la que antes se
-  recupera, para que Claude Code siga cuanto antes. En modo autónomo
+- Cambio automático con umbrales independientes y configurables. Van
+  siempre primero las cuentas sin límite semanal a la vista (Team), que solo
+  gastan su ventana de 5 h: antes una ventana ya abierta con margen que una
+  sin abrir. Las que tienen límite semanal (Max y Ultra) solo se usan cuando
+  ninguna Team tiene margen, empezando por una semana que no daría tiempo a
+  gastar antes de su reinicio, y SwitchBar vuelve a una Team en cuanto alguna
+  recupera margen. Una Ultra verificada solo la limita su semana, medida a su
+  propio ritmo semanal. Nunca elige para trabajar una cuenta que esté en un
+  umbral o en su tope personal, y si ninguna tiene margen deja activa la que
+  antes se recupera, para que Claude Code siga cuanto antes. En modo autónomo
   (activado por omisión) mantiene activa la cuenta adecuada por sí sola, sin
   esperar a un límite. El panel marca la siguiente cuenta.
 - Ritmo de uso (activado por omisión): SwitchBar mide a qué ritmo se gasta

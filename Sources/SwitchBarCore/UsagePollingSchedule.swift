@@ -72,8 +72,22 @@ public struct UsagePollingSchedule: Sendable {
             .max()
     }
 
+    /// Una ventana de la cuenta se ha reiniciado desde la última vez que se
+    /// miró: hasta volver a leerla no se sabe su margen, y una Team que acaba
+    /// de recuperarlo es justo a la que el cambio automático quiere volver.
+    /// Un minuto de margen, como en `saturatedUntil`.
+    public static func resetSinceLastCheck(_ snapshot: UsageSnapshot?, lastCheck: Date, now: Date) -> Bool {
+        guard let snapshot else { return false }
+        return [snapshot.fiveHour, snapshot.sevenDay].contains { window in
+            guard let reset = window?.resetsAt?.addingTimeInterval(60) else { return false }
+            return reset <= now && lastCheck < reset
+        }
+    }
+
     /// Prioritize the active account whenever due, but give overdue standby
     /// accounts every other slot so a failure cannot starve all alternatives.
+    /// A standby account whose window reset since it was last read is due at
+    /// once, and only once, unless another quota still keeps it exhausted.
     public func nextAccount(
         accounts: [String], active: String?, snapshots: [String: UsageSnapshot],
         blocked: Set<String>, activeInterval: TimeInterval,
@@ -84,10 +98,16 @@ public struct UsagePollingSchedule: Sendable {
             max(lastAttemptByAccount[account] ?? .distantPast,
                 snapshots[account]?.fetchedAt ?? .distantPast)
         }
+        func justReset(_ account: String) -> Bool {
+            account != active
+                && Self.saturatedUntil(snapshots[account], now: now) == nil
+                && Self.resetSinceLastCheck(snapshots[account], lastCheck: lastCheck(account), now: now)
+        }
         func isDue(_ account: String) -> Bool {
             guard !blocked.contains(account), budget.canSpend(account, now: now) else {
                 return false
             }
+            if justReset(account) { return true }
             let elapsed = now.timeIntervalSince(lastCheck(account))
             if account == active { return elapsed >= activeInterval }
             guard elapsed >= inactiveInterval else { return false }
@@ -96,9 +116,12 @@ public struct UsagePollingSchedule: Sendable {
                 || elapsed >= Self.saturatedRecheckInterval
         }
         let due = accounts.filter(isDue)
+        func isUrgent(_ account: String) -> Bool {
+            prioritized.contains(account) || justReset(account)
+        }
         let standby = due.filter { $0 != active }.min {
-            if prioritized.contains($0) != prioritized.contains($1) {
-                return prioritized.contains($0)
+            if isUrgent($0) != isUrgent($1) {
+                return isUrgent($0)
             }
             return lastCheck($0) < lastCheck($1)
         }

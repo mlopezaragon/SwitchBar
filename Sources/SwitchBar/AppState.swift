@@ -1729,11 +1729,11 @@ final class AppState {
         switch policy.urgency(target, now: now) {
         case .renewable:
             return L10n.tr("auto_switch.weekly_free.body")
-        case .expiring where !policy.hasWeeklyLimit(target):
+        case .expiring:
             return policy.openWindowReset(target, now: now).map {
                 L10n.tr("auto_switch.open_window.body", relative($0))
             }
-        case .expiring:
+        case .weekAtRisk:
             return target.usage?.sevenDay?.resetsAt.map {
                 L10n.tr("auto_switch.weekly_at_risk.body", relative($0))
             }

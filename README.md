@@ -28,16 +28,18 @@ when a usage window fills up.
 - Limit resets granted by Anthropic, per account, with their deadline.
 - One-click switching of the active Claude Code account, with undo.
 - Automatic switching with independent, configurable thresholds per window.
-  It spends first whatever would be lost if unused — an already open 5-hour
-  window with room left, or a week that could not be spent before its reset —
-  then accounts with no visible weekly limit (Team), which only spend their
-  5-hour window, and keeps accounts with a weekly limit (Max and Ultra) for
-  when they are needed. A verified Ultra account is only limited by its
-  week, measured at its own weekly pace. It never picks an account at a threshold or at its personal cap
-  to work on, and when no account has room it leaves active the one that
-  recovers first, so Claude Code resumes as soon as possible. In autonomous
-  mode (on by default) it keeps the right account active on its own, without
-  waiting for a limit. The panel marks the next account.
+  Accounts with no visible weekly limit (Team), which only spend their
+  5-hour window, always go first: an already open window with room left
+  before an unopened one. Accounts with a weekly limit (Max and Ultra) are
+  used only when no Team account has room, starting with a week that could
+  not be spent before its reset, and SwitchBar goes back to a Team account as
+  soon as one has room again. A verified Ultra account is only limited by its
+  week, measured at its own weekly pace. It never picks an account at a
+  threshold or at its personal cap to work on, and when no account has room
+  it leaves active the one that recovers first, so Claude Code resumes as
+  soon as possible. In autonomous mode (on by default) it keeps the right
+  account active on its own, without waiting for a limit. The panel marks the
+  next account.
 - Usage pace (on by default): SwitchBar measures how fast each account is
   spent, switches before the threshold when the active account would run out
   within 20 minutes, avoids destinations that would last only minutes, and

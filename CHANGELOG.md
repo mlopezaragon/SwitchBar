@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.5.1 — 2026-10-30
+
+- Team accounts always go first. An account with no visible weekly limit
+  only spends its 5-hour window, which refills without costing any week, so
+  Max and Ultra accounts are now used only when no Team account has room,
+  and autonomous mode switches back to a Team account as soon as one has
+  room in its 5-hour window again (at least 15 points, and lasting at least
+  8 minutes at the measured pace). A Max or Ultra week that could not be
+  spent before its reset no longer goes before a Team account; it now only
+  goes first among accounts with a weekly limit. Under a load so heavy that
+  a fresh Team window would be left within minutes, a verified Ultra, which
+  has no 5-hour window, stays active.
+- A standby account whose window reset since it was last read is read in
+  the next free request slot instead of after its regular interval (up to
+  10 minutes), so the switch back to a Team account happens about a minute
+  after its 5-hour window resets. It is read once, within the request
+  budget, and not while another quota keeps it exhausted.
+
 ## 1.5.0 — 2026-10-30
 
 - Anthropic renamed its Max plans on 2026-10-30: Max 5x is now Max and

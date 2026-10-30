@@ -66,17 +66,26 @@ public enum CandidateRejection: Sendable, Equatable {
 
 /// Qué se perdería si una cuenta no se usara ahora. Ordena las candidatas
 /// antes que cualquier fecha de reinicio.
+///
+/// Las cuentas sin límite semanal a la vista (Team) van siempre antes que
+/// las de límite semanal (Max, Ultra): su ventana de 5 h vuelve a llenarse
+/// sin gastar semana, así que cuanto más se usen, más cupo queda. Las de
+/// límite semanal solo se usan cuando ninguna Team tiene margen, y se deja
+/// de usarlas en cuanto una lo recupera.
 public enum QuotaUrgency: Int, Sendable, Comparable {
-    /// Cupo que caduca si no se gasta: la ventana de 5 h ya abierta y con
-    /// margen de una cuenta sin límite semanal a la vista, o la semana de una
-    /// cuenta que no daría tiempo a gastar antes de su reinicio.
+    /// Cuenta sin límite semanal a la vista (Team) con su ventana de 5 h ya
+    /// abierta y con margen: lo que no se gaste antes de su reinicio se pierde.
     case expiring
     /// Cuenta sin límite semanal a la vista (Team) con su ventana de 5 h sin
     /// abrir: usarla no gasta cupo semanal, y su ventana vuelve a llenarse
     /// cinco horas después de abrirla.
     case renewable
-    /// Cuenta con límite semanal que no corre peligro de perderse (Max,
-    /// Ultra): se reserva para cuando las demás no lleguen.
+    /// Cuenta con límite semanal (Max, Ultra) cuya semana no daría tiempo a
+    /// gastar antes de su reinicio: es la primera de ellas cuando ninguna
+    /// Team tiene margen.
+    case weekAtRisk
+    /// Cuenta con límite semanal que no corre peligro de perderse: se
+    /// reserva para cuando las demás no lleguen.
     case reserve
 
     public static func < (lhs: QuotaUrgency, rhs: QuotaUrgency) -> Bool {
@@ -98,10 +107,11 @@ public enum QuotaUrgency: Int, Sendable, Comparable {
 /// 1. Las que tienen margen útil (`minimumUsefulRoom`) en todas sus ventanas
 ///    y no se dejarían en cuanto empezaran a usarse (`minimumServiceTime`)
 ///    van antes que las que obligarían a cambiar otra vez enseguida.
-/// 2. Lo que se perdería si no se usa (`QuotaUrgency`): primero el cupo que
-///    caduca, después las cuentas sin límite semanal a la vista (Team), que
-///    solo gastan su ventana de 5 h, y por último las de límite semanal (Max,
-///    Ultra), que se guardan para cuando haga falta. Dentro de cada grupo, las que
+/// 2. Lo que se perdería si no se usa (`QuotaUrgency`): siempre primero las
+///    cuentas sin límite semanal a la vista (Team), que solo gastan su
+///    ventana de 5 h (antes la que ya la tiene abierta con margen), y solo
+///    después las de límite semanal (Max, Ultra), empezando por la que no
+///    daría tiempo a gastar su semana. Dentro de cada grupo, las que
 ///    seguirían activas al menos `comfortableRunway` van antes.
 /// 3. Dentro de cada grupo, la que antes perdería cupo: el reinicio de una
 ///    ventana de 5 h ya abierta con margen o el de su semana, aunque sea por
@@ -345,7 +355,7 @@ public struct AutoSwitchPolicy: Sendable {
     /// Qué se perdería si la cuenta no se usara ahora.
     public func urgency(_ account: AccountUsageState, now: Date = Date()) -> QuotaUrgency {
         if hasWeeklyLimit(account) {
-            return weeklyQuotaAtRisk(account, now: now) ? .expiring : .reserve
+            return weeklyQuotaAtRisk(account, now: now) ? .weekAtRisk : .reserve
         }
         return openWindowReset(account, now: now) != nil ? .expiring : .renewable
     }
@@ -447,7 +457,7 @@ public struct AutoSwitchPolicy: Sendable {
     /// su ventana de 5 h no pierde nada, porque su semana sigue intacta.
     func deadline(_ account: AccountUsageState, urgency: QuotaUrgency, now: Date) -> Date? {
         switch urgency {
-        case .expiring: expiryDeadline(account, now: now)
+        case .expiring, .weekAtRisk: expiryDeadline(account, now: now)
         case .renewable: nil
         case .reserve: account.usage?.sevenDay?.resetsAt
         }
@@ -499,8 +509,9 @@ public struct AutoSwitchPolicy: Sendable {
     ///
     /// Mantiene activa la cuenta que va antes en el orden de elección: una
     /// de un grupo más urgente (`QuotaUrgency`), o del mismo grupo cuyo cupo
-    /// caduca al menos `anticipationMargin` antes. Así una cuenta Max cede
-    /// ante una Team con margen, y nadie deja caducar cupo en un reinicio.
+    /// caduca al menos `anticipationMargin` antes. Así, en cuanto una Team
+    /// recupera margen en su ventana de 5 h, una Max o Ultra le cede el
+    /// sitio, y nadie deja caducar cupo en un reinicio.
     /// El destino necesita un margen holgado (`anticipationMinimumRoom`) y,
     /// con ritmo medido, seguir activo al menos `anticipationMinimumService`:
     /// un cambio para unos minutos no compensa. Los umbrales se respetan igual que en
