@@ -110,7 +110,9 @@ public enum QuotaUrgency: Int, Sendable, Comparable {
 /// agotaría antes de `paceRunway`.
 /// Candidatas: cuentas con sesión válida, datos de uso, y las ventanas
 /// relevantes por debajo de sus respectivos umbrales. Una cuenta en su umbral
-/// nunca es destino, por mucho cupo que le vaya a caducar.
+/// nunca es destino, por mucho cupo que le vaya a caducar. Un cambio por
+/// ritmo, con la activa aún bajo su umbral, solo va a una cuenta que no se
+/// dejaría enseguida (`accepts`).
 /// Elección, por este orden:
 /// 0. Las que el usuario no ha abandonado a mano (`leftByUser`) van antes.
 /// 1. Las que tienen margen útil (`minimumUsefulRoom`) en todas sus ventanas
@@ -524,6 +526,37 @@ public struct AutoSwitchPolicy: Sendable {
         return candidates.min { rank($0, now: now) < rank($1, now: now) }?.id
     }
 
+    /// La cuenta sirve de destino para dejar la activa.
+    ///
+    /// Con la activa en su umbral vale cualquier candidata, aunque solo sea
+    /// último recurso. Si solo la mueve el ritmo, aún le queda margen, y sus
+    /// sesiones abiertas la siguen gastando igual: cambiar a una cuenta que
+    /// también se dejaría enseguida no gana nada y, al llegar a ella, el
+    /// ritmo devolvería el cambio. Las dos se pasarían el turno sin parar.
+    public func accepts(
+        _ target: AccountUsageState,
+        from active: AccountUsageState,
+        now: Date = Date()
+    ) -> Bool {
+        guard target.id != active.id, isCandidate(target) else { return false }
+        return reachedThreshold(active)
+            || !wouldLeaveRightAway(target, service: serviceTime(target, now: now))
+    }
+
+    /// A qué cuenta cambiar cuando la activa tiene que dejarse, o nil si
+    /// ninguna la acepta (`accepts`).
+    public func switchTarget(
+        active: AccountUsageState,
+        others: [AccountUsageState],
+        now: Date = Date()
+    ) -> String? {
+        bestCandidate(
+            active: active,
+            others: others.filter { accepts($0, from: active, now: now) },
+            now: now
+        )
+    }
+
     /// Decisión completa: a qué cuenta cambiar dada la situación actual, o nil.
     public func decision(
         active: AccountUsageState,
@@ -531,7 +564,7 @@ public struct AutoSwitchPolicy: Sendable {
         now: Date = Date()
     ) -> String? {
         guard shouldSwitch(active: active) else { return nil }
-        return bestCandidate(active: active, others: all, now: now)
+        return switchTarget(active: active, others: all, now: now)
     }
 
     /// Cuenta a la que conviene cambiar aunque la activa no esté en ningún
@@ -606,7 +639,7 @@ public struct AutoSwitchPolicy: Sendable {
         return reset
     }
 
-    /// Cuenta que dejar activa cuando la activa tiene que cambiar y ninguna
+    /// Cuenta que dejar activa cuando la activa llegó a su umbral y ninguna
     /// otra tiene margen, o nil.
     ///
     /// Claude Code, al agotar su cuenta, sigue con la que esté activa y
@@ -616,12 +649,15 @@ public struct AutoSwitchPolicy: Sendable {
     /// tope personal: esperar en ellas no gasta semana ni el cupo de otra
     /// persona. Debe recuperarse al menos `recoveryMargin` antes que la
     /// activa; si no, no compensa cambiar.
+    ///
+    /// Por ritmo no se espera: a la activa aún le queda margen, y desde una
+    /// cuenta agotada el cambio ordinario volvería enseguida a ella.
     public func recoveryTarget(
         active: AccountUsageState,
         all: [AccountUsageState],
         now: Date = Date()
     ) -> String? {
-        guard shouldSwitch(active: active),
+        guard reachedThreshold(active),
               bestCandidate(active: active, others: all, now: now) == nil else { return nil }
         let activeRecovery = recovery(ofActive: active, now: now)
         let waiting = all.compactMap { account -> (id: String, at: Date)? in

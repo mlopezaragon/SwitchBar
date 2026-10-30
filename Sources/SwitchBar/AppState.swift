@@ -122,10 +122,12 @@ final class AppState {
     private(set) var manualLoginAt: Date?
     private let manualLoginGracePeriod: TimeInterval = 15 * 60
     /// Último cambio automático. Adelantarse a un cupo que caduca espera un
-    /// rato después de cualquier cambio, para que unos datos que oscilan no
-    /// hagan saltar de una cuenta a otra.
+    /// rato después de cualquier cambio, y cambiar por ritmo otro más corto,
+    /// para que unos datos que oscilan no hagan saltar de una cuenta a otra.
+    /// El umbral no espera nunca.
     private var lastAutomaticSwitchAt: Date?
     private let expiringQuotaSwitchCooldown: TimeInterval = 10 * 60
+    private let paceSwitchCooldown: TimeInterval = AutoSwitchPolicy.minimumServiceTime
     /// Cuentas de las que el usuario salió a mano, hasta su reinicio semanal.
     /// Ver `AccountUsageState.leftByUser`.
     private var leftByUserUntil: [String: Date] = [:]
@@ -463,24 +465,35 @@ final class AppState {
         paceModel = PaceModel(history: usageHistory, plans: plans)
     }
 
-    /// Ritmo de la cuenta activa en la última media hora, contando también
-    /// la lectura más reciente aunque no se haya guardado por repetida.
     private var activeCurrentPace: PaceEstimate? {
-        guard let activeProfileID else { return nil }
-        var samples = usageHistory.samples(for: activeProfileID)
-        if let latest = usageByAccount[activeProfileID].map(UsageSample.init),
+        activeProfileID.flatMap(currentPace)
+    }
+
+    /// Ritmo de una cuenta en la última media hora, contando también la
+    /// lectura más reciente aunque no se haya guardado por repetida.
+    private func currentPace(for profileID: String) -> PaceEstimate? {
+        var samples = usageHistory.samples(for: profileID)
+        if let latest = usageByAccount[profileID].map(UsageSample.init),
            latest.at > (samples.last?.at ?? .distantPast) {
             samples.append(latest)
         }
         return UsagePace.current(samples, now: max(monitoringDate, Date()))
     }
 
+    /// Las sesiones abiertas siguen con su cuenta tras un cambio: la que se
+    /// acaba de dejar se sigue gastando, y como destino vale lo que se le
+    /// mide, no su ritmo habitual.
     private func paceContext() -> PaceContext {
-        PaceContext(
+        let standby = profilesList.filter { $0.id != activeProfileID }
+        return PaceContext(
             model: paceModel,
             activeID: activeProfileID,
             activePlan: activeProfile?.plan,
-            activeCurrent: activeCurrentPace
+            activeCurrent: activeCurrentPace,
+            standbyCurrent: Dictionary(
+                standby.compactMap { profile in currentPace(for: profile.id).map { (profile.id, $0) } },
+                uniquingKeysWith: { first, _ in first }
+            )
         )
     }
 
@@ -1532,7 +1545,7 @@ final class AppState {
     private func autoSwitchCandidate(
         policy: AutoSwitchPolicy, active: AccountUsageState, states: [AccountUsageState]
     ) -> String? {
-        policy.bestCandidate(active: active, others: verifiableStates(states))
+        policy.switchTarget(active: active, others: verifiableStates(states))
     }
 
     /// Do not let an account whose usage endpoint is in cooldown hold up a
@@ -1552,7 +1565,7 @@ final class AppState {
         guard autoSwitchEnabled, let activeProfileID else { return nil }
         let states = autoSwitchStates()
         guard let active = states.first(where: { $0.id == activeProfileID }) else { return nil }
-        return autoSwitchCandidate(policy: autoSwitchPolicy, active: active, states: states)
+        return autoSwitchPolicy.bestCandidate(active: active, others: verifiableStates(states))
     }
 
     /// Hasta cuándo alcanza el cupo de todas las cuentas si se sigue
@@ -1638,6 +1651,13 @@ final class AppState {
             await anticipateExpiringQuotaIfNeeded(policy: policy, active: activeState, states: states)
             return
         }
+        // Las sesiones abiertas siguen gastando la cuenta que se deja: justo
+        // después de un cambio, el ritmo de las dos aún no dice nada fiable.
+        if !policy.reachedThreshold(activeState),
+           let lastAutomaticSwitchAt,
+           Date().timeIntervalSince(lastAutomaticSwitchAt) < paceSwitchCooldown {
+            return
+        }
         var target = autoSwitchCandidate(policy: policy, active: activeState, states: states)
         // Antes de darse por vencido: las cuentas descartadas solo por no
         // tener datos vigentes se consultan ahora mismo. Sin esto, una racha
@@ -1669,6 +1689,13 @@ final class AppState {
         }
         let triggerDescription = autoSwitchTriggerDescription(activeState)
         guard let target else {
+            // Por ritmo, la activa aún tiene margen: si las cuentas que lo
+            // tienen también se dejarían enseguida, se sigue en ella hasta
+            // su umbral. No falta ninguna cuenta: no hay nada que avisar.
+            if !policy.reachedThreshold(activeState),
+               policy.bestCandidate(active: activeState, others: verifiableStates(states)) != nil {
+                return
+            }
             if await waitOnFirstRecoveryIfNeeded(policy: policy, active: activeState, states: states) {
                 return
             }
@@ -1676,7 +1703,7 @@ final class AppState {
             return
         }
         guard await verifyDestination(target, from: active, isValid: { activeState, targetState, _ in
-            policy.shouldSwitch(active: activeState) && policy.isCandidate(targetState)
+            policy.shouldSwitch(active: activeState) && policy.accepts(targetState, from: activeState)
         }) else { return }
         lastNoCandidateNotice = nil
         let targetUsage = usageByAccount[target]

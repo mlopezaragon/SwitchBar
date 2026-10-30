@@ -301,7 +301,8 @@ public struct PaceModel: Sendable, Equatable {
 /// intensidad: las demás cuentas se estiman con su ritmo habitual escalado
 /// por esa intensidad. Si no, con su ritmo habitual. Una cuenta sin medidas
 /// propias usa las de su plan y, a falta de ellas, se supone que rinde como
-/// la activa.
+/// la activa. Una cuenta en espera que sus sesiones abiertas siguen gastando
+/// nunca se estima por debajo de lo que se le mide ahora.
 public struct PaceContext: Sendable, Equatable {
     /// Por debajo de este ritmo la cuenta activa se considera parada.
     public static let workingPace: Double = 1
@@ -309,6 +310,8 @@ public struct PaceContext: Sendable, Equatable {
 
     public var basis: CoverageForecast.Basis
     public var activeCurrent: PaceEstimate?
+    /// Ritmo medido ahora en las cuentas que no son la activa.
+    public var standbyCurrent: [String: PaceEstimate]
     /// Cuánto más (o menos) se trabaja ahora que de costumbre.
     public var intensity: Double
     /// Ritmo de la activa con el que se estiman las cuentas sin medidas.
@@ -319,10 +322,12 @@ public struct PaceContext: Sendable, Equatable {
         model: PaceModel,
         activeID: String?,
         activePlan: AccountPlan?,
-        activeCurrent: PaceEstimate?
+        activeCurrent: PaceEstimate?,
+        standbyCurrent: [String: PaceEstimate] = [:]
     ) {
         self.model = model
         self.activeCurrent = activeCurrent
+        self.standbyCurrent = standbyCurrent
         let typical = activeID.flatMap { model.typical(for: $0, plan: activePlan) }
         if let current = activeCurrent, current.pointsPerHour >= Self.workingPace {
             basis = .currentPace
@@ -344,10 +349,14 @@ public struct PaceContext: Sendable, Equatable {
         if isActive, basis == .currentPace, let current = activeCurrent {
             return current.pointsPerHour
         }
-        if let typical = model.typical(for: account, plan: plan) {
-            return typical.pointsPerHour * intensity
-        }
-        return reference
+        let estimate = model.typical(for: account, plan: plan)
+            .map { $0.pointsPerHour * intensity } ?? reference
+        // Un cambio solo mueve las sesiones nuevas: las abiertas siguen
+        // gastando la cuenta al ritmo que se le mide.
+        guard !isActive,
+              let own = standbyCurrent[account]?.pointsPerHour,
+              own >= Self.workingPace else { return estimate }
+        return max(estimate ?? 0, own)
     }
 
     public func weeklyPerFiveHour(for account: String, plan: AccountPlan?) -> Double? {

@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.5.2 — 2026-10-30
+
+- Automatic switching no longer bounces between two accounts. Open Claude
+  Code sessions keep their account after a switch, so two Team accounts
+  being spent at once each looked about to run out while active, and the
+  pace trigger kept swapping one for the other on every poll. A switch by
+  pace, with the active account still under its threshold, now only goes
+  to an account that would not be left again right away (at least 5 points
+  of room and 5 minutes of service at the measured pace); otherwise
+  SwitchBar stays on the active account until its threshold, which still
+  switches as before, even to a last-resort account. A switch by pace also
+  no longer happens within 5 minutes of another automatic switch, and no
+  longer parks Claude Code on an exhausted account while the active one
+  still has room.
+- A standby account that its open sessions keep spending is now judged by
+  the pace measured on it, not by its usual pace, so the account just left
+  no longer looks like a good destination.
+
 ## 1.5.1 — 2026-10-30
 
 - Team accounts always go first. An account with no visible weekly limit

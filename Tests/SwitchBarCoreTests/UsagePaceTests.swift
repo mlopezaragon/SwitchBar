@@ -243,6 +243,25 @@ private func ahoraMismo(_ puntosPorHora: Double) -> PaceEstimate {
     #expect(contexto.expectedPace(for: "desconocida", plan: nil, isActive: false) == 30)
 }
 
+@Test func unaCuentaEnEsperaQueSeSigueGastandoValeLoQueSeLeMide() {
+    let modelo = PaceModel(
+        byAccount: ["activa": habitual(30), "dejada": habitual(30), "parada": habitual(30)],
+        byPlan: [.team: habitual(30)]
+    )
+    let contexto = PaceContext(
+        model: modelo,
+        activeID: "activa",
+        activePlan: .team,
+        activeCurrent: ahoraMismo(30),
+        standbyCurrent: ["dejada": ahoraMismo(200), "parada": ahoraMismo(10), "activa": ahoraMismo(500)]
+    )
+    // Sus sesiones abiertas la siguen gastando a 200 puntos/h.
+    #expect(contexto.expectedPace(for: "dejada", plan: .team, isActive: false) == 200)
+    // Gastarse poco ahora no rebaja lo que se espera de ella.
+    #expect(contexto.expectedPace(for: "parada", plan: .team, isActive: false) == 30)
+    #expect(contexto.expectedPace(for: "activa", plan: .team, isActive: true) == 30)
+}
+
 @Test func laIntensidadTieneUnLimite() {
     let modelo = PaceModel(byAccount: ["activa": habitual(10)])
     let rafaga = PaceContext(model: modelo, activeID: "activa", activePlan: nil, activeCurrent: ahoraMismo(200))

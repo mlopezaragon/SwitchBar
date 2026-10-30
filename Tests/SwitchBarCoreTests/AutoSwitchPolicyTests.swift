@@ -680,11 +680,15 @@ private func medida(
     #expect(politica.recoveryTarget(active: holgada, all: [pronto], now: ahora) == nil)
 }
 
-@Test func alRitmoActualTambienSeEsperaEnLaPrimeraQueSeRecupera() {
-    // Aún al 75 %, pero a 90 puntos/h se agota en menos de 20 minutos.
+@Test func porRitmoNoSeEsperaEnUnaCuentaAgotada() {
+    // Aún al 75 %, pero a 90 puntos/h se agota en menos de 20 minutos. Desde
+    // b, agotada, el cambio ordinario volvería enseguida a a: se sigue en a
+    // hasta su umbral, y entonces sí se espera en b.
     let deprisa = medida("a", fiveHour: 75, cincoEn: 4, ritmoAlto: 90)
     let pronto = medida("b", fiveHour: 100, cincoEn: 0.25)
-    #expect(conRitmo.recoveryTarget(active: deprisa, all: [deprisa, pronto], now: ahora) == "b")
+    #expect(conRitmo.recoveryTarget(active: deprisa, all: [deprisa, pronto], now: ahora) == nil)
+    let enUmbral = medida("a", fiveHour: 90, cincoEn: 4, ritmoAlto: 90)
+    #expect(conRitmo.recoveryTarget(active: enUmbral, all: [enUmbral, pronto], now: ahora) == "b")
 }
 
 @Test func unaActivaSinSemanaEsperaEnUnaQueVuelvaAntes() {
@@ -739,6 +743,49 @@ private func medida(
     let autonomaConRitmo = AutoSwitchPolicy(anticipatesExpiringQuota: true, switchesByPace: true)
     let activaMax = medida("a", fiveHour: 20, cincoEn: 4, sevenDay: 30, semanaEn: 100, ritmo: 72, semanaPorPunto: 0.25)
     #expect(autonomaConRitmo.expiringQuotaTarget(active: activaMax, all: [activaMax, team], now: ahora) == "b")
+}
+
+// MARK: - Cambio por ritmo sin ida y vuelta
+
+private let umbral95ConRitmo = AutoSwitchPolicy(triggerThreshold: 95, switchesByPace: true)
+
+@Test func porRitmoSeCambiaAUnaCuentaQueAguanta() {
+    let deprisa = medida("a", fiveHour: 75, cincoEn: 4, ritmo: 85, ritmoAlto: 90)
+    let nueva = medida("b", fiveHour: nil, ritmo: 60)
+    #expect(conRitmo.decision(active: deprisa, all: [deprisa, nueva], now: ahora) == "b")
+}
+
+@Test func dosTeamsQueSeGastanALaVezNoSePasanElTurno() {
+    // 30/10/2026: backend al 94 % y mlopara al 80 %, las dos gastándose por
+    // sus sesiones abiertas. Cada una, activa, se agotaba en minutos y el
+    // ritmo la cambiaba por la otra, que también: un cambio por sondeo.
+    let backend = medida("backend", fiveHour: 94, cincoEn: 3.5, ritmo: 40, ritmoAlto: 40)
+    let mlopara = medida("mlopara", fiveHour: 80, cincoEn: 4.5, ritmo: 200, ritmoAlto: 200)
+    #expect(umbral95ConRitmo.paceRequiresSwitch(backend))
+    #expect(umbral95ConRitmo.paceRequiresSwitch(mlopara))
+    // A un punto del umbral, backend no sirve para dejar mlopara por ritmo,
+    // ni mlopara, que se gasta a 200 puntos/h, para dejar backend.
+    #expect(umbral95ConRitmo.decision(active: mlopara, all: [mlopara, backend], now: ahora) == nil)
+    #expect(umbral95ConRitmo.decision(active: backend, all: [backend, mlopara], now: ahora) == nil)
+    #expect(umbral95ConRitmo.recoveryTarget(active: mlopara, all: [mlopara, backend], now: ahora) == nil)
+    // Si mlopara no se estuviera gastando, sí convendría.
+    let mloparaParada = medida("mlopara", fiveHour: 80, cincoEn: 4.5, ritmo: 30)
+    #expect(umbral95ConRitmo.decision(active: backend, all: [backend, mloparaParada], now: ahora) == "mlopara")
+    // En su umbral, backend se deja igualmente, aunque sea por un último recurso.
+    let backendEnUmbral = medida("backend", fiveHour: 95, cincoEn: 3.5, ritmo: 40, ritmoAlto: 40)
+    #expect(umbral95ConRitmo.decision(active: backendEnUmbral, all: [backendEnUmbral, mlopara], now: ahora) == "mlopara")
+    // Y desde mlopara ya no hay vuelta: backend está en su umbral.
+    #expect(umbral95ConRitmo.decision(active: mlopara, all: [mlopara, backendEnUmbral], now: ahora) == nil)
+}
+
+@Test func porRitmoUnUltimoRecursoNoSeAceptaPeroSiHayOtraMejorSeElige() {
+    let deprisa = medida("a", fiveHour: 75, cincoEn: 4, ritmoAlto: 90)
+    let casiLlena = medida("b", fiveHour: 88, cincoEn: 0.5, ritmo: 30)
+    let holgada = medida("c", fiveHour: 10, cincoEn: 4, ritmo: 30)
+    #expect(!conRitmo.accepts(casiLlena, from: deprisa, now: ahora))
+    #expect(conRitmo.accepts(holgada, from: deprisa, now: ahora))
+    #expect(conRitmo.decision(active: deprisa, all: [deprisa, casiLlena, holgada], now: ahora) == "c")
+    #expect(conRitmo.decision(active: deprisa, all: [deprisa, casiLlena], now: ahora) == nil)
 }
 
 // MARK: - Ultra verificada: sin ventana de 5 h
