@@ -866,3 +866,178 @@ private func ultraVerificada(
     let teamFugaz = medida("t", fiveHour: 0, opus: 0, fableEn: 90, ritmo: 1_500)
     #expect(autonomaConRitmo.expiringQuotaTarget(active: ultra, all: [ultra, teamFugaz], now: ahora) == nil)
 }
+
+// MARK: - Team con límite semanal (desde el 2 de noviembre de 2026)
+
+/// Cuenta Team tal y como llega desde el 2 de noviembre de 2026: con su
+/// semana general, que en el Mac del usuario cuesta unos 0,17 puntos por
+/// cada punto de 5 h (una ventana entera, un 17 % de la semana).
+private func teamConSemana(
+    _ uuid: String,
+    fiveHour: Double? = 0,
+    cincoEn: Double? = nil,
+    semana: Double,
+    semanaEn: Double,
+    ritmo: Double = 85
+) -> AccountUsageState {
+    medida(
+        uuid,
+        fiveHour: fiveHour,
+        cincoEn: cincoEn,
+        sevenDay: semana,
+        semanaEn: semanaEn,
+        opus: 0,
+        fableEn: semanaEn,
+        ritmo: ritmo,
+        semanaPorPunto: 0.17
+    )
+}
+
+private let autonomaConRitmo = AutoSwitchPolicy(anticipatesExpiringQuota: true, switchesByPace: true)
+
+@Test func conLaSemanaDeLasTeamALaVistaSeGastaPrimeroLaQueAntesCaduca() {
+    // El panel del 4 de noviembre de 2026: cinco Team y dos Ultra, cada una
+    // con su semana. rrhh pierde lo que le queda en 14 h; mlopara (Team) no
+    // daría tiempo a gastar su semana antes de 38 h; las demás pueden esperar.
+    let rrhh = teamConSemana("rrhh", semana: 36, semanaEn: 14.5)
+    let mloparaTeam = teamConSemana("mlopara-team", semana: 10, semanaEn: 38.5)
+    let compliance = teamConSemana("compliance", fiveHour: 3, cincoEn: 4.5, semana: 26, semanaEn: 101.5)
+    let info = ultraVerificada("info", sevenDay: 55, semanaEn: 112.5, ritmoSemanal: 8)
+    let formacion = teamConSemana("formacion", semana: 15, semanaEn: 145.5)
+    let backend = teamConSemana("backend", semana: 12, semanaEn: 156.5)
+    let mloparaMax = medida("mlopara-max", fiveHour: 0, sevenDay: 97, semanaEn: 26.5, ritmo: 20, semanaPorPunto: 0.22)
+    #expect(conRitmo.urgency(rrhh, now: ahora) == .weekAtRisk)
+    #expect(conRitmo.urgency(mloparaTeam, now: ahora) == .weekAtRisk)
+    #expect(conRitmo.urgency(compliance, now: ahora) == .reserve)
+    #expect(conRitmo.urgency(info, now: ahora) == .reserve)
+    #expect(conRitmo.urgency(backend, now: ahora) == .reserve)
+
+    var todas = [backend, formacion, info, compliance, mloparaMax, mloparaTeam, rrhh]
+    #expect(conRitmo.decision(active: agotada, all: todas, now: ahora) == "rrhh")
+    todas.removeLast()
+    #expect(conRitmo.decision(active: agotada, all: todas, now: ahora) == "mlopara-team")
+    todas.removeLast()
+    #expect(conRitmo.decision(active: agotada, all: todas, now: ahora) == "compliance")
+    todas.removeAll { $0.id == "compliance" }
+    // Una Ultra cuya semana caduca antes va antes que dos Team.
+    #expect(conRitmo.decision(active: agotada, all: todas, now: ahora) == "info")
+
+    // El modo autónomo deja mlopara (Team) por rrhh, aunque la elegida
+    // también sea Team y tenga margen; y desde rrhh no se mueve.
+    let todasConActiva = [backend, formacion, info, compliance, mloparaMax, mloparaTeam, rrhh]
+    #expect(autonomaConRitmo.expiringQuotaTarget(active: mloparaTeam, all: todasConActiva, now: ahora) == "rrhh")
+    #expect(autonomaConRitmo.expiringQuotaTarget(active: backend, all: todasConActiva, now: ahora) == "rrhh")
+    #expect(autonomaConRitmo.expiringQuotaTarget(active: rrhh, all: todasConActiva, now: ahora) == nil)
+}
+
+@Test func unaTeamConSemanaYaNoVaSiempreAntesQueUnaUltra() {
+    // La semana de la Ultra caduca antes: se gasta primero, y desde ella no
+    // se vuelve a la Team.
+    let formacion = teamConSemana("f", fiveHour: 10, cincoEn: 4, semana: 15, semanaEn: 145.5)
+    let info = ultraVerificada("i", sevenDay: 55, semanaEn: 112.5, ritmoSemanal: 8)
+    #expect(autonomaConRitmo.expiringQuotaTarget(active: formacion, all: [formacion, info], now: ahora) == "i")
+    #expect(autonomaConRitmo.expiringQuotaTarget(active: info, all: [formacion, info], now: ahora) == nil)
+    // Una Team que no informa de su semana sigue yendo antes que todas.
+    let teamSinSemana = medida("t", fiveHour: 10, cincoEn: 4, opus: 0, fableEn: 145.5, ritmo: 85)
+    #expect(autonomaConRitmo.expiringQuotaTarget(active: info, all: [teamSinSemana, info], now: ahora) == "t")
+}
+
+@Test func unaVentanaAbiertaNoRetrasaLaSemanaQueAntesCaduca() {
+    // mlopara acaba de abrir su ventana y su semana corre peligro, pero la
+    // de rrhh caduca antes: va primero, y desde rrhh no se vuelve a mlopara.
+    let mloparaAbierta = teamConSemana("m", fiveHour: 3, cincoEn: 4.9, semana: 10, semanaEn: 38.5)
+    let rrhh = teamConSemana("r", semana: 36, semanaEn: 14.5)
+    #expect(conRitmo.urgency(mloparaAbierta, now: ahora) == .weekAtRisk)
+    #expect(conRitmo.decision(active: agotada, all: [mloparaAbierta, rrhh], now: ahora) == "r")
+    #expect(autonomaConRitmo.expiringQuotaTarget(active: mloparaAbierta, all: [mloparaAbierta, rrhh], now: ahora) == "r")
+    let rrhhAbierta = teamConSemana("r", fiveHour: 10, cincoEn: 4.9, semana: 37, semanaEn: 14.5)
+    #expect(autonomaConRitmo.expiringQuotaTarget(active: rrhhAbierta, all: [mloparaAbierta, rrhhAbierta], now: ahora) == nil)
+    // Tampoco una ventana a punto de reiniciarse: lo que no gaste se puede
+    // gastar en la siguiente mientras dure su semana, y la de rrhh no espera.
+    let mloparaApurada = teamConSemana("m", fiveHour: 30, cincoEn: 0.5, semana: 10, semanaEn: 38.5)
+    #expect(conRitmo.openWindowAtRisk(mloparaApurada, now: ahora))
+    #expect(conRitmo.decision(active: agotada, all: [mloparaApurada, rrhh], now: ahora) == "r")
+    #expect(autonomaConRitmo.expiringQuotaTarget(active: rrhhAbierta, all: [mloparaApurada, rrhhAbierta], now: ahora) == nil)
+}
+
+@Test func conPocoTrabajoTambienMandaElReinicioSemanal() {
+    // Lecturas reales del 4 de noviembre de 2026, trabajando a unos 15 puntos
+    // por hora: las dos ventanas abiertas parecen perderse, pero solo la
+    // semana de rrhh caduca de verdad antes.
+    let mlopara = teamConSemana("m", fiveHour: 7, cincoEn: 4.6, semana: 11, semanaEn: 38.1, ritmo: 19)
+    let rrhh = teamConSemana("r", fiveHour: 2, cincoEn: 4.8, semana: 37, semanaEn: 14.1, ritmo: 13)
+    #expect(conRitmo.openWindowAtRisk(mlopara, now: ahora))
+    #expect(conRitmo.openWindowAtRisk(rrhh, now: ahora))
+    #expect(conRitmo.bestCandidate(active: agotada, others: [mlopara, rrhh], now: ahora) == "r")
+    #expect(autonomaConRitmo.expiringQuotaTarget(active: mlopara, all: [mlopara, rrhh], now: ahora) == "r")
+    #expect(autonomaConRitmo.expiringQuotaTarget(active: rrhh, all: [mlopara, rrhh], now: ahora) == nil)
+}
+
+@Test func unaCuentaElegidaAManoSeRespetaUnaVentana() {
+    #expect(AutoSwitchPolicy.manualChoiceHolds(madeAt: horas(-1), now: ahora))
+    #expect(AutoSwitchPolicy.manualChoiceHolds(madeAt: horas(-4.9), now: ahora))
+    #expect(!AutoSwitchPolicy.manualChoiceHolds(madeAt: horas(-5), now: ahora))
+    // Las versiones anteriores no guardaban la fecha: ya no frena.
+    #expect(!AutoSwitchPolicy.manualChoiceHolds(madeAt: nil, now: ahora))
+}
+
+@Test func conMuchaCargaMandaElReinicioSemanalAunqueLaTeamDureMenos() {
+    // Con varias sesiones a la vez una Team nueva dura unos diez minutos y
+    // una Ultra verificada horas. Aun así, si la semana de la Team caduca
+    // antes, se gasta antes.
+    let teamCargada = teamConSemana("t", semana: 20, semanaEn: 100, ritmo: 340)
+    let ultra = ultraVerificada("u", sevenDay: 30, semanaEn: 120, ritmoSemanal: 8)
+    #expect(conRitmo.serviceTime(teamCargada, now: ahora).map { $0 < AutoSwitchPolicy.comfortableRunway } == true)
+    #expect(conRitmo.decision(active: agotada, all: [ultra, teamCargada], now: ahora) == "t")
+    let ultraAntes = ultraVerificada("u", sevenDay: 30, semanaEn: 90, ritmoSemanal: 8)
+    #expect(conRitmo.decision(active: agotada, all: [ultraAntes, teamCargada], now: ahora) == "u")
+}
+
+@Test func seVuelveALaSemanaQueAntesCaducaEnCuantoRecuperaSuVentana() {
+    let mlopara = teamConSemana("m", fiveHour: 20, cincoEn: 4, semana: 14, semanaEn: 38.5)
+    // rrhh agotó su ventana: se trabaja en mlopara, sin volver a rrhh.
+    let rrhhAgotada = teamConSemana("r", fiveHour: 92, cincoEn: 1, semana: 52, semanaEn: 14.5)
+    #expect(autonomaConRitmo.decision(active: rrhhAgotada, all: [rrhhAgotada, mlopara], now: ahora) == "m")
+    #expect(autonomaConRitmo.expiringQuotaTarget(active: mlopara, all: [rrhhAgotada, mlopara], now: ahora) == nil)
+    // Su ventana se reinicia: se vuelve a ella, cuya semana caduca antes...
+    let rrhhRecuperada = teamConSemana("r", semana: 52, semanaEn: 13.5)
+    #expect(autonomaConRitmo.expiringQuotaTarget(active: mlopara, all: [rrhhRecuperada, mlopara], now: ahora) == "r")
+    // ...y desde ella no se vuelve a mlopara, cuya ventana aún puede esperar.
+    #expect(autonomaConRitmo.expiringQuotaTarget(active: rrhhRecuperada, all: [rrhhRecuperada, mlopara], now: ahora) == nil)
+}
+
+@Test func dosTeamsConSemanaQueSeGastanALaVezNoSePasanElTurno() {
+    // El caso del 30 de octubre, ahora con la semana a la vista: el orden por
+    // reinicio semanal no deshace el freno al ida y vuelta por ritmo.
+    let backend = medida(
+        "backend", fiveHour: 94, cincoEn: 3.5, sevenDay: 30, semanaEn: 20,
+        ritmo: 40, ritmoAlto: 40, semanaPorPunto: 0.17
+    )
+    let mlopara = medida(
+        "mlopara", fiveHour: 80, cincoEn: 4.5, sevenDay: 20, semanaEn: 40,
+        ritmo: 200, ritmoAlto: 200, semanaPorPunto: 0.17
+    )
+    #expect(umbral95ConRitmo.paceRequiresSwitch(backend))
+    #expect(umbral95ConRitmo.paceRequiresSwitch(mlopara))
+    #expect(umbral95ConRitmo.decision(active: mlopara, all: [mlopara, backend], now: ahora) == nil)
+    #expect(umbral95ConRitmo.decision(active: backend, all: [backend, mlopara], now: ahora) == nil)
+}
+
+@Test func unaCuentaDejadaAManoSoloQuedaApartadaUnaVentana() {
+    // Con su ventana de 5 h abierta, hasta que se reinicia.
+    let abierta = teamConSemana("a", fiveHour: 40, cincoEn: 2, semana: 30, semanaEn: 100).usage
+    #expect(politica.leftByUserUntil(leaving: abierta, now: ahora) == horas(2))
+    // Sin ventana abierta, sin límite de 5 h o sin datos, cinco horas.
+    let sinAbrir = teamConSemana("b", semana: 30, semanaEn: 100).usage
+    #expect(politica.leftByUserUntil(leaving: sinAbrir, now: ahora) == horas(5))
+    let ultra = ultraVerificada("u", sevenDay: 30, semanaEn: 100).usage
+    #expect(politica.leftByUserUntil(leaving: ultra, now: ahora) == horas(5))
+    #expect(politica.leftByUserUntil(leaving: nil, now: ahora) == horas(5))
+    // Nunca más allá del reinicio de su semana.
+    let semanaInminente = teamConSemana("c", semana: 30, semanaEn: 1).usage
+    #expect(politica.leftByUserUntil(leaving: semanaInminente, now: ahora) == horas(1))
+    // El 4 de noviembre rrhh quedaba apartada hasta su reinicio semanal, el
+    // mismo instante en que perdía lo que le quedaba; ahora, cinco horas.
+    let rrhh = teamConSemana("rrhh", semana: 36, semanaEn: 14.5).usage
+    #expect(politica.leftByUserUntil(leaving: rrhh, now: ahora) == horas(5))
+}

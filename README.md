@@ -28,14 +28,14 @@ when a usage window fills up.
 - Limit resets granted by Anthropic, per account, with their deadline.
 - One-click switching of the active Claude Code account, with undo.
 - Automatic switching with independent, configurable thresholds per window.
-  Accounts with no visible weekly limit (Team), which only spend their
-  5-hour window, always go first: an open window whose room would otherwise
-  be lost, then a window not yet open (its 5 hours only start counting when
-  it is used, so it is opened as soon as it is available), then open windows
-  that can still wait. Accounts with a weekly limit (Max and Ultra) are
-  used only when no Team account has room, starting with a week that could
-  not be spent before its reset, and SwitchBar goes back to a Team account as
-  soon as one has room again. A verified Ultra account is only limited by its
+  The quota that expires first is spent first: accounts with a weekly limit
+  (Max, Ultra and, since November 2026, Team) go in order of weekly reset,
+  starting with a week that could not be spent before its reset, and
+  SwitchBar goes back to the account whose week resets first as soon as its
+  5-hour window has room again. An account that does not report its weekly
+  limit (as Team accounts did until November 2026) only spends its 5-hour
+  window, which refills without costing any week, so it goes before all of
+  them. A verified Ultra account is only limited by its
   week, measured at its own weekly pace. It never picks an account at a
   threshold or at its personal cap to work on, and when no account has room
   it leaves active the one that recovers first, so Claude Code resumes as
@@ -54,9 +54,9 @@ when a usage window fills up.
   server-side outage is never confused with a local problem.
 - Pauses automatic switching for 15 minutes after you pick an account by
   hand with `/login` — your explicit choice wins. An account you pick by hand
-  is only left when it reaches a limit, and one you leave by hand goes to the
-  back of the line until its weekly reset (on Team, until its 5-hour window
-  resets).
+  is kept for five hours, or until it reaches a limit sooner, and one you
+  leave by hand goes to the back of the line until the 5-hour window it had
+  open resets (five hours at most).
 - Localized in 10 languages. No telemetry of any kind.
 
 ## Requirements

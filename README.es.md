@@ -23,15 +23,15 @@ política automática.
 - Restablecimientos de límite concedidos por Anthropic, por cuenta y con
   su fecha límite.
 - Cambio de cuenta activa con un clic, con deshacer.
-- Cambio automático con umbrales independientes y configurables. Van
-  siempre primero las cuentas sin límite semanal a la vista (Team), que solo
-  gastan su ventana de 5 h: una ventana abierta cuyo margen se perdería,
-  después una sin abrir (sus 5 horas no empiezan a contar hasta que se usa,
-  así que se abre en cuanto está disponible) y después las abiertas que aún
-  pueden esperar. Las que tienen límite semanal (Max y Ultra) solo se usan cuando
-  ninguna Team tiene margen, empezando por una semana que no daría tiempo a
-  gastar antes de su reinicio, y SwitchBar vuelve a una Team en cuanto alguna
-  recupera margen. Una Ultra verificada solo la limita su semana, medida a su
+- Cambio automático con umbrales independientes y configurables. Se gasta
+  primero el cupo que antes caduca: las cuentas con límite semanal (Max,
+  Ultra y, desde noviembre de 2026, también Team) van por orden de reinicio
+  semanal, empezando por una semana que no daría tiempo a gastar antes de su
+  reinicio, y SwitchBar vuelve a la cuenta cuya semana antes se reinicia en
+  cuanto su ventana de 5 h recupera margen. Una cuenta que no informa de su
+  límite semanal (como las Team hasta noviembre de 2026) solo gasta su
+  ventana de 5 h, que se recarga sin gastar semana, así que va antes que
+  todas. Una Ultra verificada solo la limita su semana, medida a su
   propio ritmo semanal. Nunca elige para trabajar una cuenta que esté en un
   umbral o en su tope personal, y si ninguna tiene margen deja activa la que
   antes se recupera, para que Claude Code siga cuanto antes. En modo autónomo
@@ -48,9 +48,10 @@ política automática.
 - Estado público de Anthropic (status.claude.com) durante incidencias, para
   no confundir una caída del servidor con un problema local.
 - Tras un `/login` manual, el cambio automático se pausa 15 minutos: tu
-  elección explícita manda. Una cuenta elegida a mano solo se abandona al
-  llegar a un límite, y la que dejes a mano queda para el final hasta su
-  reinicio semanal (en Team, hasta que se reinicie su ventana de 5 h).
+  elección explícita manda. Una cuenta elegida a mano se respeta durante
+  cinco horas, o hasta que llegue antes a un límite, y la que dejes a mano
+  queda para el final hasta que se reinicie la ventana de 5 h que tenía
+  abierta (cinco horas como mucho).
 - Localizada en 10 idiomas. Sin telemetría de ningún tipo.
 
 ## Requisitos

@@ -57,3 +57,27 @@ func adelantarseAlCupoQueCaducaEstaActivadoYSeRecuerdaLaEleccionManual() throws 
     )
     #expect(again.leftByUserTimestamps == ["cuenta-b": 1_800_000_000])
 }
+
+@Test
+func laFechaDeLaEleccionManualSeGuardaYSeBorraConElla() throws {
+    let suiteName = "SwitchBar-preferences-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+
+    let first = AppPreferences(defaults: defaults)
+    #expect(first.manuallyChosenAt == nil)
+    #expect(first.leftByUserResetGeneration == 0)
+    first.manuallyChosenProfileID = "cuenta-a/org-1"
+    first.manuallyChosenAt = Date(timeIntervalSince1970: 1_800_000_000)
+    first.leftByUserResetGeneration = 1
+
+    let reopened = AppPreferences(
+        defaults: try #require(UserDefaults(suiteName: suiteName))
+    )
+    #expect(reopened.manuallyChosenAt == Date(timeIntervalSince1970: 1_800_000_000))
+    #expect(reopened.leftByUserResetGeneration == 1)
+    // Una elección que se borra no deja su fecha atrás.
+    reopened.manuallyChosenProfileID = nil
+    #expect(reopened.manuallyChosenAt == nil)
+}

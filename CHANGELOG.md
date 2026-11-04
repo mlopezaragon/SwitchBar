@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.6.0 — 2026-11-04
+
+- Team accounts report their weekly limit again (since 2026-11-02), so
+  automatic switching now spends first the quota that expires first,
+  whatever the plan. Accounts with a weekly limit go in order of weekly
+  reset, starting with those whose week could not be spent before it resets
+  at the measured pace. A Team account no longer goes before a Max or Ultra
+  account just for being Team: that order is kept only for accounts that do
+  not report their weekly limit, which only spend a 5-hour window that
+  refills without costing any week. Autonomous mode goes back to the account
+  whose week resets first as soon as its 5-hour window has room again.
+- Among accounts with a weekly limit, only the weekly reset orders them: an
+  open 5-hour window no longer moves an account ahead, since whatever it
+  does not spend can be spent in the next window while the week lasts.
+  Before, the account opened last went first: working at about 15 points an
+  hour every open window looked about to be lost, and a Team account whose
+  week reset in 38 hours went before one that lost its week in 14. The reset
+  also comes before how long a destination would last, so under heavy load a
+  verified Ultra account no longer jumps ahead of a Team account whose week
+  resets first.
+- An account you pick by hand is now kept for five hours, or until it reaches
+  a limit sooner, instead of until it reaches a limit. Under a light load the
+  chosen account might never reach one, and another account lost its week in
+  the meantime. A choice saved by an earlier version no longer holds
+  autonomous mode back.
+- An account you leave by hand now goes to the back of the line only until
+  the 5-hour window it had open resets, or for five hours if none was open,
+  instead of until its weekly reset. Since Team accounts report their week,
+  those marks kept almost every account out of autonomous mode for days,
+  including the one whose week was about to reset. Marks saved by earlier
+  versions are discarded once.
+
 ## 1.5.2 — 2026-10-30
 
 - Automatic switching no longer bounces between two accounts. Open Claude

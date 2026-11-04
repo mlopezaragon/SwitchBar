@@ -93,6 +93,9 @@ final class AppState {
     /// Se sube al corregir algo que dejaba bloqueos injustos guardados en
     /// disco. Ver `AppPreferences.renewalBlockResetGeneration`.
     private static let renewalBlockResetGeneration = 1
+    /// Lo mismo con las marcas de cuentas dejadas a mano. Ver
+    /// `AppPreferences.leftByUserResetGeneration`.
+    private static let leftByUserResetGeneration = 1
     /// Cuentas cuya sesión se está renovando ahora mismo. Un cambio de cuenta
     /// espera a que terminen: copiaría al Llavero de Claude Code un refresh
     /// token que Anthropic invalida al rotarlo.
@@ -128,8 +131,9 @@ final class AppState {
     private var lastAutomaticSwitchAt: Date?
     private let expiringQuotaSwitchCooldown: TimeInterval = 10 * 60
     private let paceSwitchCooldown: TimeInterval = AutoSwitchPolicy.minimumServiceTime
-    /// Cuentas de las que el usuario salió a mano, hasta su reinicio semanal.
-    /// Ver `AccountUsageState.leftByUser`.
+    /// Cuentas de las que el usuario salió a mano, hasta que se reinicie la
+    /// ventana de 5 h que tenían abierta (cinco horas como mucho). Ver
+    /// `AccountUsageState.leftByUser`.
     private var leftByUserUntil: [String: Date] = [:]
     /// Lecturas recientes de cada cuenta, para medir a qué ritmo se gastan.
     private var usageHistory = UsageHistory()
@@ -180,8 +184,18 @@ final class AppState {
         self.renewalBlockedAccounts = preferences.renewalBlockedAccounts
         self.leftByUserUntil = Self.loadCooldowns(
             preferences.leftByUserTimestamps,
-            maximum: 7 * 24 * 3_600
+            maximum: AutoSwitchPolicy.leftByUserHold
         )
+        // Hasta la 1.5.2 una cuenta dejada a mano quedaba para el final hasta
+        // su reinicio semanal. Desde que las Team informan de su semana, esas
+        // marcas apartaban durante días casi todas las cuentas, incluida la
+        // que antes iba a perder su semana. Las guardadas con aquella regla
+        // se descartan una vez.
+        if preferences.leftByUserResetGeneration < Self.leftByUserResetGeneration {
+            preferences.leftByUserResetGeneration = Self.leftByUserResetGeneration
+            self.leftByUserUntil = [:]
+            preferences.leftByUserTimestamps = [:]
+        }
         // Herencia de una versión que insistía contra el endpoint de
         // renovación hasta dejar todas las cuentas castigadas medio día.
         // Con el reparto de turnos ya corregido, arrastrar ese castigo solo
@@ -317,28 +331,19 @@ final class AppState {
     }
 
     /// El usuario eligió `chosen` a mano dejando `previous`. La elegida se
-    /// respeta hasta que llegue a un límite; la abandonada queda para el final
-    /// hasta su reinicio semanal (o un día, si no se conoce). Una cuenta sin
-    /// límite semanal a la vista (Team) solo puede haberse dejado por su
-    /// ventana de 5 h: queda para el final hasta que esa ventana se reinicie.
+    /// respeta hasta que llegue a un límite o, en modo autónomo, durante
+    /// `AutoSwitchPolicy.manualChoiceHold`; la abandonada queda para el final
+    /// hasta que se reinicie la ventana de 5 h que tenía abierta, o cinco
+    /// horas si no tenía ninguna (`AutoSwitchPolicy.leftByUserUntil`).
     private func recordManualChoice(_ chosen: String, leaving previous: String?) {
-        preferences.manuallyChosenProfileID = chosen
         let now = Date()
+        preferences.manuallyChosenProfileID = chosen
+        preferences.manuallyChosenAt = now
         leftByUserUntil = leftByUserUntil.filter { $0.key != chosen && $0.value > now }
-        if let previous, previous != chosen, let usage = usageByAccount[previous] {
-            if usage.weeklyLimitUnreported {
-                if let reset = usage.fiveHour?.resetsAt, reset > now {
-                    leftByUserUntil[previous] = reset
-                }
-            } else {
-                let reset = autoSwitchPolicy.weeklyDeadline(usage).flatMap { $0 > now ? $0 : nil }
-                leftByUserUntil[previous] = min(
-                    reset ?? now.addingTimeInterval(24 * 3_600),
-                    now.addingTimeInterval(7 * 24 * 3_600)
-                )
-            }
-        } else if let previous, previous != chosen {
-            leftByUserUntil[previous] = now.addingTimeInterval(24 * 3_600)
+        if let previous, previous != chosen {
+            leftByUserUntil[previous] = autoSwitchPolicy.leftByUserUntil(
+                leaving: usageByAccount[previous], now: now
+            )
         }
         preferences.leftByUserTimestamps =
             leftByUserUntil.mapValues(\.timeIntervalSince1970)
@@ -1492,7 +1497,7 @@ final class AppState {
                 id: profile.id,
                 usage: usage,
                 needsLogin: profile.needsLogin,
-                leftByUser: isLeftByUser(profile.id, usage: usage),
+                leftByUser: isLeftByUser(profile.id),
                 hasPersonalCap: profile.sharedFiveHourCap != nil || profile.sharedWeeklyCap != nil,
                 fiveHourPace: fiveHourLimitRemoved ? nil : context.expectedPace(
                     for: profile.id, plan: profile.plan, isActive: isActive
@@ -1510,15 +1515,9 @@ final class AppState {
         }
     }
 
-    /// Ver `recordManualChoice`. En una cuenta sin límite semanal a la vista
-    /// solo cuenta mientras siga abierta una ventana de 5 h: así tampoco
-    /// pesan las marcas guardadas por versiones que la apartaban hasta el
-    /// reinicio de Fable.
-    private func isLeftByUser(_ profileID: String, usage: UsageSnapshot?) -> Bool {
-        let now = Date()
-        guard let until = leftByUserUntil[profileID], until > now else { return false }
-        guard usage?.weeklyLimitUnreported == true else { return true }
-        return usage?.fiveHour?.resetsAt.map { $0 > now } ?? false
+    /// Ver `recordManualChoice`.
+    private func isLeftByUser(_ profileID: String) -> Bool {
+        leftByUserUntil[profileID].map { $0 > Date() } ?? false
     }
 
     private var autoSwitchPolicy: AutoSwitchPolicy {
@@ -1722,14 +1721,16 @@ final class AppState {
     /// semanal caduca antes, para que la activa guarde el suyo para después.
     /// La política nunca propone una cuenta en su umbral ni en su tope
     /// personal; una cuenta elegida a mano se respeta hasta que llegue a un
-    /// límite.
+    /// límite o pase `AutoSwitchPolicy.manualChoiceHold`.
     private func anticipateExpiringQuotaIfNeeded(
         policy: AutoSwitchPolicy,
         active: AccountUsageState,
         states: [AccountUsageState]
     ) async {
         guard policy.anticipatesExpiringQuota,
-              preferences.manuallyChosenProfileID != active.id else { return }
+              preferences.manuallyChosenProfileID != active.id
+                || !AutoSwitchPolicy.manualChoiceHolds(madeAt: preferences.manuallyChosenAt)
+        else { return }
         if let lastAutomaticSwitchAt,
            Date().timeIntervalSince(lastAutomaticSwitchAt) < expiringQuotaSwitchCooldown {
             return

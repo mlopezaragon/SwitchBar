@@ -5,11 +5,11 @@ public struct AccountUsageState: Sendable {
     public var id: String
     public var usage: UsageSnapshot?
     public var needsLogin: Bool
-    /// El usuario salió a mano de esta cuenta y aún no ha llegado su reinicio
-    /// semanal o, si no tiene límite semanal a la vista (Team), el de la
-    /// ventana de 5 h que tenía abierta. Puede saber algo que la app no ve:
-    /// la cuenta queda para el final y el modo autónomo no vuelve a ella por
-    /// su cuenta.
+    /// El usuario salió a mano de esta cuenta hace poco: aún no se ha
+    /// reiniciado la ventana de 5 h que tenía abierta o, si no tenía ninguna,
+    /// no han pasado cinco horas (ver `AutoSwitchPolicy.leftByUserUntil`).
+    /// Puede saber algo que la app no ve: la cuenta queda para el final y el
+    /// modo autónomo no vuelve a ella por su cuenta.
     public var leftByUser: Bool
     /// Cuenta compartida con un tope personal. Su uso ya llega reescalado al
     /// tope; además, nunca se deja activa para esperar a que se recupere,
@@ -67,34 +67,37 @@ public enum CandidateRejection: Sendable, Equatable {
 /// Qué se perdería si una cuenta no se usara ahora. Ordena las candidatas
 /// antes que cualquier fecha de reinicio.
 ///
-/// Las cuentas sin límite semanal a la vista (Team) van siempre antes que
-/// las de límite semanal (Max, Ultra): su ventana de 5 h vuelve a llenarse
-/// sin gastar semana, así que cuanto más se usen, más cupo queda. Las de
-/// límite semanal solo se usan cuando ninguna Team tiene margen, y se deja
-/// de usarlas en cuanto una lo recupera.
+/// Las cuentas que informan de su límite semanal (Max, Ultra y, desde el 2
+/// de noviembre de 2026, también Team) se ordenan por lo que perdería su
+/// semana, sea cual sea su plan: primero las que no darían tiempo a gastarla
+/// antes de su reinicio y después las demás, y dentro de cada grupo la que
+/// antes se reinicia. Así se gasta primero el cupo que antes caduca.
 ///
-/// Entre las Team, una ventana sin abrir va antes que una abierta que aún
-/// da tiempo a gastar: sus cinco horas no empiezan a contar hasta que se
-/// usa, y cada minuto que espera retrasa su siguiente recarga.
+/// Una cuenta sin límite semanal a la vista (las Team antes de esa fecha, o
+/// si Anthropic vuelve a ocultarlo) solo gasta su ventana de 5 h, que vuelve
+/// a llenarse sin gastar semana: va antes que todas las demás. Entre ellas,
+/// una ventana sin abrir va antes que una abierta que aún da tiempo a gastar:
+/// sus cinco horas no empiezan a contar hasta que se usa, y cada minuto que
+/// espera retrasa su siguiente recarga.
 public enum QuotaUrgency: Int, Sendable, Comparable {
-    /// Cuenta sin límite semanal a la vista (Team) con su ventana de 5 h ya
-    /// abierta y un margen que, al ritmo medido, no daría tiempo a gastar
-    /// antes de su reinicio: si no se usa ya, se pierde.
+    /// Cuenta sin límite semanal a la vista con su ventana de 5 h ya abierta
+    /// y un margen que, al ritmo medido, no daría tiempo a gastar antes de su
+    /// reinicio: si no se usa ya, se pierde.
     case expiring
-    /// Cuenta sin límite semanal a la vista (Team) con su ventana de 5 h sin
-    /// abrir: no empieza a contar hasta que se usa, así que se abre cuanto
-    /// antes para que vuelva a llenarse cuanto antes. No gasta cupo semanal.
+    /// Cuenta sin límite semanal a la vista con su ventana de 5 h sin abrir:
+    /// no empieza a contar hasta que se usa, así que se abre cuanto antes
+    /// para que vuelva a llenarse cuanto antes. No gasta cupo semanal.
     case renewable
-    /// Cuenta sin límite semanal a la vista (Team) con su ventana de 5 h
-    /// abierta y tiempo de sobra para gastar su margen antes del reinicio:
-    /// puede esperar, y entre ellas va antes la que antes se reinicia.
+    /// Cuenta sin límite semanal a la vista con su ventana de 5 h abierta y
+    /// tiempo de sobra para gastar su margen antes del reinicio: puede
+    /// esperar, y entre ellas va antes la que antes se reinicia.
     case open
-    /// Cuenta con límite semanal (Max, Ultra) cuya semana no daría tiempo a
-    /// gastar antes de su reinicio: es la primera de ellas cuando ninguna
-    /// Team tiene margen.
+    /// Cuenta con límite semanal, de cualquier plan, cuya semana no daría
+    /// tiempo a gastar antes de su reinicio: va antes que las que pueden
+    /// esperar.
     case weekAtRisk
-    /// Cuenta con límite semanal que no corre peligro de perderse: se
-    /// reserva para cuando las demás no lleguen.
+    /// Cuenta con límite semanal que no corre peligro de perderse: entre
+    /// ellas va antes la que antes se reinicia.
     case reserve
 
     public static func < (lhs: QuotaUrgency, rhs: QuotaUrgency) -> Bool {
@@ -118,20 +121,21 @@ public enum QuotaUrgency: Int, Sendable, Comparable {
 /// 1. Las que tienen margen útil (`minimumUsefulRoom`) en todas sus ventanas
 ///    y no se dejarían en cuanto empezaran a usarse (`minimumServiceTime`)
 ///    van antes que las que obligarían a cambiar otra vez enseguida.
-/// 2. Lo que se perdería si no se usa (`QuotaUrgency`): siempre primero las
-///    cuentas sin límite semanal a la vista (Team), que solo gastan su
-///    ventana de 5 h: la abierta cuyo margen se perdería, después la que
-///    está sin abrir, para que empiece a contar, y después las abiertas que
-///    pueden esperar. Solo después las de límite semanal (Max, Ultra),
-///    empezando por la que no daría tiempo a gastar su semana. Dentro de
-///    cada grupo, las que seguirían activas al menos `comfortableRunway` van
-///    antes.
-/// 3. Dentro de cada grupo, la que antes perdería cupo: el reinicio de una
-///    ventana de 5 h ya abierta con margen o el de su semana, aunque sea por
-///    minutos. Una ventana sin abrir no caduca y se guarda para después.
-/// 4. La que más tiempo aguantaría sin cortarse al ritmo medido.
-/// 5. Menor uso de 5 h.
-/// 6. Mayor margen ponderado de los cupos semanales que estén habilitados.
+/// 2. Lo que se perdería si no se usa (`QuotaUrgency`). Primero las cuentas
+///    sin límite semanal a la vista, que solo gastan su ventana de 5 h: la
+///    abierta cuyo margen se perdería, después la que está sin abrir, para
+///    que empiece a contar, y después las abiertas que pueden esperar.
+///    Después las de límite semanal, sea cual sea su plan: primero las que no
+///    darían tiempo a gastar su semana antes del reinicio.
+/// 3. Dentro de cada grupo, la que antes perdería cupo, aunque sea por
+///    minutos: el reinicio de su semana o, sin semana a la vista, el de su
+///    ventana de 5 h abierta. Una ventana sin abrir no caduca.
+/// 4. Las que seguirían activas al menos `comfortableRunway`. Va después del
+///    reinicio: una Team con mucha carga dura minutos, pero si su semana
+///    caduca antes que la de una Ultra, se gasta antes.
+/// 5. La que más tiempo aguantaría sin cortarse al ritmo medido.
+/// 6. Menor uso de 5 h.
+/// 7. Mayor margen ponderado de los cupos semanales que estén habilitados.
 ///
 /// Si ninguna tiene margen, `recoveryTarget` deja activa la que antes se
 /// recupera, para que Claude Code siga cuanto antes.
@@ -166,8 +170,8 @@ public struct AutoSwitchPolicy: Sendable {
     /// una ráfaga de trabajo no saque al usuario de una cuenta casi vacía.
     public static let paceTriggerMargin: Double = 30
     /// Tiempo que debe seguir activo un destino, al ritmo medido, para ir
-    /// antes que las demás de su grupo. Con poco trabajo una ventana de Team
-    /// entera dura poco más de una hora.
+    /// antes que las demás de su grupo con el mismo plazo. Con poco trabajo
+    /// una ventana de Team entera dura poco más de una hora.
     public static let comfortableRunway: TimeInterval = 30 * 60
     /// Por debajo de este tiempo activa, un destino solo es último recurso:
     /// el umbral o el cambio por ritmo lo dejarían casi en cuanto se eligiera.
@@ -196,6 +200,21 @@ public struct AutoSwitchPolicy: Sendable {
     /// Cuánto antes que la activa debe recuperarse otra cuenta, cuando
     /// ninguna tiene margen, para dejarla activa a la espera.
     public static let recoveryMargin: TimeInterval = 15 * 60
+    /// Lo que más dura la marca de una cuenta dejada a mano: una ventana de
+    /// 5 h entera.
+    public static let leftByUserHold: TimeInterval = 5 * 3_600
+    /// Lo que se respeta una cuenta elegida a mano, si antes no llega a un
+    /// límite, hasta que el modo autónomo vuelve a elegir por su cuenta: una
+    /// ventana de 5 h. Sin plazo, con poco trabajo la elegida podía no llegar
+    /// nunca a un límite, y otra cuenta perdía su semana mientras tanto.
+    public static let manualChoiceHold: TimeInterval = 5 * 3_600
+
+    /// Una cuenta elegida a mano en `madeAt` aún frena al modo autónomo. Una
+    /// elección sin fecha, guardada por una versión anterior, ya no lo frena.
+    public static func manualChoiceHolds(madeAt: Date?, now: Date = Date()) -> Bool {
+        guard let madeAt else { return false }
+        return now.timeIntervalSince(madeAt) < manualChoiceHold
+    }
 
     public init(
         triggerThreshold: Double = 90,
@@ -316,9 +335,10 @@ public struct AutoSwitchPolicy: Sendable {
         usage.sevenDay?.resetsAt ?? usage.sevenDayOpus?.resetsAt
     }
 
-    /// La cuenta gasta un cupo semanal visible. Las de Team solo informan de
-    /// Fable: su semana general, si existe, no se ve ni se agota a la vista,
-    /// así que lo que las limita es la ventana de 5 h.
+    /// La cuenta gasta un cupo semanal visible. Las Team lo informan desde el
+    /// 2 de noviembre de 2026; antes solo informaban de Fable, su semana
+    /// general no se veía y lo único que las limitaba a la vista era la
+    /// ventana de 5 h. Si Anthropic vuelve a ocultarla, vuelven a ser así.
     public func hasWeeklyLimit(_ account: AccountUsageState) -> Bool {
         !(account.usage?.weeklyLimitUnreported ?? false)
     }
@@ -476,44 +496,49 @@ public struct AutoSwitchPolicy: Sendable {
     /// Primer momento en que la cuenta perdería cupo si no se usa: el
     /// reinicio de una ventana de 5 h ya abierta y con margen útil, o el de
     /// su semana general. Una ventana de 5 h sin abrir no caduca: empieza a
-    /// contar cuando se usa. En Team la semana de Fable no cuenta: lo que
-    /// limita a esas cuentas es su ventana de 5 h.
+    /// contar cuando se usa. La semana de Fable no cuenta: sin semana general
+    /// a la vista, lo que limita a la cuenta es su ventana de 5 h.
     public func expiryDeadline(_ account: AccountUsageState, now: Date = Date()) -> Date? {
         [openWindowReset(account, now: now), account.usage?.sevenDay?.resetsAt]
             .compactMap { $0 }
             .min()
     }
 
-    /// Plazo que ordena a las cuentas de una misma urgencia. En las de
-    /// reserva solo cuenta la semana: si no corre peligro, dejar que caduque
-    /// su ventana de 5 h no pierde nada, porque su semana sigue intacta.
+    /// Plazo que ordena a las cuentas de una misma urgencia.
+    ///
+    /// Con límite semanal manda solo el reinicio de la semana, que es el
+    /// cupo que se pierde: lo que no se gaste en una ventana de 5 h se puede
+    /// gastar en la siguiente mientras dure la semana. Contar también el
+    /// reinicio de la ventana abierta dejaba mandar a la cuenta abierta en
+    /// último lugar: el 4 de noviembre de 2026, trabajando a unos 15 puntos
+    /// por hora, toda ventana abierta parecía perderse, y una Team con su
+    /// semana a 38 h iba antes que otra que perdía la suya en 14.
     func deadline(_ account: AccountUsageState, urgency: QuotaUrgency, now: Date) -> Date? {
         switch urgency {
-        case .expiring, .open, .weekAtRisk: expiryDeadline(account, now: now)
+        case .expiring, .open: expiryDeadline(account, now: now)
         case .renewable: nil
-        case .reserve: account.usage?.sevenDay?.resetsAt
+        case .weekAtRisk, .reserve: account.usage?.sevenDay?.resetsAt
         }
     }
 
-    /// Clave de orden de una candidata: menor es mejor. Una cuenta sin nada
-    /// que caduque va la última de su grupo: su cupo no se pierde por esperar.
-    private func rank(
-        _ account: AccountUsageState,
-        now: Date
-    ) -> (Int, Int, Double, Double, Double, Double) {
+    /// Clave de orden de una candidata, que se compara término a término:
+    /// menor es mejor. Una cuenta sin nada que caduque va la última de su
+    /// grupo: su cupo no se pierde por esperar.
+    private func rank(_ account: AccountUsageState, now: Date) -> [Double] {
         let runway = runway(account, now: now)
         let service = serviceTime(account, now: now)
         let short = service.map { $0 < Self.comfortableRunway } ?? false
         let urgency = urgency(account, now: now)
         let deadline = deadline(account, urgency: urgency, now: now)?.timeIntervalSince1970 ?? .infinity
-        return (
-            (account.leftByUser ? 2 : 0) + (wouldLeaveRightAway(account, service: service) ? 1 : 0),
-            urgency.rawValue * 2 + (short ? 1 : 0),
+        return [
+            Double((account.leftByUser ? 2 : 0) + (wouldLeaveRightAway(account, service: service) ? 1 : 0)),
+            Double(urgency.rawValue),
             deadline,
+            short ? 1 : 0,
             -(runway ?? 0),
             fiveHourUtilization(account),
             -weeklyMargin(account)
-        )
+        ]
     }
 
     /// La mejor cuenta a la que cambiar, o nil si ninguna candidata sirve.
@@ -522,8 +547,10 @@ public struct AutoSwitchPolicy: Sendable {
         others: [AccountUsageState],
         now: Date = Date()
     ) -> String? {
-        let candidates = others.filter { $0.id != active.id && isCandidate($0) }
-        return candidates.min { rank($0, now: now) < rank($1, now: now) }?.id
+        let candidates = others
+            .filter { $0.id != active.id && isCandidate($0) }
+            .map { (id: $0.id, rank: rank($0, now: now)) }
+        return candidates.min { $0.rank.lexicographicallyPrecedes($1.rank) }?.id
     }
 
     /// La cuenta sirve de destino para dejar la activa.
@@ -572,15 +599,17 @@ public struct AutoSwitchPolicy: Sendable {
     ///
     /// Mantiene activa la cuenta que va antes en el orden de elección: una
     /// de un grupo más urgente (`QuotaUrgency`), o del mismo grupo cuyo cupo
-    /// caduca al menos `anticipationMargin` antes. Así, en cuanto una Team
-    /// recupera margen en su ventana de 5 h, una Max o Ultra le cede el
-    /// sitio; una ventana Team sin abrir se abre aunque otra abierta tenga
-    /// margen, y nadie deja caducar cupo en un reinicio. Entre dos ventanas
-    /// abiertas que dan tiempo a gastarse no se cambia: no aprovecha nada.
+    /// caduca al menos `anticipationMargin` antes. Así se gasta siempre
+    /// primero la semana que antes caduca: en cuanto la cuenta cuya semana
+    /// antes se reinicia recupera margen en su ventana de 5 h, la activa le
+    /// cede el sitio. Sin semana a la vista, una ventana sin abrir se abre
+    /// aunque otra abierta tenga margen, nadie deja caducar el margen de una
+    /// ventana abierta, y entre dos ventanas abiertas que dan tiempo a
+    /// gastarse no se cambia: no aprovecha nada.
     /// El destino necesita un margen holgado (`anticipationMinimumRoom`) y,
     /// con ritmo medido, seguir activo al menos `anticipationMinimumService`:
-    /// un cambio para unos minutos no compensa. Los umbrales se respetan igual que en
-    /// cualquier cambio.
+    /// un cambio para unos minutos no compensa. Los umbrales se respetan
+    /// igual que en cualquier cambio.
     public func expiringQuotaTarget(
         active: AccountUsageState,
         all: [AccountUsageState],
@@ -607,6 +636,27 @@ public struct AutoSwitchPolicy: Sendable {
             return deadline.addingTimeInterval(Self.anticipationMargin) <= activeDeadline
         }
         return bestCandidate(active: active, others: ahead, now: now)
+    }
+
+    /// Hasta cuándo queda para el final una cuenta que el usuario acaba de
+    /// dejar a mano: hasta que se reinicie la ventana de 5 h que tenía
+    /// abierta o, si no tenía ninguna (o no tiene límite de 5 h), durante
+    /// `leftByUserHold`; nunca más allá del reinicio de su semana.
+    ///
+    /// Hasta la 1.5.2 duraba hasta el reinicio semanal. Desde que las Team
+    /// informan de su semana, eso apartaba durante días casi todas las
+    /// cuentas, incluida la que antes iba a perder su semana, y dejaba sin
+    /// efecto el orden por reinicio semanal. Una ventana basta para respetar
+    /// lo que el usuario sepa y la app no vea.
+    public func leftByUserUntil(leaving usage: UsageSnapshot?, now: Date = Date()) -> Date {
+        var until = now.addingTimeInterval(Self.leftByUserHold)
+        if let reset = usage?.fiveHour?.resetsAt, reset > now {
+            until = min(until, reset)
+        }
+        if let weekly = usage.flatMap(weeklyDeadline), weekly > now {
+            until = min(until, weekly)
+        }
+        return until
     }
 
     /// Cuándo recupera margen la activa: el reinicio más tardío de los cupos

@@ -20,6 +20,7 @@ public final class AppPreferences: @unchecked Sendable {
         static let anticipateExpiringQuota = "anticipateExpiringQuota"
         static let switchByPace = "switchByPace"
         static let manuallyChosenProfileID = "manuallyChosenProfileID"
+        static let manuallyChosenAt = "manuallyChosenAt"
         static let leftByUserUntil = "leftByUserUntilByProfile"
         static let pollIntervalSeconds = "pollIntervalSeconds"
         static let lastObservedAccountUuid = "lastObservedAccountUuid"
@@ -29,6 +30,7 @@ public final class AppPreferences: @unchecked Sendable {
         static let renewalBlockedUntilByAccount =
             "renewalBlockedUntilByAccount"
         static let renewalBlockReset = "renewalBlockResetGeneration"
+        static let leftByUserReset = "leftByUserResetGeneration"
     }
 
     private let defaults: UserDefaults
@@ -107,8 +109,10 @@ public final class AppPreferences: @unchecked Sendable {
     }
 
     /// Perfil que el usuario eligió a mano (clic, deshacer o `/login`). El
-    /// cambio automático solo lo abandona al llegar a un límite. Se guarda en
-    /// disco para que un reinicio de la app no olvide esa elección.
+    /// cambio automático solo lo abandona al llegar a un límite o, en modo
+    /// autónomo, pasado `AutoSwitchPolicy.manualChoiceHold` desde
+    /// `manuallyChosenAt`. Se guarda en disco para que un reinicio de la app
+    /// no olvide esa elección. Borrarlo borra también su fecha.
     public var manuallyChosenProfileID: String? {
         get { defaults.string(forKey: Key.manuallyChosenProfileID) }
         set {
@@ -116,12 +120,30 @@ public final class AppPreferences: @unchecked Sendable {
                 defaults.set(newValue, forKey: Key.manuallyChosenProfileID)
             } else {
                 defaults.removeObject(forKey: Key.manuallyChosenProfileID)
+                defaults.removeObject(forKey: Key.manuallyChosenAt)
+            }
+        }
+    }
+
+    /// Cuándo se hizo la elección de `manuallyChosenProfileID`. Las versiones
+    /// hasta la 1.5.2 no la guardaban.
+    public var manuallyChosenAt: Date? {
+        get {
+            (defaults.object(forKey: Key.manuallyChosenAt) as? NSNumber)
+                .map { Date(timeIntervalSince1970: $0.doubleValue) }
+        }
+        set {
+            if let newValue {
+                defaults.set(newValue.timeIntervalSince1970, forKey: Key.manuallyChosenAt)
+            } else {
+                defaults.removeObject(forKey: Key.manuallyChosenAt)
             }
         }
     }
 
     /// Cuentas de las que el usuario salió a mano, con la fecha hasta la que
-    /// el cambio automático las deja para el final (su reinicio semanal).
+    /// el cambio automático las deja para el final (el reinicio de la ventana
+    /// de 5 h que tenían abierta, cinco horas como mucho).
     public var leftByUserTimestamps: [String: TimeInterval] {
         get { timestamps(forKey: Key.leftByUserUntil) }
         set { defaults.set(newValue, forKey: Key.leftByUserUntil) }
@@ -201,6 +223,17 @@ public final class AppPreferences: @unchecked Sendable {
     public var renewalBlockResetGeneration: Int {
         get { defaults.integer(forKey: Key.renewalBlockReset) }
         set { defaults.set(newValue, forKey: Key.renewalBlockReset) }
+    }
+
+    /// Generación de la limpieza de marcas de cuentas dejadas a mano ya
+    /// aplicada en este equipo.
+    ///
+    /// Hasta la 1.5.2 esas marcas duraban hasta el reinicio semanal y, desde
+    /// que las Team informan de su semana, apartaban casi todas las cuentas
+    /// durante días. Subir la generación descarta una vez las heredadas.
+    public var leftByUserResetGeneration: Int {
+        get { defaults.integer(forKey: Key.leftByUserReset) }
+        set { defaults.set(newValue, forKey: Key.leftByUserReset) }
     }
 
     private func timestamps(forKey key: String) -> [String: TimeInterval] {
