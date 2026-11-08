@@ -501,7 +501,7 @@ private struct SharedAccountControls: View {
             Text(title)
                 .font(.caption)
             Spacer()
-            Slider(value: value, in: 10...90, step: 5)
+            Slider(value: value, in: 10...95, step: 5)
                 .frame(width: 160)
                 .onChange(of: value.wrappedValue) { apply() }
             Text("\(Int(value.wrappedValue)) %")

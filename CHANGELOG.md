@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.1 — 2026-11-08
+
+- The personal cap of a shared account can now go up to 95 % (it stopped at
+  90 %), for when the other person only needs a small margin.
+
 ## 1.6.0 — 2026-11-04
 
 - Team accounts report their weekly limit again (since 2026-11-02), so
