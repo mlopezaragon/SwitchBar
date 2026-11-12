@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.6.3 — 2026-11-12
+
+- When every remaining account is a last resort, SwitchBar now picks the one
+  that would take longest to reach its threshold at the measured pace,
+  instead of the one whose week resets first. A last-resort account's quota
+  is only crumbs, and from it the pace trigger has nowhere better to go, so
+  it stays active until its threshold. With 99 % thresholds, an account 2
+  points short of its weekly limit (about 9 minutes) went before one with
+  22 points left in its 5-hour window (about 22 minutes).
+
 ## 1.6.2 — 2026-11-12
 
 - An account that would be left again right away (under 5 points from a

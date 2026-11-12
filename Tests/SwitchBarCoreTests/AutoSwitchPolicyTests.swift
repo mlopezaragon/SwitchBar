@@ -1086,3 +1086,47 @@ private let autonomaConRitmo = AutoSwitchPolicy(anticipatesExpiringQuota: true, 
         all: [rrhhNueva, backend, mloparaUltra], now: ahora
     ) == "rrhh")
 }
+
+@Test func entreLasDeUltimoRecursoVaLaQueMasTardaEnLlegarASuUmbral() {
+    // Minutos después, ya en formacion: todas las demás eran de último
+    // recurso. backend, al 77 % de su ventana, parecía durar 3 minutos
+    // porque el ritmo la dejaría hacia el 80 %, pero sin otra cuenta a la que
+    // ir el ritmo no la deja: dura hasta su umbral, unos 22 minutos. rrhh,
+    // a 2 puntos de su semana, unos 9; iba primero porque caducaba antes.
+    let umbral99 = AutoSwitchPolicy(
+        triggerThreshold: 99, weeklyThreshold: 99,
+        anticipatesExpiringQuota: true, switchesByPace: true
+    )
+    let formacion = medida(
+        "formacion", fiveHour: 47, cincoEn: 4, sevenDay: 48, semanaEn: 131.5,
+        ritmo: 45, semanaPorPunto: 0.15
+    )
+    let backend = medida(
+        "backend", fiveHour: 77, cincoEn: 2.8, sevenDay: 40, semanaEn: 142.5,
+        ritmo: 61, semanaPorPunto: 0.16
+    )
+    let rrhh = medida("rrhh", fiveHour: 0, sevenDay: 97, semanaEn: 0.5, ritmo: 79, semanaPorPunto: 0.16)
+    let mloparaUltra = ultraVerificada("mlopara-ultra", sevenDay: 97, semanaEn: 12.5, ritmoSemanal: 6.4)
+    var info = ultraVerificada("info", sevenDay: 98, semanaEn: 98.5, ritmoSemanal: 11.4)
+    info.leftByUser = true
+    #expect(umbral99.wouldLeaveRightAway(backend, service: umbral99.serviceTime(backend, now: ahora)))
+    #expect(cerca(umbral99.timeToThreshold(backend, now: ahora), 22.0 / 61 * 3_600))
+    #expect(cerca(umbral99.timeToThreshold(rrhh, now: ahora), 2.0 / (79 * 0.16) * 3_600))
+    #expect(cerca(umbral99.timeToThreshold(mloparaUltra, now: ahora), 2.0 / 6.4 * 3_600))
+    let otras = [rrhh, mloparaUltra, backend, info]
+    #expect(umbral99.bestCandidate(active: formacion, others: otras, now: ahora) == "backend")
+    #expect(umbral99.bestCandidate(active: formacion, others: [rrhh, mloparaUltra, info], now: ahora) == "mlopara-ultra")
+    // Una semana que se reinicia antes de agotarse no la deja: la deja su
+    // ventana de 5 h.
+    let rrhhLenta = medida("rrhh", fiveHour: 0, sevenDay: 97, semanaEn: 0.1, ritmo: 79, semanaPorPunto: 0.16)
+    #expect(cerca(umbral99.timeToThreshold(rrhhLenta, now: ahora), 99.0 / 79 * 3_600))
+    // Desde backend, el ritmo no la deja por otra de último recurso...
+    let backendActiva = medida(
+        "backend", fiveHour: 85, cincoEn: 2.8, sevenDay: 41, semanaEn: 142.5,
+        ritmo: 61, ritmoAlto: 61, semanaPorPunto: 0.16
+    )
+    #expect(umbral99.paceRequiresSwitch(backendActiva))
+    #expect(umbral99.decision(active: backendActiva, all: [backendActiva, rrhh, mloparaUltra], now: ahora) == nil)
+    // ...ni se vuelve a ella desde ninguna: no da para un cambio adelantado.
+    #expect(umbral99.expiringQuotaTarget(active: mloparaUltra, all: [mloparaUltra, backend, rrhh], now: ahora) == nil)
+}

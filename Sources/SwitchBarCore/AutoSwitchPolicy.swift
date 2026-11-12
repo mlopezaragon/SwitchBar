@@ -126,6 +126,10 @@ public enum QuotaUrgency: Int, Sendable, Comparable {
 ///    mano. El 12 de noviembre de 2026 rrhh, a 2 puntos de su umbral
 ///    semanal, iba antes que formacion, dejada a mano con 51 de margen.
 /// 1. Entre ellas, las que el usuario no ha dejado a mano (`leftByUser`).
+///    Entre las de último recurso no manda lo que caduca, sino la que más
+///    tardaría en llegar a su umbral (`timeToThreshold`): su cupo son
+///    migajas, y la que más dura retrasa el siguiente cambio. Ese mismo día,
+///    sin formacion, iba rrhh (unos 9 min) antes que backend (unos 22).
 /// 2. Lo que se perdería si no se usa (`QuotaUrgency`). Primero las cuentas
 ///    sin límite semanal a la vista, que solo gastan su ventana de 5 h: la
 ///    abierta cuyo margen se perdería, después la que está sin abrir, para
@@ -491,6 +495,42 @@ public struct AutoSwitchPolicy: Sendable {
         return min(toLeave, runway)
     }
 
+    /// Cuánto tiempo seguiría activa la cuenta, al ritmo medido, hasta que
+    /// alguno de sus cupos llegara a su umbral, o `nil` sin ritmo. Un cupo
+    /// que se reinicia antes no la deja. Fable no cuenta: no tiene ritmo.
+    ///
+    /// A diferencia de `serviceTime`, no cuenta el cambio por ritmo: ordena
+    /// a las cuentas de último recurso, y desde una de ellas el cambio por
+    /// ritmo no tiene adónde ir (solo va a una cuenta que `accepts`), así que
+    /// sigue activa hasta su umbral.
+    func timeToThreshold(_ account: AccountUsageState, now: Date) -> TimeInterval? {
+        guard let usage = account.usage else { return nil }
+        func until(_ room: Double, perHour pace: Double, resetsAt reset: Date?) -> TimeInterval {
+            let time = max(0, room) / pace * 3_600
+            if let reset, reset > now, reset.timeIntervalSince(now) < time { return Self.runwayHorizon }
+            return min(time, Self.runwayHorizon)
+        }
+        var limits: [TimeInterval] = []
+        if hasFiveHourLimit(account) {
+            guard let pace = account.fiveHourPace, pace > 0 else { return nil }
+            limits.append(until(
+                triggerThreshold - fiveHourUtilization(account), perHour: pace,
+                resetsAt: usage.fiveHour?.resetsAt
+            ))
+            if let weekly = usage.sevenDay, let ratio = account.weeklyPerFiveHour, ratio > 0 {
+                limits.append(until(
+                    weeklyThreshold - weekly.utilization, perHour: pace * ratio, resetsAt: weekly.resetsAt
+                ))
+            }
+        } else {
+            guard let pace = account.weeklyPace, pace > 0 else { return nil }
+            if let weekly = usage.sevenDay {
+                limits.append(until(weeklyThreshold - weekly.utilization, perHour: pace, resetsAt: weekly.resetsAt))
+            }
+        }
+        return limits.min() ?? Self.runwayHorizon
+    }
+
     /// Como destino no serviría: está casi en su umbral o, al ritmo medido,
     /// se dejaría casi en cuanto empezara a usarse.
     func wouldLeaveRightAway(_ account: AccountUsageState, service: TimeInterval?) -> Bool {
@@ -535,8 +575,10 @@ public struct AutoSwitchPolicy: Sendable {
         let short = service.map { $0 < Self.comfortableRunway } ?? false
         let urgency = urgency(account, now: now)
         let deadline = deadline(account, urgency: urgency, now: now)?.timeIntervalSince1970 ?? .infinity
+        let lastResort = wouldLeaveRightAway(account, service: service)
         return [
-            Double((wouldLeaveRightAway(account, service: service) ? 2 : 0) + (account.leftByUser ? 1 : 0)),
+            Double((lastResort ? 2 : 0) + (account.leftByUser ? 1 : 0)),
+            lastResort ? -(timeToThreshold(account, now: now) ?? 0) : 0,
             Double(urgency.rawValue),
             deadline,
             short ? 1 : 0,
