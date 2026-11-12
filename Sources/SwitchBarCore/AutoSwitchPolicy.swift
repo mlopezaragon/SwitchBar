@@ -8,8 +8,9 @@ public struct AccountUsageState: Sendable {
     /// El usuario salió a mano de esta cuenta hace poco: aún no se ha
     /// reiniciado la ventana de 5 h que tenía abierta o, si no tenía ninguna,
     /// no han pasado cinco horas (ver `AutoSwitchPolicy.leftByUserUntil`).
-    /// Puede saber algo que la app no ve: la cuenta queda para el final y el
-    /// modo autónomo no vuelve a ella por su cuenta.
+    /// Puede saber algo que la app no ve: la cuenta va detrás de las demás
+    /// que tienen margen útil (no de las que se dejarían enseguida) y el modo
+    /// autónomo no vuelve a ella por su cuenta.
     public var leftByUser: Bool
     /// Cuenta compartida con un tope personal. Su uso ya llega reescalado al
     /// tope; además, nunca se deja activa para esperar a que se recupere,
@@ -117,10 +118,14 @@ public enum QuotaUrgency: Int, Sendable, Comparable {
 /// ritmo, con la activa aún bajo su umbral, solo va a una cuenta que no se
 /// dejaría enseguida (`accepts`).
 /// Elección, por este orden:
-/// 0. Las que el usuario no ha abandonado a mano (`leftByUser`) van antes.
-/// 1. Las que tienen margen útil (`minimumUsefulRoom`) en todas sus ventanas
+/// 0. Las que tienen margen útil (`minimumUsefulRoom`) en todas sus ventanas
 ///    y no se dejarían en cuanto empezaran a usarse (`minimumServiceTime`)
-///    van antes que las que obligarían a cambiar otra vez enseguida.
+///    van antes que las que obligarían a cambiar otra vez enseguida, aunque
+///    el usuario las haya dejado a mano. Una cuenta casi agotada no es una
+///    alternativa: se dejaría en minutos y se acabaría igual en la dejada a
+///    mano. El 12 de noviembre de 2026 rrhh, a 2 puntos de su umbral
+///    semanal, iba antes que formacion, dejada a mano con 51 de margen.
+/// 1. Entre ellas, las que el usuario no ha dejado a mano (`leftByUser`).
 /// 2. Lo que se perdería si no se usa (`QuotaUrgency`). Primero las cuentas
 ///    sin límite semanal a la vista, que solo gastan su ventana de 5 h: la
 ///    abierta cuyo margen se perdería, después la que está sin abrir, para
@@ -531,7 +536,7 @@ public struct AutoSwitchPolicy: Sendable {
         let urgency = urgency(account, now: now)
         let deadline = deadline(account, urgency: urgency, now: now)?.timeIntervalSince1970 ?? .infinity
         return [
-            Double((account.leftByUser ? 2 : 0) + (wouldLeaveRightAway(account, service: service) ? 1 : 0)),
+            Double((wouldLeaveRightAway(account, service: service) ? 2 : 0) + (account.leftByUser ? 1 : 0)),
             Double(urgency.rawValue),
             deadline,
             short ? 1 : 0,

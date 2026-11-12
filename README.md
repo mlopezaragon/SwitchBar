@@ -55,8 +55,9 @@ when a usage window fills up.
 - Pauses automatic switching for 15 minutes after you pick an account by
   hand with `/login` — your explicit choice wins. An account you pick by hand
   is kept for five hours, or until it reaches a limit sooner, and one you
-  leave by hand goes to the back of the line until the 5-hour window it had
-  open resets (five hours at most).
+  leave by hand goes after every other account with room (not after nearly
+  exhausted ones) until the 5-hour window it had open resets (five hours at
+  most).
 - Localized in 10 languages. No telemetry of any kind.
 
 ## Requirements

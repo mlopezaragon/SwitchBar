@@ -1041,3 +1041,48 @@ private let autonomaConRitmo = AutoSwitchPolicy(anticipatesExpiringQuota: true, 
     let rrhh = teamConSemana("rrhh", semana: 36, semanaEn: 14.5).usage
     #expect(politica.leftByUserUntil(leaving: rrhh, now: ahora) == horas(5))
 }
+
+@Test func unaCuentaCasiAgotadaNoVaAntesQueUnaDejadaAManoConMargen() {
+    // El panel del 12 de noviembre de 2026, con umbrales del 99 %: rrhh
+    // tenía 2 puntos de semana (se reiniciaba en 36 min) y formacion,
+    // dejada a mano, 51 de margen. rrhh salía como siguiente: se habría
+    // dejado en minutos para acabar igual en formacion.
+    let umbral99 = AutoSwitchPolicy(
+        triggerThreshold: 99, weeklyThreshold: 99,
+        anticipatesExpiringQuota: true, switchesByPace: true
+    )
+    let info = ultraVerificada("info", sevenDay: 96, semanaEn: 98.6, ritmoSemanal: 11.3)
+    let rrhh = medida("rrhh", fiveHour: 0, sevenDay: 97, semanaEn: 0.6, ritmo: 79, semanaPorPunto: 0.16)
+    var formacion = medida(
+        "formacion", fiveHour: 46, cincoEn: 4, sevenDay: 48, semanaEn: 131.6,
+        ritmo: 45, semanaPorPunto: 0.15
+    )
+    formacion.leftByUser = true
+    let backend = medida(
+        "backend", fiveHour: 77, cincoEn: 3, sevenDay: 40, semanaEn: 142.6,
+        ritmo: 61, semanaPorPunto: 0.16
+    )
+    let mloparaUltra = ultraVerificada("mlopara-ultra", sevenDay: 97, semanaEn: 12.6, ritmoSemanal: 6.4)
+    var mloparaTeam = medida(
+        "mlopara-team", fiveHour: 3, cincoEn: 4.7, sevenDay: 95, semanaEn: 24.6,
+        ritmo: 44, semanaPorPunto: 0.17
+    )
+    mloparaTeam.leftByUser = true
+    let todas = [info, rrhh, formacion, backend, mloparaUltra, mloparaTeam]
+    #expect(umbral99.bestCandidate(active: info, others: todas, now: ahora) == "formacion")
+    // Cuando info llega a su umbral, se cambia a formacion.
+    let infoAgotada = ultraVerificada("info", sevenDay: 99, semanaEn: 98.6, ritmoSemanal: 11.3)
+    #expect(umbral99.decision(active: infoAgotada, all: [infoAgotada] + todas.dropFirst(), now: ahora) == "formacion")
+    // Sin ninguna con margen, la dejada a mano sigue yendo detrás.
+    #expect(umbral99.bestCandidate(active: info, others: [rrhh, mloparaTeam], now: ahora) == "rrhh")
+    // Ya en formacion, la semana nueva de rrhh no la saca: la de formacion
+    // caduca antes. rrhh va después.
+    let rrhhNueva = medida("rrhh", fiveHour: 0, sevenDay: 0, semanaEn: 168, ritmo: 79, semanaPorPunto: 0.16)
+    #expect(umbral99.expiringQuotaTarget(
+        active: formacion, all: [formacion, rrhhNueva, backend, mloparaUltra], now: ahora
+    ) == nil)
+    #expect(umbral99.decision(
+        active: medida("formacion", fiveHour: 99, cincoEn: 4, sevenDay: 55, semanaEn: 131.6),
+        all: [rrhhNueva, backend, mloparaUltra], now: ahora
+    ) == "rrhh")
+}

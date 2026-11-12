@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.6.2 — 2026-11-12
+
+- An account that would be left again right away (under 5 points from a
+  threshold, or under 5 minutes of service at the measured pace) no longer
+  goes before an account you left by hand that still has room. Switching to
+  it only meant switching again within minutes, to end up on the account
+  left by hand anyway. With 99 % thresholds, an account 2 points short of
+  its weekly limit showed as the next one instead of another with half its
+  5-hour window free. Accounts left by hand still go after every other
+  account with room.
+
 ## 1.6.1 — 2026-11-08
 
 - The personal cap of a shared account can now go up to 95 % (it stopped at

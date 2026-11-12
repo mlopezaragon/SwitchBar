@@ -50,8 +50,9 @@ política automática.
 - Tras un `/login` manual, el cambio automático se pausa 15 minutos: tu
   elección explícita manda. Una cuenta elegida a mano se respeta durante
   cinco horas, o hasta que llegue antes a un límite, y la que dejes a mano
-  queda para el final hasta que se reinicie la ventana de 5 h que tenía
-  abierta (cinco horas como mucho).
+  va detrás de las demás cuentas con margen (no de las casi agotadas) hasta
+  que se reinicie la ventana de 5 h que tenía abierta (cinco horas como
+  mucho).
 - Localizada en 10 idiomas. Sin telemetría de ningún tipo.
 
 ## Requisitos
