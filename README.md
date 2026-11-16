@@ -58,6 +58,9 @@ when a usage window fills up.
   leave by hand goes after every other account with room (not after nearly
   exhausted ones) until the 5-hour window it had open resets (five hours at
   most).
+- Usage & cost: Claude Code tokens (cache included) and what they would
+  have cost on the API, per day, per model and per account, read from
+  Claude Code's local transcripts and kept beyond its 30-day cleanup.
 - Localized in 10 languages. No telemetry of any kind.
 
 ## Requirements

@@ -87,6 +87,11 @@ struct DetailView: View {
             }
             Spacer()
             Button {
+                UsageWindowController.shared.show()
+            } label: {
+                Label(L10n.tr("usage_stats.open"), systemImage: "chart.bar.xaxis")
+            }
+            Button {
                 state.beginAddAccount()
             } label: {
                 Label(L10n.tr("account.add"), systemImage: "plus")

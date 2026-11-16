@@ -14,6 +14,8 @@ final class DetailWindowController: NSObject, NSWindowDelegate {
     static let shared = DetailWindowController()
     private var window: NSWindow?
 
+    var isVisible: Bool { window?.isVisible == true }
+
     func show() {
         if window == nil {
             let hosting = NSHostingController(rootView: DetailView(state: AppState.shared))
@@ -52,6 +54,6 @@ final class DetailWindowController: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        AppActivation.windowWillClose()
     }
 }

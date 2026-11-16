@@ -9,6 +9,10 @@ it reads, what it stores, and what it sends.
   display name), to know which account is active in Claude Code.
 - The "Claude Code-credentials" Keychain entry — only when you switch or
   capture an account, through `/usr/bin/security`.
+- Claude Code's transcripts in `~/.claude/projects` — only the usage fields
+  of each model response (model, token counts, time, session) and the
+  account id Claude Code records for each session. Conversation content is
+  never stored or sent.
 
 ## What it stores, locally only
 
@@ -21,6 +25,10 @@ it reads, what it stores, and what it sends.
   0600 — the last usage reading of each account and a week of past readings
   (percentages and reset times only), used to show the panel at launch and
   to measure how fast each account is spent. Nothing leaves your Mac.
+- `token-usage.json` and `token-usage-keys.bin` in the same folder, file
+  mode 0600 — daily token totals per account and model, how far each
+  transcript has been read, and hashes of recent response ids (to avoid
+  counting a response twice). No conversation content.
 - App preferences (thresholds, polling interval) in standard macOS user
   defaults.
 

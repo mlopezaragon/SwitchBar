@@ -53,6 +53,10 @@ política automática.
   va detrás de las demás cuentas con margen (no de las casi agotadas) hasta
   que se reinicie la ventana de 5 h que tenía abierta (cinco horas como
   mucho).
+- Consumo y coste: tokens de Claude Code (caché incluida) y lo que habrían
+  costado en el API, por día, por modelo y por cuenta, leídos de las
+  transcripciones locales de Claude Code y conservados más allá de los 30
+  días tras los que las borra.
 - Localizada en 10 idiomas. Sin telemetría de ningún tipo.
 
 ## Requisitos

@@ -42,6 +42,8 @@ struct MenuPanelView: View {
                     .help(L10n.tr("forecast.explanation"))
             }
 
+            TodayUsageRow(model: TokenUsageModel.shared)
+
             Button {
                 DetailWindowController.shared.show()
                 state.beginAddAccount()
@@ -237,6 +239,64 @@ struct MenuPanelView: View {
         }
     }
 
+}
+
+/// Consumo de hoy en todas las cuentas; abre la ventana de consumo.
+private struct TodayUsageRow: View {
+    let model: TokenUsageModel
+    @State private var hovering = false
+
+    var body: some View {
+        let today = model.report(.today, account: nil).total
+        Button {
+            UsageWindowController.shared.show()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "chart.bar.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 16)
+                if model.ledger.buckets.isEmpty, model.isReadingHistory || !model.ledger.hasScanned {
+                    Text(L10n.tr("usage_stats.menu.reading"))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if let progress = model.scanProgress {
+                        Text(UsageFormat.percent(progress))
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                            .contentTransition(.numericText(value: progress))
+                    }
+                } else {
+                    Text(L10n.tr("usage_stats.menu.today"))
+                    Spacer()
+                    Text(L10n.tr("usage_stats.menu.tokens", UsageFormat.tokens(today.counts.total)))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .contentTransition(.numericText(value: Double(today.counts.total)))
+                    Text(UsageFormat.cost(today.cost))
+                        .fontWeight(.semibold)
+                        .monospacedDigit()
+                        .contentTransition(.numericText(value: today.cost))
+                }
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .font(.caption)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.primary.opacity(hovering ? 0.08 : 0.04))
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.15), value: hovering)
+        .animation(.smooth, value: today.cost)
+        .help(L10n.tr("usage_stats.open"))
+    }
 }
 
 /// Encoge la ventana del panel hasta la altura del contenido. La ventana de

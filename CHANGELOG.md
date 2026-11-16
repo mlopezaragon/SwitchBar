@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.7.0 — 2026-11-16
+
+- New "Usage & cost" window (from the menu bar panel or the detail window):
+  Claude Code tokens and their API-equivalent cost across every saved
+  account, for today, 7 days, 30 days or all time. It shows cost, tokens
+  (input, output, cache write and cache read), cache share and responses; a
+  daily chart stacked by model with hover details; and tables by model, by
+  account and day by day. Any account can be picked to see only its usage.
+- The data comes from Claude Code's own transcripts on this Mac
+  (`~/.claude/projects`), read incrementally: the first pass reads them all
+  in the background (about a minute for 30 GB), later passes only what was
+  appended. Each response is counted once, even though Claude Code writes it
+  once per content block and copies it into forked subagents and resumed
+  sessions. Costs match Claude Code's own per-session figures.
+- The account comes from the `session-owner` line Claude Code writes since
+  2.1.310; earlier usage is shown as "No account recorded".
+- Daily totals are kept in `token-usage.json`, so the history survives
+  Claude Code deleting its transcripts after 30 days. Nothing is sent
+  anywhere.
+- The menu bar panel shows today's tokens and cost.
+
 ## 1.6.3 — 2026-11-12
 
 - When every remaining account is a last resort, SwitchBar now picks the one

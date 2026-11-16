@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Arranca el actualizador ya: las comprobaciones automáticas de
         // Sparkle solo se programan si el controlador existe desde el inicio.
         _ = AppUpdater.controller
+        TokenUsageModel.shared.start()
         if AppState.shared.profilesList.isEmpty {
             DetailWindowController.shared.show()
         }
